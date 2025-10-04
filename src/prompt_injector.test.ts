@@ -59,37 +59,44 @@ describe('prompt_injector', () => {
       expect(chat.length).toBe(originalLength);
     });
 
-    it('should inject meta prompt into system message when enabled', () => {
-      const chat = [
-        {is_system: true, is_user: false, mes: 'You are a helpful assistant.'},
-        {is_user: true, is_system: false, mes: 'Hello'},
-      ];
+    it('should not modify empty chat array', () => {
+      const chat: any[] = [];
       injectPrompt(chat, settings);
-      expect(chat[0].mes).toContain('You are a helpful assistant.');
-      expect(chat[0].mes).toContain(settings.metaPrompt);
+      expect(chat.length).toBe(0);
     });
 
-    it('should create system message if none exists', () => {
+    it('should inject system message before last message', () => {
+      const chat = [
+        {is_user: true, is_system: false, mes: 'Hello'},
+        {is_user: false, is_system: false, mes: 'Response'},
+      ];
+      injectPrompt(chat, settings);
+      expect(chat.length).toBe(3);
+      expect(chat[1].is_system).toBe(true);
+      expect(chat[1].role).toBe('system');
+      expect(chat[1].mes).toContain(settings.metaPrompt);
+      expect(chat[2].mes).toBe('Response'); // Last message still at the end
+    });
+
+    it('should inject before the only message if chat has one message', () => {
       const chat = [{is_user: true, is_system: false, mes: 'Hello'}];
-      const originalLength = chat.length;
       injectPrompt(chat, settings);
-      expect(chat.length).toBe(originalLength + 1);
+      expect(chat.length).toBe(2);
       expect(chat[0].is_system).toBe(true);
-      expect(chat[0].role).toBe('system'); // Should have role field for API
       expect(chat[0].mes).toContain(settings.metaPrompt);
+      expect(chat[1].mes).toBe('Hello');
     });
 
-    it('should not inject duplicate meta prompts', () => {
+    it('should not inject duplicate meta prompts at same position', () => {
       const chat = [
-        {is_system: true, is_user: false, mes: settings.metaPrompt},
-        {is_user: true, is_system: false, mes: 'Hello'},
+        {is_user: true, is_system: false, mes: 'First'},
+        {is_user: true, is_system: false, mes: 'Second'},
       ];
       injectPrompt(chat, settings);
-      const metaPromptCount = (chat[0].mes.match(/<img_prompt="/g) || [])
-        .length;
-      const expectedCount = (settings.metaPrompt.match(/<img_prompt="/g) || [])
-        .length;
-      expect(metaPromptCount).toBe(expectedCount);
+      expect(chat.length).toBe(3);
+      // Try to inject again
+      injectPrompt(chat, settings);
+      expect(chat.length).toBe(3); // Should not add another
     });
 
     it('should modify chat array in-place', () => {
@@ -98,8 +105,18 @@ describe('prompt_injector', () => {
       injectPrompt(chat, settings);
       // Should be the same reference (modified in-place)
       expect(chat).toBe(chatReference);
-      // But content should be different
-      expect(chat[0].is_system).toBe(true);
+    });
+
+    it('should create system message with correct structure', () => {
+      const chat = [{is_user: true, is_system: false, mes: 'Hello'}];
+      injectPrompt(chat, settings);
+      const systemMsg = chat[0];
+      expect(systemMsg.role).toBe('system');
+      expect(systemMsg.mes).toBe(settings.metaPrompt);
+      expect(systemMsg.is_system).toBe(true);
+      expect(systemMsg.is_user).toBe(false);
+      expect(systemMsg.name).toBe('system');
+      expect(systemMsg.send_date).toBeDefined();
     });
   });
 });
