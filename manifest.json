@@ -1,12 +1,13 @@
 {
-    "display_name": "Template Extension",
-    "loading_order": 1,
+    "display_name": "Auto Illustrator",
+    "loading_order": 100,
+    "generate_interceptor": "autoIllustratorPromptInterceptor",
     "requires": [],
     "optional": [],
     "js": "dist/index.js",
     "css": "",
-    "author": "Cohee1207",
-    "version": "1.0.0",
-    "homePage": "https://github.com/SillyTavern/Extension-WebpackTemplate",
+    "author": "GamerMitsuha",
+    "version": "0.1.0",
+    "homePage": "https://github.com/gamer-mitsuha/sillytavern-auto-illustrator",
     "auto_update": true
 }
