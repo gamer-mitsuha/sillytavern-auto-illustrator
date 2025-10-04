@@ -4,7 +4,7 @@
  */
 
 import './style.css';
-import {injectPrompt} from './prompt_injector';
+import {createPromptInjectionHandler} from './prompt_injector';
 import {createMessageHandler} from './message_handler';
 import {
   loadSettings,
@@ -96,30 +96,27 @@ function initialize(): void {
   settings = loadSettings(context);
   console.log('[Auto Illustrator] Loaded settings:', settings);
 
-  // Register message handler
+  // Create event handlers
   const messageHandler = createMessageHandler(context);
-  console.log('[Auto Illustrator] Registering MESSAGE_RECEIVED event handler');
+  const promptInjectionHandler = createPromptInjectionHandler(() => settings);
 
-  // Verify event source and event types exist
-  console.log('[Auto Illustrator] EventSource exists:', !!context.eventSource);
-  console.log(
-    '[Auto Illustrator] EventSource.on exists:',
-    typeof context.eventSource?.on
-  );
-  console.log('[Auto Illustrator] eventTypes exists:', !!context.eventTypes);
-  console.log(
-    '[Auto Illustrator] MESSAGE_RECEIVED value:',
-    context.eventTypes?.MESSAGE_RECEIVED
-  );
-
-  // Use event_types.MESSAGE_RECEIVED instead of string literal
+  // Register event handlers
+  const GENERATE_AFTER_COMBINE_PROMPTS =
+    context.eventTypes?.GENERATE_AFTER_COMBINE_PROMPTS ||
+    'GENERATE_AFTER_COMBINE_PROMPTS';
   const MESSAGE_RECEIVED =
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
-  context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
-  console.log(
-    '[Auto Illustrator] Event handler registered for event:',
-    MESSAGE_RECEIVED
+
+  context.eventSource.on(
+    GENERATE_AFTER_COMBINE_PROMPTS,
+    promptInjectionHandler
   );
+  context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
+
+  console.log('[Auto Illustrator] Event handlers registered:', {
+    GENERATE_AFTER_COMBINE_PROMPTS,
+    MESSAGE_RECEIVED,
+  });
 
   // Inject settings UI
   const settingsContainer = document.getElementById('extensions_settings2');
@@ -148,61 +145,6 @@ function initialize(): void {
 
   console.log('[Auto Illustrator] Extension initialized successfully');
 }
-
-/**
- * Global prompt interceptor function called by SillyTavern
- * This is referenced in manifest.json as generate_interceptor
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-/**
- * Generate interceptor for Auto Illustrator.
- * Injects meta-prompt to instruct the LLM to generate image prompts.
- * @param {any[]} chat Chat messages
- * @param {number} _ Context size (unused)
- * @param {function(boolean): void} _abort Abort generation function (unused)
- * @param {string} type Type of the generation
- */
-(globalThis as any).autoIllustratorPromptInterceptor = function (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  chat: any[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-  _abort: any,
-  type: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): void {
-  // Skip quiet mode and other special types
-  if (type === 'quiet' || type === 'continue' || type === 'impersonate') {
-    return;
-  }
-
-  if (!settings) {
-    console.log('[Auto Illustrator] Settings not initialized');
-    return;
-  }
-
-  if (!settings.enabled) {
-    return;
-  }
-
-  if (!chat || chat.length === 0) {
-    return;
-  }
-
-  // Log for debugging
-  console.log(
-    '[Auto Illustrator] Interceptor called, type:',
-    type,
-    'chat length:',
-    chat.length
-  );
-
-  // Inject meta-prompt into chat (modifies in-place)
-  injectPrompt(chat, settings);
-
-  console.log('[Auto Illustrator] Meta-prompt injected');
-};
 
 // Initialize when extension loads
 initialize();

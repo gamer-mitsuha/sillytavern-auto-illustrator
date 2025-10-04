@@ -11,10 +11,10 @@ Automatically generates inline images in your SillyTavern conversations based on
 
 ## How It Works
 
-1. **Prompt Injection**: Before each LLM generation, a meta-prompt is injected instructing the LLM to generate inline image prompts in the format `<img_prompt="description">`
+1. **Prompt Injection**: The extension monitors the `GENERATE_AFTER_COMBINE_PROMPTS` event and injects a meta-prompt as a separate system message right before the last message, instructing the LLM to generate inline image prompts in the format `<img_prompt="description">`
 2. **LLM Response**: The LLM includes image prompts in its response at appropriate story moments
-3. **Image Generation**: The extension detects image prompts, generates images using the SD slash command, and replaces prompts with actual images
-4. **UI Update**: The message is updated with embedded images
+3. **Image Generation**: The extension detects image prompts via the `MESSAGE_RECEIVED` event, generates images using the SD slash command, and replaces prompts with actual images
+4. **UI Update**: The message is updated with embedded images and a `MESSAGE_EDITED` event is emitted
 
 ## Installation
 

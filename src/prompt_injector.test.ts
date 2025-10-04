@@ -3,6 +3,7 @@ import {
   injectPrompt,
   getDefaultMetaPrompt,
   shouldInjectPrompt,
+  createPromptInjectionHandler,
 } from './prompt_injector';
 
 describe('prompt_injector', () => {
@@ -117,6 +118,72 @@ describe('prompt_injector', () => {
       expect(systemMsg.is_user).toBe(false);
       expect(systemMsg.name).toBe('system');
       expect(systemMsg.send_date).toBeDefined();
+    });
+  });
+
+  describe('createPromptInjectionHandler', () => {
+    it('should create a handler function', () => {
+      const getSettings = () => ({
+        enabled: true,
+        wordInterval: 250,
+        metaPrompt: 'test',
+      });
+      const handler = createPromptInjectionHandler(getSettings);
+      expect(typeof handler).toBe('function');
+    });
+
+    it('should inject prompt when handler is called', () => {
+      const settings: AutoIllustratorSettings = {
+        enabled: true,
+        wordInterval: 250,
+        metaPrompt: getDefaultMetaPrompt(250),
+      };
+      const getSettings = () => settings;
+      const handler = createPromptInjectionHandler(getSettings);
+
+      const chat = [{is_user: true, is_system: false, mes: 'Hello'}];
+      handler(chat);
+
+      expect(chat.length).toBe(2);
+      expect(chat[0].is_system).toBe(true);
+      expect(chat[0].mes).toBe(settings.metaPrompt);
+    });
+
+    it('should not inject when disabled', () => {
+      const settings: AutoIllustratorSettings = {
+        enabled: false,
+        wordInterval: 250,
+        metaPrompt: getDefaultMetaPrompt(250),
+      };
+      const getSettings = () => settings;
+      const handler = createPromptInjectionHandler(getSettings);
+
+      const chat = [{is_user: true, is_system: false, mes: 'Hello'}];
+      handler(chat);
+
+      expect(chat.length).toBe(1);
+    });
+
+    it('should use current settings when called', () => {
+      let enabled = false;
+      const getSettings = () => ({
+        enabled,
+        wordInterval: 250,
+        metaPrompt: 'test prompt',
+      });
+      const handler = createPromptInjectionHandler(getSettings);
+
+      const chat = [{is_user: true, is_system: false, mes: 'Hello'}];
+
+      // First call - disabled
+      handler(chat);
+      expect(chat.length).toBe(1);
+
+      // Enable and call again
+      enabled = true;
+      handler(chat);
+      expect(chat.length).toBe(2);
+      expect(chat[0].mes).toBe('test prompt');
     });
   });
 });

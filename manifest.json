@@ -1,7 +1,6 @@
 {
     "display_name": "Auto Illustrator",
     "loading_order": 100,
-    "generate_interceptor": "autoIllustratorPromptInterceptor",
     "requires": [],
     "optional": [],
     "js": "dist/index.js",
