@@ -38,6 +38,7 @@ export function shouldInjectPrompt(settings: AutoIllustratorSettings): boolean {
 
 /**
  * Injects meta-prompt into chat array (modifies in-place)
+ * Always injects as a separate system message right before the last message
  * @param chat - Chat array to modify
  * @param settings - Extension settings
  */
@@ -50,28 +51,33 @@ export function injectPrompt(
     return;
   }
 
-  // SillyTavern uses different message format: mes instead of content, is_system instead of role
-  // Find system message (is_system: true)
-  const systemMessageIndex = chat.findIndex(msg => msg.is_system === true);
-
-  if (systemMessageIndex === -1) {
-    // No system message exists, create one at the beginning
-    // Use SillyTavern's message structure with both is_system AND role fields
-    chat.unshift({
-      role: 'system', // For API (OpenAI, etc.)
-      mes: settings.metaPrompt, // For ST UI
-      is_system: true, // For ST internal logic
-      is_user: false,
-      name: 'system',
-      send_date: new Date().toISOString(),
-    });
-  } else {
-    // System message exists, append to it if not already present
-    const systemMessage = chat[systemMessageIndex];
-    if (!systemMessage.mes || !systemMessage.mes.includes('<img_prompt=')) {
-      systemMessage.mes = systemMessage.mes
-        ? `${systemMessage.mes}\n\n${settings.metaPrompt}`
-        : settings.metaPrompt;
-    }
+  if (chat.length === 0) {
+    return;
   }
+
+  // Calculate insertion index (before the last message)
+  const insertIndex = chat.length - 1;
+
+  // Check if meta-prompt is already injected at this position
+  if (
+    insertIndex > 0 &&
+    chat[insertIndex - 1].is_system &&
+    chat[insertIndex - 1].mes?.includes('<img_prompt=')
+  ) {
+    // Already injected, skip
+    return;
+  }
+
+  // Create a separate system message with the meta-prompt
+  const systemMessage = {
+    role: 'system', // For API (OpenAI, etc.)
+    mes: settings.metaPrompt, // For ST UI
+    is_system: true, // For ST internal logic
+    is_user: false,
+    name: 'system',
+    send_date: new Date().toISOString(),
+  };
+
+  // Insert before the last message
+  chat.splice(insertIndex, 0, systemMessage);
 }
