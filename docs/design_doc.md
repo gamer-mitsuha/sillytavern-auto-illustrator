@@ -9,9 +9,10 @@
 
 ## Implementation details For MVP
 
-- Use `Prompt Interceptors` to inject the image generation meta prompts to the main prompt before it's sent to the LLM.
-  - Register the Prompt Interceptor.
-  - This is a better solution than replying on monitoring the `CHAT_COMPLETION_PROMPT_READY` event, since the latter approach does not guarantee that the prompt injection happens before the prompt is sent to the LLM for generating the response, i.e., it's possible the prompt injection is done the on local prompt (you can see it in the chat UI), but it's not actually seen by the LLM.
+- Monitor the `GENERATE_AFTER_COMBINE_PROMPTS` event to inject the image generation meta prompts.
+  - This event is emitted after all prompts are combined but before being sent to the LLM.
+  - The meta-prompt is injected as a separate system message right before the last message in the chat array.
+  - This approach guarantees the prompt injection happens before the prompt is sent to the LLM.
 - Image generation prompt format
   - The meta prompt should instruct the LLM to output with a special format like `<img_prompt="actual prompt">`.
 - Monitor the `MESSAGE_RECEIVED` event, and extract the image generation prompts from the response.

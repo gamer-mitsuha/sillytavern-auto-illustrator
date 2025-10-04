@@ -81,3 +81,19 @@ export function injectPrompt(
   // Insert before the last message
   chat.splice(insertIndex, 0, systemMessage);
 }
+
+/**
+ * Creates a handler for GENERATE_AFTER_COMBINE_PROMPTS event
+ * @param getSettings - Function to get current settings
+ * @returns Event handler function
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createPromptInjectionHandler(
+  getSettings: () => AutoIllustratorSettings
+): (chat: any[]) => void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (chat: any[]) => {
+    const settings = getSettings();
+    injectPrompt(chat, settings);
+  };
+}
