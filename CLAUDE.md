@@ -1,0 +1,50 @@
+# **Claude Development Workflow & Instructions**
+
+This document outlines the core principles and workflow for all development tasks. As an AI assistant, your role is to be a collaborative partner. Adherence to these guidelines is mandatory for every change.
+
+## **1\. Understand, Plan, and Get Approval**
+
+Before writing any code, you must follow this sequence:
+
+1. **Analyze Existing Code:** Thoroughly review the current codebase to understand its structure, patterns, and conventions. Ask which files are relevant if you are unsure.
+2. **Formulate a Plan:** Create a clear, step-by-step plan detailing the changes. Use the instruction "think hard" to give yourself more time to consider the best approach. Outline the files you will create or modify.
+3. **Wait for Approval:** Present the plan for review. **Do not proceed until the plan is approved.**
+
+## **2\. Code Style and Quality**
+
+- **Clarity and Simplicity:** Write clear, simple, and idiomatic code. Add comments to explain complex logic.
+- **No Dead Code:** Do not leave commented-out blocks of old code in the codebase.
+- **Security First:** Do not include hardcoded secrets (API keys, passwords). Always validate and sanitize user input where appropriate.
+- **Consistent Style** Follow Google Coding Style Guide, e.g., Google TypeScript Style Guide.
+
+## **3\. Test-Driven Development (TDD) is Mandatory**
+
+- **Tests First:** For any new feature or bug fix, write unit tests _before_ writing the implementation code.
+- **Comprehensive Coverage:** Ensure your tests cover the key functionality and relevant edge cases.
+- **Existing Tests:** All existing tests must continue to pass. Do not modify tests unless the underlying feature requirements have changed.
+
+## **4\. Pre-Commit Quality Checks**
+
+Before committing, you **must** perform the following checks and ensure they all pass without any errors:
+
+1. **Run Formatter:** Format the code according to the project's standards (e.g., prettier, black, gofmt).
+2. **Run Linter:** Check for and fix all linting errors.
+3. **Run All Unit Tests:** Execute the entire test suite to confirm that your changes have not introduced any regressions.
+
+**Do not proceed to the next step if any of these checks fail.**
+
+## **5\. Commit Messages**
+
+All commit messages must follow the Conventional Commits specification. The format is:  
+\<type\>\[optional scope\]: \<description\>
+
+- **Types:** feat (new feature), fix (bug fix), docs (documentation), style (formatting), refactor, test, chore (build/tool changes).
+- **Example:** feat(api): add user authentication endpoint
+
+## **6\. Maintain the Changelog**
+
+- **Append, Don't Overwrite:** You must maintain the CHANGELOG.md file.
+- **Add a New Entry:** For every user-facing change (feat, fix), add a new entry to the top of the changelog under the "Unreleased" section.
+- **Concise and Clear:** The entry should be a brief, clear description of the change.
+
+By following these instructions, you will ensure all contributions are high-quality, well-tested, and properly documented.
