@@ -35,10 +35,8 @@ The sun was setting over the ancient castle <img_prompt="medieval stone castle s
  * @param context - SillyTavern extension context
  * @param settings - Extension settings
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function updateExtensionPrompt(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  context: any,
+  context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): void {
   console.log('[Auto Illustrator] Updating extension prompt', {

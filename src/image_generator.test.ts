@@ -20,7 +20,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const imageUrl = await generateImage('a beautiful sunset', mockContext);
 
@@ -41,7 +41,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const imageUrl = await generateImage('test prompt', mockContext);
 
@@ -53,7 +53,7 @@ describe('image_generator', () => {
         SlashCommandParser: {
           commands: {},
         },
-      };
+      } as any;
 
       const imageUrl = await generateImage('test prompt', mockContext);
 
@@ -74,7 +74,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const text = 'Text before <img_prompt="sunset scene"> text after';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -98,7 +98,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const text =
         'Start <img_prompt="scene 1"> middle <img_prompt="scene 2"> end';
@@ -119,7 +119,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const text = 'Text <img_prompt="failed prompt"> more text';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -137,7 +137,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const text = 'Just some regular text without prompts';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -157,7 +157,7 @@ describe('image_generator', () => {
             },
           },
         },
-      };
+      } as any;
 
       const text = 'Start <img_prompt="middle"> end';
       const result = await replacePromptsWithImages(text, mockContext);

@@ -7,8 +7,54 @@ import '../../../../public/global';
 import '../../../../global';
 
 declare global {
-  // Use SillyTavern's official context type
-  type SillyTavernContext = ReturnType<typeof SillyTavern.getContext>;
+  // SillyTavern context type - manually typed since st-context.js has no type info
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  interface SillyTavernContext {
+    eventSource: {
+      on(event: string, callback: (...args: any[]) => void): void;
+      once(event: string, callback: (...args: any[]) => void): void;
+      emit(event: string, ...args: any[]): void;
+    };
+    eventTypes: Record<string, string>;
+    SlashCommandParser: {
+      commands: Record<
+        string,
+        {
+          callback: (args: any, value: string) => Promise<string>;
+          namedArgumentList: string[];
+          unnamedArgumentList: string[];
+          helpString: string;
+        }
+      >;
+    };
+    extensionSettings: Record<string, any>;
+    extensionPrompts: Record<
+      string,
+      {
+        value: string;
+        position: number;
+        depth: number;
+        scan: boolean;
+        role: number;
+        filter: (() => boolean) | null;
+      }
+    >;
+    chat: any[];
+    chat_metadata: Record<string, any>;
+    characters: any[];
+    this_chid: number;
+    saveSettingsDebounced(): void;
+    setExtensionPrompt(
+      key: string,
+      value: string,
+      position: number,
+      depth: number,
+      scan?: boolean,
+      role?: number,
+      filter?: (() => boolean) | null
+    ): void;
+  }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // Extension-specific types
   interface AutoIllustratorSettings {
@@ -23,10 +69,4 @@ declare global {
     startIndex: number;
     endIndex: number;
   }
-
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  interface GenerateInterceptor {
-    (chat: any[]): any[] | Promise<any[]>;
-  }
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 }

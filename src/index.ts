@@ -14,8 +14,7 @@ import {
 } from './settings';
 
 // Module state
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let context: any;
+let context: SillyTavernContext;
 let settings: AutoIllustratorSettings;
 
 /**
@@ -88,8 +87,7 @@ function initialize(): void {
 
   // Get SillyTavern context
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context = (globalThis as any).SillyTavern.getContext();
+    context = SillyTavern.getContext();
     console.log('[Auto Illustrator] Got SillyTavern context');
   } catch (error) {
     console.error(
