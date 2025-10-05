@@ -17,21 +17,25 @@ export class StreamingMonitor {
   private context: SillyTavernContext;
   private intervalMs: number;
   private isRunning = false;
+  private onNewPromptsCallback?: () => void;
 
   /**
    * Creates a new streaming monitor
    * @param queue - Image generation queue
    * @param context - SillyTavern context
    * @param intervalMs - Polling interval in milliseconds
+   * @param onNewPrompts - Optional callback when new prompts are added
    */
   constructor(
     queue: ImageGenerationQueue,
     context: SillyTavernContext,
-    intervalMs = 300
+    intervalMs = 300,
+    onNewPrompts?: () => void
   ) {
     this.queue = queue;
     this.context = context;
     this.intervalMs = intervalMs;
+    this.onNewPromptsCallback = onNewPrompts;
   }
 
   /**
@@ -123,6 +127,11 @@ export class StreamingMonitor {
 
       for (const match of newPrompts) {
         this.queue.addPrompt(match.prompt, match.startIndex, match.endIndex);
+      }
+
+      // Notify processor that new prompts are available
+      if (this.onNewPromptsCallback) {
+        this.onNewPromptsCallback();
       }
     }
 
