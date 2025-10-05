@@ -25,16 +25,35 @@ declare global {
     commands: Record<string, SlashCommand>;
   }
 
+  interface ExtensionPrompt {
+    value: string;
+    position: number;
+    depth: number;
+    scan: boolean;
+    role: number;
+    filter: (() => boolean) | null;
+  }
+
   interface SillyTavernContext {
     eventSource: EventSource;
     eventTypes: Record<string, string>;
     SlashCommandParser: SlashCommandParser;
     extensionSettings: Record<string, any>;
+    extensionPrompts: Record<string, ExtensionPrompt>;
     chat: any[];
     chat_metadata: Record<string, any>;
     characters: any[];
     this_chid: number;
     saveSettingsDebounced(): void;
+    setExtensionPrompt(
+      key: string,
+      value: string,
+      position: number,
+      depth: number,
+      scan?: boolean,
+      role?: number,
+      filter?: (() => boolean) | null
+    ): void;
   }
 
   interface SillyTavern {
