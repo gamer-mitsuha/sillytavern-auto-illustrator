@@ -26,12 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `insertImageIntoMessage()` now returns insertion details (position and length)
   - Queue processor automatically adjusts remaining prompt positions after each insertion
   - Fixes "Could not find prompt tag" errors for 2nd+ images in streaming response
-- **Streaming image insertion now handles LLM prompt modifications**
-  - Fixed `insertImageIntoMessage()` to use regex search for any `<img_prompt="...">` tag instead of exact string match
-  - Handles cases where LLM rewrites prompt text during streaming (e.g., reordering words, changing phrasing)
-  - Extracts actual prompt text from message and uses it for image alt/title attributes
-  - Logs when LLM modifies prompt for debugging purposes
-  - Fixes "Could not find prompt tag in message, text may have changed" errors
+- **Streaming image insertion uses exact prompt matching with adjusted positions**
+  - `insertImageIntoMessage()` searches for exact prompt tag using stored text
+  - Relies on `adjustPositionsAfterInsertion()` to keep positions accurate
+  - Search region expanded to ±100 chars to handle minor position variations
+  - Prevents incorrect tag matching when multiple prompts exist in vicinity
+  - Note: LLMs don't modify already-generated text during streaming, so exact matching works reliably
 - **Prevent duplicate prompt detection after text shifts**
   - Added `hasPromptByText()` method to check for prompts by content only (ignoring position)
   - Monitor now uses `hasPromptByText()` to prevent re-detecting same prompts at different positions
