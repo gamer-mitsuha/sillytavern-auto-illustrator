@@ -87,6 +87,8 @@ export function createMessageHandler(
 
     // Emit MESSAGE_EDITED event to trigger UI updates and regex processing
     console.log('[Auto Illustrator] Emitting MESSAGE_EDITED event');
-    context.eventSource.emit(context.eventTypes.MESSAGE_EDITED, messageId);
+    const MESSAGE_EDITED =
+      context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+    context.eventSource.emit(MESSAGE_EDITED, messageId);
   };
 }

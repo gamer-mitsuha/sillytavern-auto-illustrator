@@ -29,6 +29,9 @@ describe('settings', () => {
         enabled: false,
         wordInterval: 500,
         metaPrompt: 'custom prompt',
+        streamingEnabled: false,
+        streamingPollInterval: 500,
+        maxConcurrentGenerations: 2,
       };
 
       const mockContext = createMockContext({
@@ -84,6 +87,9 @@ describe('settings', () => {
         enabled: true,
         wordInterval: 300,
         metaPrompt: 'test prompt',
+        streamingEnabled: true,
+        streamingPollInterval: 300,
+        maxConcurrentGenerations: 1,
       };
 
       saveSettings(settings, mockContext);
@@ -109,6 +115,9 @@ describe('settings', () => {
         enabled: false,
         wordInterval: 400,
         metaPrompt: 'new',
+        streamingEnabled: false,
+        streamingPollInterval: 500,
+        maxConcurrentGenerations: 2,
       };
 
       saveSettings(newSettings, mockContext);

@@ -16,6 +16,9 @@ export function getDefaultSettings(): AutoIllustratorSettings {
     enabled: true,
     wordInterval: 250,
     metaPrompt: getDefaultMetaPrompt(250),
+    streamingEnabled: true,
+    streamingPollInterval: 300,
+    maxConcurrentGenerations: 1,
   };
 }
 
@@ -87,6 +90,26 @@ export function createSettingsUI(): string {
             <span>Meta Prompt Template</span>
             <small>Instructions sent to the LLM for generating image prompts</small>
             <textarea id="auto_illustrator_meta_prompt" class="text_pole textarea_compact" rows="10"></textarea>
+          </label>
+
+          <hr>
+
+          <label class="checkbox_label" for="auto_illustrator_streaming_enabled">
+            <input id="auto_illustrator_streaming_enabled" type="checkbox" />
+            <span>Enable Streaming Image Generation</span>
+            <small>Generate images as streaming text arrives (faster perceived latency)</small>
+          </label>
+
+          <label for="auto_illustrator_streaming_poll_interval">
+            <span>Streaming Poll Interval (ms)</span>
+            <small>How often to check for new prompts during streaming (lower = faster detection, more CPU)</small>
+            <input id="auto_illustrator_streaming_poll_interval" class="text_pole" type="number" min="100" max="1000" step="50" />
+          </label>
+
+          <label for="auto_illustrator_max_concurrent">
+            <span>Max Concurrent Generations</span>
+            <small>Maximum number of images to generate simultaneously (1 recommended for rate limiting)</small>
+            <input id="auto_illustrator_max_concurrent" class="text_pole" type="number" min="1" max="5" step="1" />
           </label>
         </div>
       </div>

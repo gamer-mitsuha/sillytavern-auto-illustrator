@@ -27,6 +27,9 @@ declare global {
     };
     eventTypes: Record<string, string> & {
       CHAT_COMPLETION_PROMPT_READY?: string;
+      GENERATION_STARTED?: string;
+      GENERATION_ENDED?: string;
+      MESSAGE_EDITED?: string;
     };
     SlashCommandParser: {
       commands: Record<
@@ -73,6 +76,9 @@ declare global {
     enabled: boolean;
     wordInterval: number;
     metaPrompt: string;
+    streamingEnabled: boolean;
+    streamingPollInterval: number;
+    maxConcurrentGenerations: number;
   }
 
   interface ImagePromptMatch {

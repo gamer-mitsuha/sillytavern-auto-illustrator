@@ -4,6 +4,7 @@
  */
 
 import {extractImagePrompts} from './image_extractor';
+import {QueuedPrompt} from './streaming_image_queue';
 
 /**
  * Generates an image using the SD slash command
@@ -137,4 +138,94 @@ export async function replacePromptsWithImages(
   }
 
   return result;
+}
+
+/**
+ * Inserts a single generated image into a message during streaming
+ * @param promptInfo - Queued prompt information
+ * @param imageUrl - Generated image URL
+ * @param messageId - Message ID to update
+ * @param context - SillyTavern context
+ */
+export async function insertImageIntoMessage(
+  promptInfo: QueuedPrompt,
+  imageUrl: string,
+  messageId: number,
+  context: SillyTavernContext
+): Promise<void> {
+  console.log(
+    `[Auto Illustrator] Inserting image into message ${messageId} at position ${promptInfo.endIndex}`
+  );
+
+  try {
+    // Get current message
+    const message = context.chat?.[messageId];
+    if (!message) {
+      console.warn(
+        '[Auto Illustrator] Message not found for image insertion:',
+        messageId
+      );
+      return;
+    }
+
+    const currentText = message.mes || '';
+
+    // Find the prompt in the current text
+    // The text may have grown since the prompt was detected
+    // So we search for the prompt tag in the vicinity of the original position
+    const searchStart = Math.max(0, promptInfo.startIndex - 50);
+    const searchEnd = Math.min(currentText.length, promptInfo.endIndex + 100);
+    const searchRegion = currentText.substring(searchStart, searchEnd);
+
+    // Build the expected prompt tag
+    const expectedTag = `<img_prompt="${promptInfo.prompt}">`;
+    const tagIndex = searchRegion.indexOf(expectedTag);
+
+    if (tagIndex === -1) {
+      console.warn(
+        '[Auto Illustrator] Could not find prompt tag in message, text may have changed:',
+        expectedTag
+      );
+      return;
+    }
+
+    // Calculate actual position in full text
+    const actualStartIndex = searchStart + tagIndex;
+    const actualEndIndex = actualStartIndex + expectedTag.length;
+
+    // Check if image already inserted (to prevent duplicates)
+    const afterPrompt = currentText.substring(
+      actualEndIndex,
+      actualEndIndex + 200
+    );
+    if (afterPrompt.includes(`src="${imageUrl}"`)) {
+      console.log(
+        '[Auto Illustrator] Image already inserted, skipping:',
+        imageUrl
+      );
+      return;
+    }
+
+    // Insert image tag after the prompt
+    const imgTag = `<img src="${imageUrl}" title="${promptInfo.prompt}" alt="${promptInfo.prompt}">`;
+    const newText =
+      currentText.substring(0, actualEndIndex) +
+      '\n' +
+      imgTag +
+      currentText.substring(actualEndIndex);
+
+    // Update message
+    message.mes = newText;
+
+    console.log(
+      `[Auto Illustrator] Inserted image into streaming message (${currentText.length} -> ${newText.length} chars)`
+    );
+
+    // Emit MESSAGE_EDITED to trigger UI update
+    const MESSAGE_EDITED =
+      context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+    context.eventSource.emit(MESSAGE_EDITED, messageId);
+  } catch (error) {
+    console.error('[Auto Illustrator] Error inserting image:', error);
+  }
 }
