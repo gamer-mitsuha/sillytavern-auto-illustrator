@@ -17,6 +17,8 @@ export async function generateImage(
 ): Promise<string | null> {
   console.log('[Auto Illustrator] Generating image for prompt:', prompt);
 
+  const startTime = performance.now();
+
   try {
     const sdCommand = context.SlashCommandParser?.commands?.['sd'];
     if (!sdCommand || !sdCommand.callback) {
@@ -30,10 +32,19 @@ export async function generateImage(
 
     console.log('[Auto Illustrator] Calling SD command...');
     const imageUrl = await sdCommand.callback({quiet: 'true'}, prompt);
-    console.log('[Auto Illustrator] Generated image URL:', imageUrl);
+
+    const duration = performance.now() - startTime;
+    console.log(
+      `[Auto Illustrator] Generated image URL: ${imageUrl} (took ${duration.toFixed(0)}ms)`
+    );
+
     return imageUrl;
   } catch (error) {
-    console.error('[Auto Illustrator] Error generating image:', error);
+    const duration = performance.now() - startTime;
+    console.error(
+      `[Auto Illustrator] Error generating image (after ${duration.toFixed(0)}ms):`,
+      error
+    );
     return null;
   }
 }
@@ -73,17 +84,17 @@ export async function replacePromptsWithImages(
   );
 
   // Generate images sequentially to avoid rate limiting
+  const batchStartTime = performance.now();
   const imageUrls: (string | null)[] = [];
   for (const match of matches) {
     const imageUrl = await generateImage(match.prompt, context);
     imageUrls.push(imageUrl);
   }
 
+  const batchDuration = performance.now() - batchStartTime;
   const successCount = imageUrls.filter(u => u).length;
   console.log(
-    '[Auto Illustrator] Generated',
-    successCount,
-    'images successfully'
+    `[Auto Illustrator] Generated ${successCount} images successfully (total time: ${batchDuration.toFixed(0)}ms, avg: ${(batchDuration / imageCount).toFixed(0)}ms per image)`
   );
 
   // Show completion notification
