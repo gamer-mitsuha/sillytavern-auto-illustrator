@@ -8,6 +8,21 @@ import {QueuedPrompt} from './streaming_image_queue';
 import {DeferredImage} from './queue_processor';
 
 /**
+ * Escapes HTML special characters for use in attributes
+ * Prevents HTML injection and attribute parsing issues
+ * @param str - String to escape
+ * @returns Escaped string safe for HTML attributes
+ */
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Generates an image using the SD slash command
  * @param prompt - Image generation prompt
  * @param context - SillyTavern context
@@ -122,7 +137,9 @@ export async function replacePromptsWithImages(
 
     if (imageUrl) {
       // Preserve the original prompt tag and add image on next line
-      const imgTag = `<img src="${imageUrl}" title="${match.prompt}" alt="${match.prompt}">`;
+      // Escape HTML to prevent attribute parsing issues with special characters
+      const escapedPrompt = escapeHtml(match.prompt);
+      const imgTag = `<img src="${imageUrl}" title="${escapedPrompt}" alt="${escapedPrompt}">`;
       result =
         result.substring(0, match.endIndex) +
         '\n' +
@@ -215,7 +232,9 @@ export async function insertImageIntoMessage(
     }
 
     // Insert image tag after the prompt using the stored prompt text
-    const imgTag = `<img src="${imageUrl}" title="${promptInfo.prompt}" alt="${promptInfo.prompt}">`;
+    // Escape HTML to prevent attribute parsing issues with special characters
+    const escapedPrompt = escapeHtml(promptInfo.prompt);
+    const imgTag = `<img src="${imageUrl}" title="${escapedPrompt}" alt="${escapedPrompt}">`;
     const insertedText = '\n' + imgTag;
     const newText =
       currentText.substring(0, actualEndIndex) +
@@ -321,7 +340,9 @@ export async function insertDeferredImages(
     }
 
     // Insert image tag after the prompt
-    const imgTag = `<img src="${imageUrl}" title="${prompt.prompt}" alt="${prompt.prompt}">`;
+    // Escape HTML to prevent attribute parsing issues with special characters
+    const escapedPrompt = escapeHtml(prompt.prompt);
+    const imgTag = `<img src="${imageUrl}" title="${escapedPrompt}" alt="${escapedPrompt}">`;
     const insertedText = '\n' + imgTag;
 
     finalText =
