@@ -3,6 +3,8 @@
  * Handles injection of meta-prompts to instruct the LLM to generate image prompts inline
  */
 
+const EXTENSION_PROMPT_KEY = 'auto_illustrator';
+
 /**
  * Generates the default meta prompt template
  * @param wordInterval - Number of words between image generation prompts
@@ -28,72 +30,36 @@ The sun was setting over the ancient castle <img_prompt="medieval stone castle s
 }
 
 /**
- * Checks if prompt injection should occur based on settings
- * @param settings - Extension settings
- * @returns True if prompt should be injected
- */
-export function shouldInjectPrompt(settings: AutoIllustratorSettings): boolean {
-  return settings.enabled;
-}
-
-/**
- * Injects meta-prompt into chat array (modifies in-place)
- * Always injects as a separate system message right before the last message
- * @param chat - Chat array to modify
+ * Updates the extension prompt injection based on settings
+ * Uses SillyTavern's setExtensionPrompt API with a filter function to control injection
+ * @param context - SillyTavern extension context
  * @param settings - Extension settings
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function injectPrompt(
-  chat: any[],
+export function updateExtensionPrompt(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  context: any,
   settings: AutoIllustratorSettings
 ): void {
-  if (!shouldInjectPrompt(settings)) {
-    return;
-  }
+  console.log('[Auto Illustrator] Updating extension prompt', {
+    enabled: settings.enabled,
+    metaPromptLength: settings.metaPrompt.length,
+  });
 
-  if (chat.length === 0) {
-    return;
-  }
+  // Set the extension prompt with a filter function that checks if enabled
+  // Parameters: key, value, position, depth, role, scan, filter
+  context.setExtensionPrompt(
+    EXTENSION_PROMPT_KEY, // key
+    settings.metaPrompt, // value
+    1, // position: 1 = in-chat with custom depth
+    0, // depth: 0 = last message in context
+    context.extensionPromptRoles?.SYSTEM ?? 0, // role: SYSTEM
+    false, // scan: don't include in world info scan
+    () => settings.enabled // filter: only inject if extension is enabled
+  );
 
-  // Calculate insertion index (before the last message)
-  const insertIndex = chat.length - 1;
-
-  // Check if meta-prompt is already injected at this position
-  if (
-    insertIndex > 0 &&
-    chat[insertIndex - 1].is_system &&
-    chat[insertIndex - 1].mes?.includes('<img_prompt=')
-  ) {
-    // Already injected, skip
-    return;
-  }
-
-  // Create a separate system message with the meta-prompt
-  const systemMessage = {
-    role: 'system', // For API (OpenAI, etc.)
-    mes: settings.metaPrompt, // For ST UI
-    is_system: true, // For ST internal logic
-    is_user: false,
-    name: 'system',
-    send_date: new Date().toISOString(),
-  };
-
-  // Insert before the last message
-  chat.splice(insertIndex, 0, systemMessage);
-}
-
-/**
- * Creates a handler for GENERATE_AFTER_COMBINE_PROMPTS event
- * @param getSettings - Function to get current settings
- * @returns Event handler function
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createPromptInjectionHandler(
-  getSettings: () => AutoIllustratorSettings
-): (chat: any[]) => void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (chat: any[]) => {
-    const settings = getSettings();
-    injectPrompt(chat, settings);
-  };
+  console.log('[Auto Illustrator] Extension prompt configured', {
+    key: EXTENSION_PROMPT_KEY,
+    willInject: settings.enabled,
+  });
 }
