@@ -103,9 +103,6 @@ function initialize(): void {
   settings = loadSettings(context);
   console.log('[Auto Illustrator] Loaded settings:', settings);
 
-  // Set up extension prompt using SillyTavern's API
-  updateExtensionPrompt(context, settings);
-
   // Create and register message handler
   const messageHandler = createMessageHandler(context);
   const MESSAGE_RECEIVED =
@@ -142,6 +139,20 @@ function initialize(): void {
   }
 
   console.log('[Auto Illustrator] Extension initialized successfully');
+
+  // Set up extension prompt at the very end after everything is initialized
+  // We need to call this when a chat is loaded, not just at init
+  const CHAT_CHANGED = context.eventTypes?.CHAT_CHANGED;
+
+  context.eventSource.on(CHAT_CHANGED, () => {
+    console.log(
+      '[Auto Illustrator] CHAT_CHANGED - reapplying extension prompt'
+    );
+    updateExtensionPrompt(context, settings);
+  });
+
+  // Also set it now for any already-loaded chat
+  updateExtensionPrompt(context, settings);
 }
 
 // Initialize when extension loads

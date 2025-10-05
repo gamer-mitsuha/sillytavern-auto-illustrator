@@ -23,7 +23,6 @@ describe('prompt_injector', () => {
         setExtensionPrompt: (...args: any[]) => {
           calls.push(args);
         },
-        extensionPromptRoles: {SYSTEM: 0},
       };
 
       const settings: AutoIllustratorSettings = {
@@ -38,38 +37,12 @@ describe('prompt_injector', () => {
       expect(calls[0][0]).toBe('auto_illustrator'); // key
       expect(calls[0][1]).toBe('test prompt'); // value
       expect(calls[0][2]).toBe(1); // position: in-chat
-      expect(calls[0][3]).toBe(0); // depth: last message
-      expect(calls[0][4]).toBe(0); // role: SYSTEM
-      expect(calls[0][5]).toBe(false); // scan: false
-      expect(typeof calls[0][6]).toBe('function'); // filter function
+      expect(calls[0][3]).toBe(1); // depth: 1 message before end
+      expect(calls[0][4]).toBe(false); // scan: false
+      expect(calls[0][5]).toBe(0); // role: SYSTEM
     });
 
-    it('should use filter function to check enabled status', () => {
-      let filterFunc: any = null;
-      const mockContext = {
-        setExtensionPrompt: (...args: any[]) => {
-          filterFunc = args[6];
-        },
-        extensionPromptRoles: {SYSTEM: 0},
-      };
-
-      const settings: AutoIllustratorSettings = {
-        enabled: true,
-        wordInterval: 250,
-        metaPrompt: 'test prompt',
-      };
-
-      updateExtensionPrompt(mockContext, settings);
-
-      expect(filterFunc).not.toBeNull();
-      expect(filterFunc()).toBe(true);
-
-      // Change enabled status
-      settings.enabled = false;
-      expect(filterFunc()).toBe(false);
-    });
-
-    it('should handle missing extensionPromptRoles', () => {
+    it('should set empty value when disabled', () => {
       const calls: any[] = [];
       const mockContext = {
         setExtensionPrompt: (...args: any[]) => {
@@ -78,7 +51,7 @@ describe('prompt_injector', () => {
       };
 
       const settings: AutoIllustratorSettings = {
-        enabled: true,
+        enabled: false,
         wordInterval: 250,
         metaPrompt: 'test prompt',
       };
@@ -86,7 +59,27 @@ describe('prompt_injector', () => {
       updateExtensionPrompt(mockContext, settings);
 
       expect(calls.length).toBe(1);
-      expect(calls[0][4]).toBe(0); // role should default to 0
+      expect(calls[0][0]).toBe('auto_illustrator'); // key
+      expect(calls[0][1]).toBe(''); // value should be empty when disabled
+      expect(calls[0][2]).toBe(1); // position: in-chat
+      expect(calls[0][3]).toBe(1); // depth: 1 message before end
+      expect(calls[0][4]).toBe(false); // scan: false
+      expect(calls[0][5]).toBe(0); // role: SYSTEM
+    });
+
+    it('should handle missing setExtensionPrompt function', () => {
+      const mockContext = {};
+
+      const settings: AutoIllustratorSettings = {
+        enabled: true,
+        wordInterval: 250,
+        metaPrompt: 'test prompt',
+      };
+
+      // Should not throw
+      expect(() => {
+        updateExtensionPrompt(mockContext as any, settings);
+      }).not.toThrow();
     });
   });
 });
