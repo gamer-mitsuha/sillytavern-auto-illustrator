@@ -158,13 +158,15 @@ export interface ImageInsertionResult {
  * @param imageUrl - Generated image URL
  * @param messageId - Message ID to update
  * @param context - SillyTavern context
+ * @param emitEvent - Whether to emit MESSAGE_EDITED event (default: true)
  * @returns Insertion result with position details for queue adjustment
  */
 export async function insertImageIntoMessage(
   promptInfo: QueuedPrompt,
   imageUrl: string,
   messageId: number,
-  context: SillyTavernContext
+  context: SillyTavernContext,
+  emitEvent = true
 ): Promise<ImageInsertionResult> {
   console.log(
     `[Auto Illustrator] Inserting image into message ${messageId} at position ${promptInfo.endIndex}`
@@ -227,10 +229,12 @@ export async function insertImageIntoMessage(
       `[Auto Illustrator] Inserted image into streaming message (${currentText.length} -> ${newText.length} chars)`
     );
 
-    // Emit MESSAGE_EDITED to trigger UI update
-    const MESSAGE_EDITED =
-      context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
-    context.eventSource.emit(MESSAGE_EDITED, messageId);
+    // Emit MESSAGE_EDITED to trigger UI update (if requested)
+    if (emitEvent) {
+      const MESSAGE_EDITED =
+        context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+      context.eventSource.emit(MESSAGE_EDITED, messageId);
+    }
 
     // Return insertion details so caller can adjust queue positions
     return {
@@ -246,7 +250,8 @@ export async function insertImageIntoMessage(
 
 /**
  * Inserts all deferred images into a message after streaming completes
- * Images are inserted in reverse order (last to first) to avoid position shifts
+ * Builds complete final text with all images, then sets message.mes once
+ * This avoids race conditions with SillyTavern's streaming finalization
  * @param deferredImages - Array of deferred images to insert
  * @param messageId - Message ID to update
  * @param context - SillyTavern context
@@ -265,6 +270,20 @@ export async function insertDeferredImages(
     `[Auto Illustrator] Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
   );
 
+  // Get current message
+  const message = context.chat?.[messageId];
+  if (!message) {
+    console.warn(
+      '[Auto Illustrator] Message not found for batch insertion:',
+      messageId
+    );
+    return 0;
+  }
+
+  // Read message text ONCE at start
+  let finalText = message.mes || '';
+  const originalLength = finalText.length;
+
   // Sort images by position (last to first) to avoid position shifts
   // When we insert from the end backwards, earlier positions remain valid
   const sortedImages = [...deferredImages].sort(
@@ -273,21 +292,57 @@ export async function insertDeferredImages(
 
   let successCount = 0;
 
+  // Insert all images into the text string
   for (const {prompt, imageUrl} of sortedImages) {
-    const result = await insertImageIntoMessage(
-      prompt,
-      imageUrl,
-      messageId,
-      context
-    );
-    if (result.success) {
-      successCount++;
+    const expectedTag = `<img_prompt="${prompt.prompt}">`;
+    const tagIndex = finalText.indexOf(expectedTag);
+
+    if (tagIndex === -1) {
+      console.warn(
+        '[Auto Illustrator] Could not find prompt tag in message:',
+        expectedTag
+      );
+      continue;
     }
+
+    const actualEndIndex = tagIndex + expectedTag.length;
+
+    // Check if image already inserted (to prevent duplicates)
+    const afterPrompt = finalText.substring(
+      actualEndIndex,
+      actualEndIndex + 200
+    );
+    if (afterPrompt.includes(`src="${imageUrl}"`)) {
+      console.log(
+        '[Auto Illustrator] Image already inserted, skipping:',
+        imageUrl
+      );
+      continue;
+    }
+
+    // Insert image tag after the prompt
+    const imgTag = `<img src="${imageUrl}" title="${prompt.prompt}" alt="${prompt.prompt}">`;
+    const insertedText = '\n' + imgTag;
+
+    finalText =
+      finalText.substring(0, actualEndIndex) +
+      insertedText +
+      finalText.substring(actualEndIndex);
+
+    successCount++;
   }
 
+  // Set message.mes ONCE with all images inserted
+  message.mes = finalText;
+
   console.log(
-    `[Auto Illustrator] Batch insertion complete: ${successCount}/${deferredImages.length} images inserted`
+    `[Auto Illustrator] Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
   );
+
+  // Emit MESSAGE_EDITED once after all images are inserted
+  const MESSAGE_EDITED =
+    context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+  context.eventSource.emit(MESSAGE_EDITED, messageId);
 
   return successCount;
 }
