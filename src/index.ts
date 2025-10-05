@@ -10,7 +10,7 @@ import {pruneGeneratedImages} from './chat_history_pruner';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {StreamingMonitor} from './streaming_monitor';
 import {QueueProcessor} from './queue_processor';
-import {insertImageIntoMessage} from './image_generator';
+import {insertImageIntoMessage, insertDeferredImages} from './image_generator';
 import {
   loadSettings,
   saveSettings,
@@ -181,16 +181,20 @@ function handleFirstStreamToken(_text: string): void {
   currentStreamingMessageId = messageId;
 
   streamingMonitor.start(messageId);
-  queueProcessor.start(messageId, async (prompt, imageUrl, msgId) => {
-    const result = await insertImageIntoMessage(
-      prompt,
-      imageUrl,
-      msgId,
-      context
-    );
-    queueProcessor?.trigger();
-    return result;
-  });
+  queueProcessor.start(
+    messageId,
+    async (prompt, imageUrl, msgId) => {
+      const result = await insertImageIntoMessage(
+        prompt,
+        imageUrl,
+        msgId,
+        context
+      );
+      queueProcessor?.trigger();
+      return result;
+    },
+    true // Defer insertions until streaming completes
+  );
 
   console.log('[Auto Illustrator] Streaming monitor and processor started');
 }
@@ -211,8 +215,23 @@ async function handleGenerationEnded(): Promise<void> {
   // Process any remaining queued prompts
   await queueProcessor.processRemaining();
 
+  // Get deferred images before stopping processor
+  const deferredImages = queueProcessor.getDeferredImages();
+
   // Stop processor
   queueProcessor.stop();
+
+  // Insert all deferred images now that streaming is complete
+  if (deferredImages.length > 0 && currentStreamingMessageId !== null) {
+    console.log(
+      `[Auto Illustrator] Inserting ${deferredImages.length} deferred images`
+    );
+    await insertDeferredImages(
+      deferredImages,
+      currentStreamingMessageId,
+      context
+    );
+  }
 
   // Log final statistics
   const stats = streamingQueue.getStats();
