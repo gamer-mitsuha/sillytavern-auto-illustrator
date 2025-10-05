@@ -166,5 +166,34 @@ describe('image_generator', () => {
       expect(result.indexOf('Start')).toBe(0);
       expect(result.indexOf('end')).toBeGreaterThan(0);
     });
+
+    it('should generate images sequentially to avoid rate limiting', async () => {
+      const callOrder: number[] = [];
+      const mockCallback = vi.fn().mockImplementation(async () => {
+        const callNumber = mockCallback.mock.calls.length;
+        callOrder.push(callNumber);
+        // Simulate async delay
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return `https://example.com/image${callNumber}.png`;
+      });
+
+      const mockContext = {
+        SlashCommandParser: {
+          commands: {
+            sd: {
+              callback: mockCallback,
+            },
+          },
+        },
+      } as any;
+
+      const text =
+        '<img_prompt="first"> <img_prompt="second"> <img_prompt="third">';
+      await replacePromptsWithImages(text, mockContext);
+
+      // Verify calls happened sequentially (each call number should be consecutive)
+      expect(callOrder).toEqual([1, 2, 3]);
+      expect(mockCallback).toHaveBeenCalledTimes(3);
+    });
   });
 });
