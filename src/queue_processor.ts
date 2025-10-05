@@ -225,6 +225,15 @@ export class QueueProcessor {
   async processRemaining(): Promise<void> {
     console.log('[Auto Illustrator Processor] Processing remaining prompts...');
 
+    // Wait for any active generations to complete first
+    // This prevents concurrent execution beyond maxConcurrent limit
+    while (this.activeGenerations > 0) {
+      console.log(
+        `[Auto Illustrator Processor] Waiting for ${this.activeGenerations} active generations to complete...`
+      );
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     const pending = this.queue.getPromptsByState('QUEUED');
     console.log(
       `[Auto Illustrator Processor] ${pending.length} prompts remaining`
