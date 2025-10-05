@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Streaming image generation race conditions and rate limiting**
+  - Fixed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors
+  - Added streaming message tracking to prevent duplicate processing by MESSAGE_RECEIVED
+  - MESSAGE_RECEIVED now skips messages currently being processed by streaming
+  - Prevents duplicate image generation attempts and tag removal conflicts
 - Streaming image generation now correctly detects messageId from chat array
   - Fixed `GENERATION_STARTED` event handler to match actual signature `(generationType, args, isDryRun)`
   - Implemented `findLastAssistantMessageId()` to locate the message being generated
@@ -18,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `insertImageIntoMessage()` now returns insertion details (position and length)
   - Queue processor automatically adjusts remaining prompt positions after each insertion
   - Fixes "Could not find prompt tag" errors for 2nd+ images in streaming response
+
+### Changed
+- **Preserve `<img_prompt>` tags even when image generation fails**
+  - Previously failed prompts had their tags removed
+  - Now tags are kept to show what was attempted and allow manual retry
+  - Improves debugging and prevents tag loss during streaming conflicts
 
 ### Added
 - Automatic inline image generation based on LLM-generated prompts

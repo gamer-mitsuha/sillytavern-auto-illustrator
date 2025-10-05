@@ -128,7 +128,7 @@ describe('image_generator', () => {
       expect(mockCallback).toHaveBeenCalledTimes(2);
     });
 
-    it('should remove prompt tags if image generation fails', async () => {
+    it('should keep prompt tags if image generation fails', async () => {
       const mockCallback = vi.fn().mockResolvedValue(null);
       const mockContext = createMockContext({
         SlashCommandParser: {
@@ -143,8 +143,9 @@ describe('image_generator', () => {
       const text = 'Text <img_prompt="failed prompt"> more text';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      expect(result).toBe('Text  more text');
-      expect(result).not.toContain('<img_prompt');
+      // Prompt tag should be preserved to allow retry and show what was attempted
+      expect(result).toBe(text);
+      expect(result).toContain('<img_prompt="failed prompt">');
     });
 
     it('should return original text if no prompts found', async () => {
