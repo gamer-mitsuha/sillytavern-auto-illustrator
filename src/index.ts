@@ -9,8 +9,8 @@ import {createMessageHandler} from './message_handler';
 import {pruneGeneratedImages} from './chat_history_pruner';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {StreamingMonitor} from './streaming_monitor';
-import {QueueProcessor} from './queue_processor';
-import {insertImageIntoMessage, insertDeferredImages} from './image_generator';
+import {QueueProcessor, type DeferredImage} from './queue_processor';
+import {insertImageIntoMessage} from './image_generator';
 import {
   loadSettings,
   saveSettings,
@@ -23,6 +23,9 @@ let context: SillyTavernContext;
 let settings: AutoIllustratorSettings;
 
 // Streaming state
+let pendingDeferredImages: {images: DeferredImage[]; messageId: number} | null =
+  null;
+let messageReceivedFired = false; // Track if MESSAGE_RECEIVED has fired
 let streamingQueue: ImageGenerationQueue | null = null;
 let streamingMonitor: StreamingMonitor | null = null;
 let queueProcessor: QueueProcessor | null = null;
@@ -179,6 +182,8 @@ function handleFirstStreamToken(_text: string): void {
   );
 
   currentStreamingMessageId = messageId;
+  messageReceivedFired = false; // Reset flag for new streaming session
+  pendingDeferredImages = null;
 
   streamingMonitor.start(messageId);
   queueProcessor.start(
@@ -197,6 +202,28 @@ function handleFirstStreamToken(_text: string): void {
   );
 
   console.log('[Auto Illustrator] Streaming monitor and processor started');
+}
+
+/**
+ * Attempts to insert deferred images if both conditions are met:
+ * 1. All images have been generated (pendingDeferredImages exists)
+ * 2. MESSAGE_RECEIVED has fired (messageReceivedFired is true)
+ */
+async function tryInsertDeferredImages(): Promise<void> {
+  if (pendingDeferredImages && messageReceivedFired) {
+    const {images, messageId} = pendingDeferredImages;
+    console.log(
+      `[Auto Illustrator] Both conditions met, inserting ${images.length} deferred images`
+    );
+
+    // Clear flags before insertion
+    pendingDeferredImages = null;
+    messageReceivedFired = false;
+
+    // Import and call insertDeferredImages
+    const {insertDeferredImages} = await import('./image_generator');
+    await insertDeferredImages(images, messageId, context);
+  }
 }
 
 /**
@@ -226,20 +253,19 @@ async function handleGenerationEnded(): Promise<void> {
   // Stop processor
   queueProcessor.stop();
 
-  // Clear state BEFORE inserting images
-  // This prevents MESSAGE_RECEIVED from processing this message
+  // Store deferred images
+  if (deferredImages.length > 0 && messageId !== null) {
+    pendingDeferredImages = {images: deferredImages, messageId};
+    console.log(
+      `[Auto Illustrator] ${deferredImages.length} images ready, checking if MESSAGE_RECEIVED fired`
+    );
+  }
+
+  // Clear state
   streamingQueue = null;
   streamingMonitor = null;
   queueProcessor = null;
   currentStreamingMessageId = null;
-
-  // Insert all deferred images now that streaming is complete
-  if (deferredImages.length > 0 && messageId !== null) {
-    console.log(
-      `[Auto Illustrator] Inserting ${deferredImages.length} deferred images`
-    );
-    await insertDeferredImages(deferredImages, messageId, context);
-  }
 
   // Show notification if there were issues
   const failedCount = stats.FAILED;
@@ -249,6 +275,9 @@ async function handleGenerationEnded(): Promise<void> {
       'Auto Illustrator'
     );
   }
+
+  // Try to insert if MESSAGE_RECEIVED already fired
+  await tryInsertDeferredImages();
 }
 
 /**
@@ -276,10 +305,20 @@ function initialize(): void {
   // Create and register message handler with streaming check
   const isMessageBeingStreamed = (messageId: number) =>
     currentStreamingMessageId === messageId;
+  const getPendingDeferredImages = () => {
+    // Mark MESSAGE_RECEIVED as fired and try insertion
+    console.log(
+      '[Auto Illustrator] MESSAGE_RECEIVED callback invoked, setting flag'
+    );
+    messageReceivedFired = true;
+    tryInsertDeferredImages(); // Try to insert if images are ready
+    return null; // We don't return pending images anymore
+  };
   const messageHandler = createMessageHandler(
     context,
     isMessageBeingStreamed,
-    settings
+    settings,
+    getPendingDeferredImages
   );
   const MESSAGE_RECEIVED =
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
