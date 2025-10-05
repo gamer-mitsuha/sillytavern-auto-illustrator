@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Streaming image generation now correctly detects messageId from chat array
+  - Fixed `GENERATION_STARTED` event handler to match actual signature `(generationType, args, isDryRun)`
+  - Implemented `findLastAssistantMessageId()` to locate the message being generated
+  - Added filtering for dry runs and quiet/impersonate generation types
+  - Streaming now works correctly instead of reporting "Message not found"
+
 ### Added
 - Automatic inline image generation based on LLM-generated prompts
 - Meta-prompt injection using SillyTavern's `setExtensionPrompt` API
@@ -41,10 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Max concurrent generations slider (1-5)
   - Reset to defaults button
 - Event-driven architecture using MESSAGE_RECEIVED, MESSAGE_EDITED, CHAT_COMPLETION_PROMPT_READY, GENERATION_STARTED, and GENERATION_ENDED events
-- Comprehensive unit test suite with Vitest (114 tests, 100% passing)
+- Comprehensive unit test suite with Vitest (124 tests, 100% passing)
   - 22 tests for streaming queue data structure
   - 23 tests for streaming monitor (polling, prompt detection, lifecycle)
   - 14 tests for queue processor (concurrency control, state management)
+  - 10 tests for messageId detection helper (findLastAssistantMessageId)
   - 6 tests for progressive image insertion (insertImageIntoMessage)
   - 49 tests for existing functionality (extraction, generation, settings, prompt injection)
 - Full TypeScript type definitions for SillyTavern API

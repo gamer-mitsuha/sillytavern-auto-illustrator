@@ -328,12 +328,7 @@ describe('image_generator', () => {
         detectedAt: Date.now(),
       };
 
-      await insertImageIntoMessage(
-        promptInfo,
-        'existing.jpg',
-        0,
-        mockContext
-      );
+      await insertImageIntoMessage(promptInfo, 'existing.jpg', 0, mockContext);
 
       // Should not add duplicate - message should be unchanged
       expect(mockContext.chat[0].mes).toBe(initialMessage);

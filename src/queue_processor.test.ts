@@ -121,7 +121,9 @@ describe('QueueProcessor', () => {
 
       // At least processing should have been attempted
       const stats = queue.getStats();
-      expect(stats.QUEUED + stats.GENERATING + stats.COMPLETED + stats.FAILED).toBe(2);
+      expect(
+        stats.QUEUED + stats.GENERATING + stats.COMPLETED + stats.FAILED
+      ).toBe(2);
     });
   });
 
