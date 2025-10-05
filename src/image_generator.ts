@@ -19,7 +19,7 @@ export async function generateImage(
 
   try {
     const sdCommand = context.SlashCommandParser?.commands?.['sd'];
-    if (!sdCommand) {
+    if (!sdCommand || !sdCommand.callback) {
       console.error('[Auto Illustrator] SD command not available');
       console.log(
         '[Auto Illustrator] Available commands:',

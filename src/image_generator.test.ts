@@ -1,5 +1,6 @@
 import {describe, it, expect, beforeEach, vi} from 'vitest';
 import {generateImage, replacePromptsWithImages} from './image_generator';
+import {createMockContext} from './test_helpers';
 
 describe('image_generator', () => {
   describe('generateImage', () => {
@@ -12,7 +13,7 @@ describe('image_generator', () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValue('https://example.com/image.png');
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -20,7 +21,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const imageUrl = await generateImage('a beautiful sunset', mockContext);
 
@@ -33,7 +34,7 @@ describe('image_generator', () => {
 
     it('should return null on error', async () => {
       const mockCallback = vi.fn().mockRejectedValue(new Error('SD error'));
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -41,7 +42,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const imageUrl = await generateImage('test prompt', mockContext);
 
@@ -49,11 +50,11 @@ describe('image_generator', () => {
     });
 
     it('should return null if sd command not available', async () => {
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {},
         },
-      } as any;
+      });
 
       const imageUrl = await generateImage('test prompt', mockContext);
 
@@ -66,7 +67,7 @@ describe('image_generator', () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValue('https://example.com/image1.png');
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -74,7 +75,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const text = 'Text before <img_prompt="sunset scene"> text after';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -90,7 +91,7 @@ describe('image_generator', () => {
         .fn()
         .mockResolvedValueOnce('https://example.com/image1.png')
         .mockResolvedValueOnce('https://example.com/image2.png');
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -98,7 +99,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const text =
         'Start <img_prompt="scene 1"> middle <img_prompt="scene 2"> end';
@@ -111,7 +112,7 @@ describe('image_generator', () => {
 
     it('should remove prompt tags if image generation fails', async () => {
       const mockCallback = vi.fn().mockResolvedValue(null);
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -119,7 +120,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const text = 'Text <img_prompt="failed prompt"> more text';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -129,7 +130,7 @@ describe('image_generator', () => {
     });
 
     it('should return original text if no prompts found', async () => {
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -137,7 +138,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const text = 'Just some regular text without prompts';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -149,7 +150,7 @@ describe('image_generator', () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValue('https://example.com/image.png');
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -157,7 +158,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const text = 'Start <img_prompt="middle"> end';
       const result = await replacePromptsWithImages(text, mockContext);
@@ -177,7 +178,7 @@ describe('image_generator', () => {
         return `https://example.com/image${callNumber}.png`;
       });
 
-      const mockContext = {
+      const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -185,7 +186,7 @@ describe('image_generator', () => {
             },
           },
         },
-      } as any;
+      });
 
       const text =
         '<img_prompt="first"> <img_prompt="second"> <img_prompt="third">';
