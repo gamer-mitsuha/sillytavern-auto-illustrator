@@ -65,11 +65,12 @@ export async function replacePromptsWithImages(
     matches.map(m => m.prompt)
   );
 
-  // Generate images for all prompts
-  const imagePromises = matches.map(match =>
-    generateImage(match.prompt, context)
-  );
-  const imageUrls = await Promise.all(imagePromises);
+  // Generate images sequentially to avoid rate limiting
+  const imageUrls: (string | null)[] = [];
+  for (const match of matches) {
+    const imageUrl = await generateImage(match.prompt, context);
+    imageUrls.push(imageUrl);
+  }
 
   console.log(
     '[Auto Illustrator] Generated',
