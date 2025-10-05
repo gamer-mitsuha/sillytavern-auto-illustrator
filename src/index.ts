@@ -6,6 +6,7 @@
 import './style.css';
 import {updateExtensionPrompt} from './prompt_injector';
 import {createMessageHandler} from './message_handler';
+import {pruneGeneratedImages} from './chat_history_pruner';
 import {
   loadSettings,
   saveSettings,
@@ -107,8 +108,19 @@ function initialize(): void {
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
+  // Register chat history pruner to remove generated images before sending to LLM
+  const CHAT_COMPLETION_PROMPT_READY =
+    context.eventTypes?.CHAT_COMPLETION_PROMPT_READY ||
+    'CHAT_COMPLETION_PROMPT_READY';
+  context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, eventData => {
+    if (eventData?.chat) {
+      pruneGeneratedImages(eventData.chat);
+    }
+  });
+
   console.log('[Auto Illustrator] Event handlers registered:', {
     MESSAGE_RECEIVED,
+    CHAT_COMPLETION_PROMPT_READY,
   });
 
   // Inject settings UI

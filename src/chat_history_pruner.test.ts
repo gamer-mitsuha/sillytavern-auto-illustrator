@@ -1,0 +1,203 @@
+/**
+ * Tests for Chat History Pruner Module
+ */
+
+import {describe, it, expect} from 'vitest';
+import {pruneGeneratedImages} from './chat_history_pruner';
+
+describe('Chat History Pruner', () => {
+  describe('pruneGeneratedImages', () => {
+    it('should remove img tags following img_prompt tags in assistant messages', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Hello <img_prompt="test prompt">\n<img src="test.jpg" title="test prompt" alt="test prompt"> world',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe('Hello <img_prompt="test prompt"> world');
+    });
+
+    it('should preserve standalone img tags in assistant messages', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Hello <img src="user-image.jpg" title="user image" alt="user image"> world',
+        },
+      ];
+
+      const originalContent = chat[0].content;
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe(originalContent);
+    });
+
+    it('should preserve all user messages unchanged', () => {
+      const chat = [
+        {
+          role: 'user',
+          content:
+            'User message <img_prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+        },
+      ];
+
+      const originalContent = chat[0].content;
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe(originalContent);
+    });
+
+    it('should preserve all system messages unchanged', () => {
+      const chat = [
+        {
+          role: 'system',
+          content:
+            'System prompt <img_prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+        },
+      ];
+
+      const originalContent = chat[0].content;
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe(originalContent);
+    });
+
+    it('should handle multiple generated images in a single message', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Start <img_prompt="prompt1">\n<img src="1.jpg" title="prompt1" alt="prompt1"> middle <img_prompt="prompt2">\n<img src="2.jpg" title="prompt2" alt="prompt2"> end',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe(
+        'Start <img_prompt="prompt1"> middle <img_prompt="prompt2"> end'
+      );
+    });
+
+    it('should handle mixed generated and user images', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            '<img src="user.jpg" title="user" alt="user"> text <img_prompt="gen">\n<img src="gen.jpg" title="gen" alt="gen"> more',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe(
+        '<img src="user.jpg" title="user" alt="user"> text <img_prompt="gen"> more'
+      );
+    });
+
+    it('should handle multiple messages in chat array', () => {
+      const chat = [
+        {
+          role: 'user',
+          content:
+            'User <img_prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+        },
+        {
+          role: 'assistant',
+          content:
+            'Assistant <img_prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+        },
+        {role: 'system', content: 'System message'},
+      ];
+
+      const userOriginal = chat[0].content;
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe(userOriginal); // User unchanged
+      expect(chat[1].content).toBe('Assistant <img_prompt="test">'); // Assistant pruned
+      expect(chat[2].content).toBe('System message'); // System unchanged
+    });
+
+    it('should handle img_prompt without following img tag', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content: 'Text <img_prompt="test"> more text',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe('Text <img_prompt="test"> more text');
+    });
+
+    it('should handle empty chat array', () => {
+      const chat: Array<{role: string; content: string}> = [];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat).toEqual([]);
+    });
+
+    it('should handle messages with no images or prompts', () => {
+      const chat = [
+        {role: 'user', content: 'Hello'},
+        {role: 'assistant', content: 'Hi there'},
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe('Hello');
+      expect(chat[1].content).toBe('Hi there');
+    });
+
+    it('should handle img tags with varying whitespace after img_prompt', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Text <img_prompt="test">   \n  <img src="test.jpg" title="test" alt="test"> end',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toBe('Text <img_prompt="test"> end');
+    });
+
+    it('should only remove img tags that match the generated pattern', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            '<img_prompt="gen">\n<img src="gen.jpg" title="gen" alt="gen"> and <img src="other.jpg">',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      // Should remove the generated image but keep the other img tag
+      expect(chat[0].content).toBe(
+        '<img_prompt="gen"> and <img src="other.jpg">'
+      );
+    });
+
+    it('should preserve img_prompt tags even after removing images', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Before <img_prompt="beautiful sunset">\n<img src="sunset.jpg" title="beautiful sunset" alt="beautiful sunset"> after',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      expect(chat[0].content).toContain('<img_prompt="beautiful sunset">');
+      expect(chat[0].content).not.toContain('<img src="sunset.jpg"');
+    });
+  });
+});
