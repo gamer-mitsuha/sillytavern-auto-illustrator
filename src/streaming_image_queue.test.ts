@@ -231,4 +231,106 @@ describe('StreamingImageQueue', () => {
       expect(all.map(p => p.prompt)).toContain('prompt 2');
     });
   });
+
+  describe('adjustPositionsAfterInsertion', () => {
+    it('should adjust positions of prompts after insertion point', () => {
+      queue.addPrompt('early', 0, 10);
+      queue.addPrompt('middle', 50, 60);
+      queue.addPrompt('late', 100, 110);
+
+      // Insert 20 chars at position 40 (before middle and late)
+      queue.adjustPositionsAfterInsertion(40, 20);
+
+      const prompts = queue.getAllPrompts();
+      const early = prompts.find(p => p.prompt === 'early')!;
+      const middle = prompts.find(p => p.prompt === 'middle')!;
+      const late = prompts.find(p => p.prompt === 'late')!;
+
+      // Early should be unchanged (before insertion point)
+      expect(early.startIndex).toBe(0);
+      expect(early.endIndex).toBe(10);
+
+      // Middle should be adjusted (+20)
+      expect(middle.startIndex).toBe(70);
+      expect(middle.endIndex).toBe(80);
+
+      // Late should be adjusted (+20)
+      expect(late.startIndex).toBe(120);
+      expect(late.endIndex).toBe(130);
+    });
+
+    it('should only adjust QUEUED and GENERATING prompts', () => {
+      const p1 = queue.addPrompt('queued', 50, 60)!;
+      const p2 = queue.addPrompt('generating', 100, 110)!;
+      const p3 = queue.addPrompt('completed', 150, 160)!;
+      const p4 = queue.addPrompt('failed', 200, 210)!;
+
+      queue.updateState(p2.id, 'GENERATING');
+      queue.updateState(p3.id, 'COMPLETED');
+      queue.updateState(p4.id, 'FAILED');
+
+      // Insert at position 0 (before all)
+      queue.adjustPositionsAfterInsertion(0, 30);
+
+      const prompts = queue.getAllPrompts();
+      const queued = prompts.find(p => p.prompt === 'queued')!;
+      const generating = prompts.find(p => p.prompt === 'generating')!;
+      const completed = prompts.find(p => p.prompt === 'completed')!;
+      const failed = prompts.find(p => p.prompt === 'failed')!;
+
+      // QUEUED and GENERATING should be adjusted
+      expect(queued.startIndex).toBe(80);
+      expect(generating.startIndex).toBe(130);
+
+      // COMPLETED and FAILED should NOT be adjusted
+      expect(completed.startIndex).toBe(150);
+      expect(failed.startIndex).toBe(200);
+    });
+
+    it('should not adjust prompts at or before insertion point', () => {
+      queue.addPrompt('at_point', 50, 60);
+      queue.addPrompt('before_point', 30, 40);
+
+      queue.adjustPositionsAfterInsertion(50, 20);
+
+      const prompts = queue.getAllPrompts();
+      const atPoint = prompts.find(p => p.prompt === 'at_point')!;
+      const beforePoint = prompts.find(p => p.prompt === 'before_point')!;
+
+      // Neither should be adjusted (not > insertionPoint)
+      expect(atPoint.startIndex).toBe(50);
+      expect(beforePoint.startIndex).toBe(30);
+    });
+
+    it('should handle empty queue', () => {
+      // Should not throw
+      queue.adjustPositionsAfterInsertion(100, 50);
+      expect(queue.size()).toBe(0);
+    });
+
+    it('should handle realistic streaming scenario', () => {
+      // Simulate stream detection
+      queue.addPrompt('first', 100, 150);
+      queue.addPrompt('second', 200, 250);
+      queue.addPrompt('third', 300, 350);
+
+      // First image inserted: adds 80 chars at position 150
+      queue.adjustPositionsAfterInsertion(150, 80);
+
+      const prompts = queue.getAllPrompts();
+      const first = prompts.find(p => p.prompt === 'first')!;
+      const second = prompts.find(p => p.prompt === 'second')!;
+      const third = prompts.find(p => p.prompt === 'third')!;
+
+      // First unchanged
+      expect(first.startIndex).toBe(100);
+      expect(first.endIndex).toBe(150);
+
+      // Second and third shifted by +80
+      expect(second.startIndex).toBe(280);
+      expect(second.endIndex).toBe(330);
+      expect(third.startIndex).toBe(380);
+      expect(third.endIndex).toBe(430);
+    });
+  });
 });

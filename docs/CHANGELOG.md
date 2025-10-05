@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented `findLastAssistantMessageId()` to locate the message being generated
   - Added filtering for dry runs and quiet/impersonate generation types
   - Streaming now works correctly instead of reporting "Message not found"
+- Streaming image insertion now tracks position changes after each image
+  - Implemented `adjustPositionsAfterInsertion()` to update queue positions dynamically
+  - `insertImageIntoMessage()` now returns insertion details (position and length)
+  - Queue processor automatically adjusts remaining prompt positions after each insertion
+  - Fixes "Could not find prompt tag" errors for 2nd+ images in streaming response
 
 ### Added
 - Automatic inline image generation based on LLM-generated prompts
@@ -48,8 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Max concurrent generations slider (1-5)
   - Reset to defaults button
 - Event-driven architecture using MESSAGE_RECEIVED, MESSAGE_EDITED, CHAT_COMPLETION_PROMPT_READY, GENERATION_STARTED, and GENERATION_ENDED events
-- Comprehensive unit test suite with Vitest (124 tests, 100% passing)
-  - 22 tests for streaming queue data structure
+- Comprehensive unit test suite with Vitest (129 tests, 100% passing)
+  - 27 tests for streaming queue (data structure, position adjustment after insertion)
   - 23 tests for streaming monitor (polling, prompt detection, lifecycle)
   - 14 tests for queue processor (concurrency control, state management)
   - 10 tests for messageId detection helper (findLastAssistantMessageId)

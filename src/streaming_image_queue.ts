@@ -217,4 +217,27 @@ export class ImageGenerationQueue {
   size(): number {
     return this.prompts.size;
   }
+
+  /**
+   * Adjusts positions of all queued prompts after a text insertion
+   * Call this after inserting an image to update positions of remaining prompts
+   * @param insertionPoint - Position where text was inserted
+   * @param insertedLength - Length of inserted text (including newlines and img tag)
+   */
+  adjustPositionsAfterInsertion(
+    insertionPoint: number,
+    insertedLength: number
+  ): void {
+    for (const prompt of this.prompts.values()) {
+      // Only adjust prompts that come after the insertion point
+      // and are still pending (QUEUED or GENERATING)
+      if (
+        prompt.startIndex > insertionPoint &&
+        (prompt.state === 'QUEUED' || prompt.state === 'GENERATING')
+      ) {
+        prompt.startIndex += insertedLength;
+        prompt.endIndex += insertedLength;
+      }
+    }
+  }
 }

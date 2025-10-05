@@ -141,18 +141,28 @@ export async function replacePromptsWithImages(
 }
 
 /**
+ * Result of image insertion into streaming message
+ */
+export interface ImageInsertionResult {
+  success: boolean;
+  insertionPoint?: number;
+  insertedLength?: number;
+}
+
+/**
  * Inserts a single generated image into a message during streaming
  * @param promptInfo - Queued prompt information
  * @param imageUrl - Generated image URL
  * @param messageId - Message ID to update
  * @param context - SillyTavern context
+ * @returns Insertion result with position details for queue adjustment
  */
 export async function insertImageIntoMessage(
   promptInfo: QueuedPrompt,
   imageUrl: string,
   messageId: number,
   context: SillyTavernContext
-): Promise<void> {
+): Promise<ImageInsertionResult> {
   console.log(
     `[Auto Illustrator] Inserting image into message ${messageId} at position ${promptInfo.endIndex}`
   );
@@ -165,7 +175,7 @@ export async function insertImageIntoMessage(
         '[Auto Illustrator] Message not found for image insertion:',
         messageId
       );
-      return;
+      return {success: false};
     }
 
     const currentText = message.mes || '';
@@ -186,7 +196,7 @@ export async function insertImageIntoMessage(
         '[Auto Illustrator] Could not find prompt tag in message, text may have changed:',
         expectedTag
       );
-      return;
+      return {success: false};
     }
 
     // Calculate actual position in full text
@@ -203,15 +213,15 @@ export async function insertImageIntoMessage(
         '[Auto Illustrator] Image already inserted, skipping:',
         imageUrl
       );
-      return;
+      return {success: false};
     }
 
     // Insert image tag after the prompt
     const imgTag = `<img src="${imageUrl}" title="${promptInfo.prompt}" alt="${promptInfo.prompt}">`;
+    const insertedText = '\n' + imgTag;
     const newText =
       currentText.substring(0, actualEndIndex) +
-      '\n' +
-      imgTag +
+      insertedText +
       currentText.substring(actualEndIndex);
 
     // Update message
@@ -225,7 +235,15 @@ export async function insertImageIntoMessage(
     const MESSAGE_EDITED =
       context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
     context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+    // Return insertion details so caller can adjust queue positions
+    return {
+      success: true,
+      insertionPoint: actualEndIndex,
+      insertedLength: insertedText.length,
+    };
   } catch (error) {
     console.error('[Auto Illustrator] Error inserting image:', error);
+    return {success: false};
   }
 }
