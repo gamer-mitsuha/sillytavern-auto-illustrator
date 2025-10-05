@@ -34,7 +34,7 @@ describe('settings', () => {
         extensionSettings: {
           [EXTENSION_NAME]: existingSettings,
         },
-      };
+      } as any;
 
       const loaded = loadSettings(mockContext);
 
@@ -44,7 +44,7 @@ describe('settings', () => {
     it('should return defaults if no settings exist', () => {
       const mockContext = {
         extensionSettings: {},
-      };
+      } as any;
 
       const loaded = loadSettings(mockContext);
 
@@ -61,7 +61,7 @@ describe('settings', () => {
         extensionSettings: {
           [EXTENSION_NAME]: partialSettings,
         },
-      };
+      } as any;
 
       const loaded = loadSettings(mockContext);
 
@@ -77,7 +77,7 @@ describe('settings', () => {
       const mockContext = {
         extensionSettings: {},
         saveSettingsDebounced: mockSaveDebounced,
-      };
+      } as any;
 
       const settings: AutoIllustratorSettings = {
         enabled: true,
@@ -102,7 +102,7 @@ describe('settings', () => {
           },
         },
         saveSettingsDebounced: mockSaveDebounced,
-      };
+      } as any;
 
       const newSettings: AutoIllustratorSettings = {
         enabled: false,

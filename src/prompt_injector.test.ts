@@ -23,7 +23,7 @@ describe('prompt_injector', () => {
         setExtensionPrompt: (...args: any[]) => {
           calls.push(args);
         },
-      };
+      } as any;
 
       const settings: AutoIllustratorSettings = {
         enabled: true,
@@ -48,7 +48,7 @@ describe('prompt_injector', () => {
         setExtensionPrompt: (...args: any[]) => {
           calls.push(args);
         },
-      };
+      } as any;
 
       const settings: AutoIllustratorSettings = {
         enabled: false,

@@ -20,7 +20,7 @@ describe('message_handler', () => {
           },
         },
         chat: [{is_user: false, mes: 'Original message'}],
-      };
+      } as any;
 
       const message = 'Text with <img_prompt="beautiful scene"> in the middle';
       const messageId = 0;
@@ -44,7 +44,7 @@ describe('message_handler', () => {
           },
         },
         chat: [{is_user: false, mes: originalMessage}],
-      };
+      } as any;
 
       const messageId = 0;
 
@@ -63,7 +63,7 @@ describe('message_handler', () => {
           },
         },
         chat: [],
-      };
+      } as any;
 
       const message = 'Text with <img_prompt="test">';
       const messageId = 999;
@@ -89,7 +89,7 @@ describe('message_handler', () => {
           emit: vi.fn(),
         },
         chat: [],
-      };
+      } as any;
 
       const handler = createMessageHandler(mockContext);
       expect(typeof handler).toBe('function');
@@ -119,7 +119,7 @@ describe('message_handler', () => {
         chat: [
           {is_user: false, mes: 'Here is a scene <img_prompt="test scene">'},
         ],
-      };
+      } as any;
 
       const handler = createMessageHandler(mockContext);
       await handler(0);
