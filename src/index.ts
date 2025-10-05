@@ -101,20 +101,17 @@ function initialize(): void {
   const promptInjectionHandler = createPromptInjectionHandler(() => settings);
 
   // Register event handlers
-  const GENERATE_AFTER_COMBINE_PROMPTS =
-    context.eventTypes?.GENERATE_AFTER_COMBINE_PROMPTS ||
-    'GENERATE_AFTER_COMBINE_PROMPTS';
+  const CHAT_COMPLETION_PROMPT_READY =
+    context.eventTypes?.CHAT_COMPLETION_PROMPT_READY ||
+    'CHAT_COMPLETION_PROMPT_READY';
   const MESSAGE_RECEIVED =
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
 
-  context.eventSource.on(
-    GENERATE_AFTER_COMBINE_PROMPTS,
-    promptInjectionHandler
-  );
+  context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, promptInjectionHandler);
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
   console.log('[Auto Illustrator] Event handlers registered:', {
-    GENERATE_AFTER_COMBINE_PROMPTS,
+    CHAT_COMPLETION_PROMPT_READY,
     MESSAGE_RECEIVED,
   });
 
