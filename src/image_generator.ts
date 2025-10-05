@@ -65,6 +65,13 @@ export async function replacePromptsWithImages(
     matches.map(m => m.prompt)
   );
 
+  // Show notification that image generation is starting
+  const imageCount = matches.length;
+  toastr.info(
+    `Generating ${imageCount} image${imageCount > 1 ? 's' : ''}...`,
+    'Auto Illustrator'
+  );
+
   // Generate images sequentially to avoid rate limiting
   const imageUrls: (string | null)[] = [];
   for (const match of matches) {
@@ -72,11 +79,27 @@ export async function replacePromptsWithImages(
     imageUrls.push(imageUrl);
   }
 
+  const successCount = imageUrls.filter(u => u).length;
   console.log(
     '[Auto Illustrator] Generated',
-    imageUrls.filter(u => u).length,
+    successCount,
     'images successfully'
   );
+
+  // Show completion notification
+  if (successCount === imageCount) {
+    toastr.success(
+      `Successfully generated ${successCount} image${successCount > 1 ? 's' : ''}`,
+      'Auto Illustrator'
+    );
+  } else if (successCount > 0) {
+    toastr.warning(
+      `Generated ${successCount} of ${imageCount} images`,
+      'Auto Illustrator'
+    );
+  } else {
+    toastr.error('Failed to generate images', 'Auto Illustrator');
+  }
 
   // Replace prompts with images in reverse order to preserve indices
   let result = text;

@@ -2,6 +2,14 @@ import {describe, it, expect, beforeEach, vi} from 'vitest';
 import {generateImage, replacePromptsWithImages} from './image_generator';
 import {createMockContext} from './test_helpers';
 
+// Mock toastr globally
+(globalThis as any).toastr = {
+  success: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn(),
+};
+
 describe('image_generator', () => {
   describe('generateImage', () => {
     beforeEach(() => {

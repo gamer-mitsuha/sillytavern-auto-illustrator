@@ -2,6 +2,14 @@ import {describe, it, expect, beforeEach, vi} from 'vitest';
 import {createMockContext} from './test_helpers';
 import {createMessageHandler, processMessageImages} from './message_handler';
 
+// Mock toastr globally
+(globalThis as any).toastr = {
+  success: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn(),
+};
+
 describe('message_handler', () => {
   describe('processMessageImages', () => {
     beforeEach(() => {
