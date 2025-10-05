@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously only the last image survived because streaming overwrote earlier insertions
   - Images inserted in reverse order (last to first) to avoid position shifts
   - Fixes issue where only 1 of N images would be inserted during streaming
+- **MESSAGE_RECEIVED disabled when streaming is enabled**
+  - Prevents duplicate image generation after streaming completes
+  - Previously MESSAGE_RECEIVED would trigger after GENERATION_ENDED, generating and inserting duplicate images
+  - Now MESSAGE_RECEIVED is completely skipped when streaming mode is enabled
+  - Streaming path handles all image generation and insertion
 - **Streaming image generation race conditions and rate limiting**
   - Fixed `processRemaining()` to wait for active generations before processing queued prompts
   - Changed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors

@@ -41,17 +41,27 @@ export async function processMessageImages(
  * Creates a message handler function for MESSAGE_RECEIVED events
  * @param context - SillyTavern context
  * @param isMessageBeingStreamed - Function to check if a message is currently being streamed
+ * @param settings - Extension settings
  * @returns Message handler function
  */
 export function createMessageHandler(
   context: SillyTavernContext,
-  isMessageBeingStreamed: (messageId: number) => boolean
+  isMessageBeingStreamed: (messageId: number) => boolean,
+  settings: AutoIllustratorSettings
 ): (messageId: number) => Promise<void> {
   return async (messageId: number) => {
     console.log(
       '[Auto Illustrator] MESSAGE_RECEIVED event, messageId:',
       messageId
     );
+
+    // Skip if streaming is enabled - streaming handles all image generation
+    if (settings.streamingEnabled) {
+      console.log(
+        '[Auto Illustrator] Skipping MESSAGE_RECEIVED - streaming mode handles image generation'
+      );
+      return;
+    }
 
     // Skip if this message is currently being processed by streaming
     if (isMessageBeingStreamed(messageId)) {

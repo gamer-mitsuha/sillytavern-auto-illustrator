@@ -103,7 +103,12 @@ describe('message_handler', () => {
         chat: [],
       });
 
-      const handler = createMessageHandler(mockContext);
+      const mockSettings = {streamingEnabled: false} as AutoIllustratorSettings;
+      const handler = createMessageHandler(
+        mockContext,
+        () => false,
+        mockSettings
+      );
       expect(typeof handler).toBe('function');
     });
 
@@ -135,7 +140,12 @@ describe('message_handler', () => {
       });
 
       const isMessageBeingStreamed = () => false; // Not streaming during test
-      const handler = createMessageHandler(mockContext, isMessageBeingStreamed);
+      const mockSettings = {streamingEnabled: false} as AutoIllustratorSettings;
+      const handler = createMessageHandler(
+        mockContext,
+        isMessageBeingStreamed,
+        mockSettings
+      );
       await handler(0);
 
       // Should call emit with MESSAGE_EDITED event type constant
