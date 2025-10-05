@@ -42,18 +42,33 @@ export async function processMessageImages(
  * @param context - SillyTavern context
  * @param isMessageBeingStreamed - Function to check if a message is currently being streamed
  * @param settings - Extension settings
+ * @param getPendingDeferredImages - Function to get and clear pending deferred images
  * @returns Message handler function
  */
 export function createMessageHandler(
   context: SillyTavernContext,
   isMessageBeingStreamed: (messageId: number) => boolean,
-  settings: AutoIllustratorSettings
+  settings: AutoIllustratorSettings,
+  getPendingDeferredImages?: () => {
+    images: Array<{prompt: any; imageUrl: string}>;
+    messageId: number;
+  } | null
 ): (messageId: number) => Promise<void> {
   return async (messageId: number) => {
     console.log(
       '[Auto Illustrator] MESSAGE_RECEIVED event, messageId:',
       messageId
     );
+
+    // If streaming is enabled, mark MESSAGE_RECEIVED as fired and try insertion
+    if (settings.streamingEnabled && getPendingDeferredImages) {
+      console.log(
+        '[Auto Illustrator] MESSAGE_RECEIVED fired for streaming message, marking flag'
+      );
+      // Call the callback to signal MESSAGE_RECEIVED fired
+      getPendingDeferredImages();
+      return;
+    }
 
     // Skip if streaming is enabled - streaming handles all image generation
     if (settings.streamingEnabled) {

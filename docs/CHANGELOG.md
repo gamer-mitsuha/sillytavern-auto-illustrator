@@ -8,30 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- **Streaming now defers image insertion until streaming completes**
-  - Images are generated during streaming but NOT inserted into the message
-  - All images inserted together after GENERATION_ENDED event
-  - Prevents streaming tokens from overwriting inserted images
-  - Previously only the last image survived because streaming overwrote earlier insertions
-  - Images inserted in reverse order (last to first) to avoid position shifts
-  - Fixes issue where only 1 of N images would be inserted during streaming
-- **MESSAGE_RECEIVED disabled when streaming is enabled**
-  - Prevents duplicate image generation after streaming completes
-  - Previously MESSAGE_RECEIVED would trigger after GENERATION_ENDED, generating and inserting duplicate images
-  - Now MESSAGE_RECEIVED is completely skipped when streaming mode is enabled
-  - Streaming path handles all image generation and insertion
+- **Two-way handshake for deferred image insertion**
+  - Images inserted only after BOTH conditions met: generation complete AND MESSAGE_RECEIVED fired
+  - Prevents race conditions where MESSAGE_RECEIVED can fire before or after generation
+  - Uses flags and tryInsertDeferredImages() helper to coordinate timing
+  - Previously would fail if MESSAGE_RECEIVED fired first (waiting forever) or last (images overwritten)
+  - Now handles both orderings correctly with mutual signaling
+  - Fixes issue where no images would be inserted regardless of event ordering
 - **Batch image insertion uses single-write approach**
   - Reads message.mes ONCE, inserts all images into string, writes ONCE
   - Prevents race condition with SillyTavern's streaming finalization
   - Previously message.mes would be reset between insertions (1858 chars after each)
   - Now all images inserted atomically in single operation
   - Only the last image would survive previous multi-write approach
-- **Emit both CHARACTER_MESSAGE_RENDERED and MESSAGE_EDITED events**
-  - CHARACTER_MESSAGE_RENDERED triggers UI re-render to display images immediately
+- **Emit both MESSAGE_UPDATED and MESSAGE_EDITED events**
+  - MESSAGE_UPDATED triggers UI re-render to display images immediately
   - MESSAGE_EDITED triggers regex pattern extensions for post-processing
-  - Previously only emitted MESSAGE_EDITED which didn't render images
-  - Images now appear instantly after batch insertion
-  - Regex extensions can process the final message with images
+  - Both events emitted after batch insertion completes
+  - Images render instantly and regex extensions can process final message
 - **Streaming image generation race conditions and rate limiting**
   - Fixed `processRemaining()` to wait for active generations before processing queued prompts
   - Changed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors
