@@ -129,11 +129,13 @@ export async function replacePromptsWithImages(
         result.substring(match.endIndex);
       console.log('[Auto Illustrator] Added image after prompt at index', i);
     } else {
-      // Remove the prompt tag if image generation failed
-      result =
-        result.substring(0, match.startIndex) +
-        result.substring(match.endIndex);
-      console.log('[Auto Illustrator] Removed failed prompt at index', i);
+      // Keep the prompt tag even if generation failed
+      // This allows users to see what was attempted and enables manual retry
+      console.log(
+        '[Auto Illustrator] Image generation failed for prompt at index',
+        i,
+        '- keeping tag'
+      );
     }
   }
 

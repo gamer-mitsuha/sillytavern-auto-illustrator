@@ -134,7 +134,8 @@ describe('message_handler', () => {
         ],
       });
 
-      const handler = createMessageHandler(mockContext);
+      const isMessageBeingStreamed = () => false; // Not streaming during test
+      const handler = createMessageHandler(mockContext, isMessageBeingStreamed);
       await handler(0);
 
       // Should call emit with MESSAGE_EDITED event type constant

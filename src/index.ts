@@ -26,6 +26,7 @@ let settings: AutoIllustratorSettings;
 let streamingQueue: ImageGenerationQueue | null = null;
 let streamingMonitor: StreamingMonitor | null = null;
 let queueProcessor: QueueProcessor | null = null;
+let currentStreamingMessageId: number | null = null; // Track which message is being streamed
 
 /**
  * Updates the UI elements with current settings
@@ -204,6 +205,9 @@ function handleGenerationStarted(
     settings.maxConcurrentGenerations
   );
 
+  // Track which message is being streamed to prevent duplicate MESSAGE_RECEIVED processing
+  currentStreamingMessageId = messageId;
+
   // Start monitoring and processing
   streamingMonitor.start(messageId);
   queueProcessor.start(messageId, async (prompt, imageUrl, msgId) => {
@@ -258,6 +262,7 @@ async function handleGenerationEnded(): Promise<void> {
   streamingQueue = null;
   streamingMonitor = null;
   queueProcessor = null;
+  currentStreamingMessageId = null; // Allow MESSAGE_RECEIVED to process future messages
 }
 
 /**
@@ -282,8 +287,10 @@ function initialize(): void {
   settings = loadSettings(context);
   console.log('[Auto Illustrator] Loaded settings:', settings);
 
-  // Create and register message handler
-  const messageHandler = createMessageHandler(context);
+  // Create and register message handler with streaming check
+  const isMessageBeingStreamed = (messageId: number) =>
+    currentStreamingMessageId === messageId;
+  const messageHandler = createMessageHandler(context, isMessageBeingStreamed);
   const MESSAGE_RECEIVED =
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);

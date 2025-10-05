@@ -219,6 +219,7 @@ export class QueueProcessor {
   /**
    * Processes all remaining prompts in the queue
    * Used when streaming ends to ensure all images are generated
+   * Processes sequentially to respect maxConcurrent limit and avoid 429 errors
    * @returns Promise that resolves when all prompts are processed
    */
   async processRemaining(): Promise<void> {
@@ -233,14 +234,11 @@ export class QueueProcessor {
       return;
     }
 
-    // Wait for all pending prompts to be processed
-    const promises: Promise<void>[] = [];
-
+    // Process remaining prompts sequentially to respect maxConcurrent
+    // This prevents 429 "Too Many Requests" errors from NovelAI
     for (const prompt of pending) {
-      promises.push(this.generateImageForPrompt(prompt));
+      await this.generateImageForPrompt(prompt);
     }
-
-    await Promise.all(promises);
 
     console.log(
       '[Auto Illustrator Processor] Finished processing remaining prompts'
