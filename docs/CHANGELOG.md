@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Streaming now defers image insertion until streaming completes**
+  - Images are generated during streaming but NOT inserted into the message
+  - All images inserted together after GENERATION_ENDED event
+  - Prevents streaming tokens from overwriting inserted images
+  - Previously only the last image survived because streaming overwrote earlier insertions
+  - Images inserted in reverse order (last to first) to avoid position shifts
+  - Fixes issue where only 1 of N images would be inserted during streaming
 - **Streaming image generation race conditions and rate limiting**
   - Fixed `processRemaining()` to wait for active generations before processing queued prompts
   - Changed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors

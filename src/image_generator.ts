@@ -5,6 +5,7 @@
 
 import {extractImagePrompts} from './image_extractor';
 import {QueuedPrompt} from './streaming_image_queue';
+import {DeferredImage} from './queue_processor';
 
 /**
  * Generates an image using the SD slash command
@@ -241,4 +242,52 @@ export async function insertImageIntoMessage(
     console.error('[Auto Illustrator] Error inserting image:', error);
     return {success: false};
   }
+}
+
+/**
+ * Inserts all deferred images into a message after streaming completes
+ * Images are inserted in reverse order (last to first) to avoid position shifts
+ * @param deferredImages - Array of deferred images to insert
+ * @param messageId - Message ID to update
+ * @param context - SillyTavern context
+ * @returns Number of successfully inserted images
+ */
+export async function insertDeferredImages(
+  deferredImages: DeferredImage[],
+  messageId: number,
+  context: SillyTavernContext
+): Promise<number> {
+  if (deferredImages.length === 0) {
+    return 0;
+  }
+
+  console.log(
+    `[Auto Illustrator] Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
+  );
+
+  // Sort images by position (last to first) to avoid position shifts
+  // When we insert from the end backwards, earlier positions remain valid
+  const sortedImages = [...deferredImages].sort(
+    (a, b) => b.prompt.startIndex - a.prompt.startIndex
+  );
+
+  let successCount = 0;
+
+  for (const {prompt, imageUrl} of sortedImages) {
+    const result = await insertImageIntoMessage(
+      prompt,
+      imageUrl,
+      messageId,
+      context
+    );
+    if (result.success) {
+      successCount++;
+    }
+  }
+
+  console.log(
+    `[Auto Illustrator] Batch insertion complete: ${successCount}/${deferredImages.length} images inserted`
+  );
+
+  return successCount;
 }

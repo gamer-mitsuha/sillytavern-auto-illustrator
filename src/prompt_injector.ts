@@ -24,6 +24,7 @@ Rules for image prompts:
 4. Keep descriptions concise but descriptive (1-2 sentences)
 5. Generate prompts naturally within the flow of your narrative
 6. Must add the danbooru character name if the character is from a game / anime / novel, etc.
+7. Use "rating:nsfw" tag for nsfw scenarios
 
 Example:
 The sun was setting over the ancient castle <img_prompt="medieval stone castle silhouette against orange and purple sunset sky, dramatic lighting, fantasy atmosphere"> as the knight approached the gates. The heavy wooden doors creaked open...
