@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously MESSAGE_RECEIVED would trigger after GENERATION_ENDED, generating and inserting duplicate images
   - Now MESSAGE_RECEIVED is completely skipped when streaming mode is enabled
   - Streaming path handles all image generation and insertion
+- **Batch image insertion uses single-write approach**
+  - Reads message.mes ONCE, inserts all images into string, writes ONCE
+  - Prevents race condition with SillyTavern's streaming finalization
+  - Previously message.mes would be reset between insertions (1858 chars after each)
+  - Now all images inserted atomically in single operation
+  - Only the last image would survive previous multi-write approach
 - **Streaming image generation race conditions and rate limiting**
   - Fixed `processRemaining()` to wait for active generations before processing queued prompts
   - Changed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors
