@@ -216,6 +216,80 @@ describe('image_generator', () => {
       expect(callOrder).toEqual([1, 2, 3]);
       expect(mockCallback).toHaveBeenCalledTimes(3);
     });
+
+    it('should escape HTML special characters in title and alt attributes', async () => {
+      const mockCallback = vi
+        .fn()
+        .mockResolvedValue('https://example.com/image.png');
+      const mockContext = createMockContext({
+        SlashCommandParser: {
+          commands: {
+            sd: {
+              callback: mockCallback,
+            },
+          },
+        },
+      });
+
+      const text =
+        '<img_prompt="rating:nsfw, asuna_(sao), danbooru, 1girl, close-up">';
+      const result = await replacePromptsWithImages(text, mockContext);
+
+      // Should escape commas and special characters in attributes
+      expect(result).toContain('<img_prompt="rating:nsfw, asuna_(sao)');
+      expect(result).toContain('title="rating:nsfw, asuna_(sao)');
+      expect(result).toContain('alt="rating:nsfw, asuna_(sao)');
+      // Should not break HTML with unescaped special characters
+      expect(result).toContain('https://example.com/image.png');
+    });
+
+    it('should escape quotes in prompts to prevent attribute breaking', async () => {
+      const mockCallback = vi
+        .fn()
+        .mockResolvedValue('https://example.com/image.png');
+      const mockContext = createMockContext({
+        SlashCommandParser: {
+          commands: {
+            sd: {
+              callback: mockCallback,
+            },
+          },
+        },
+      });
+
+      const text = '<img_prompt="character with \\"blue eyes\\" and <arms>">';
+      const result = await replacePromptsWithImages(text, mockContext);
+
+      // Should escape quotes and angle brackets
+      expect(result).toContain('title="character with &quot;blue eyes&quot;');
+      expect(result).toContain('&lt;arms&gt;');
+      // Original prompt tag should remain unchanged
+      expect(result).toContain(
+        '<img_prompt="character with \\"blue eyes\\" and <arms>">'
+      );
+    });
+
+    it('should escape ampersands in prompts', async () => {
+      const mockCallback = vi
+        .fn()
+        .mockResolvedValue('https://example.com/image.png');
+      const mockContext = createMockContext({
+        SlashCommandParser: {
+          commands: {
+            sd: {
+              callback: mockCallback,
+            },
+          },
+        },
+      });
+
+      const text = '<img_prompt="cat & dog scene">';
+      const result = await replacePromptsWithImages(text, mockContext);
+
+      // Should escape ampersand
+      expect(result).toContain('title="cat &amp; dog scene"');
+      expect(result).toContain('alt="cat &amp; dog scene"');
+    });
   });
 
   describe('insertImageIntoMessage', () => {
