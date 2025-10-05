@@ -19,12 +19,12 @@ declare global {
     SlashCommandParser: {
       commands: Record<
         string,
-        {
+        Partial<{
           callback: (args: any, value: string) => Promise<string>;
           namedArgumentList: string[];
           unnamedArgumentList: string[];
           helpString: string;
-        }
+        }>
       >;
     };
     extensionSettings: Record<string, any>;

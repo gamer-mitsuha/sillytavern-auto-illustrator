@@ -1,4 +1,5 @@
 import {describe, it, expect} from 'vitest';
+import {createMockContext} from './test_helpers';
 import {getDefaultMetaPrompt, updateExtensionPrompt} from './prompt_injector';
 
 describe('prompt_injector', () => {
@@ -18,12 +19,12 @@ describe('prompt_injector', () => {
 
   describe('updateExtensionPrompt', () => {
     it('should call setExtensionPrompt with correct parameters when enabled', () => {
-      const calls: any[] = [];
-      const mockContext = {
-        setExtensionPrompt: (...args: any[]) => {
+      const calls: unknown[][] = [];
+      const mockContext = createMockContext({
+        setExtensionPrompt: (...args: unknown[]) => {
           calls.push(args);
         },
-      } as any;
+      });
 
       const settings: AutoIllustratorSettings = {
         enabled: true,
@@ -43,12 +44,12 @@ describe('prompt_injector', () => {
     });
 
     it('should set empty value when disabled', () => {
-      const calls: any[] = [];
-      const mockContext = {
-        setExtensionPrompt: (...args: any[]) => {
+      const calls: unknown[][] = [];
+      const mockContext = createMockContext({
+        setExtensionPrompt: (...args: unknown[]) => {
           calls.push(args);
         },
-      } as any;
+      });
 
       const settings: AutoIllustratorSettings = {
         enabled: false,
@@ -68,7 +69,7 @@ describe('prompt_injector', () => {
     });
 
     it('should handle missing setExtensionPrompt function', () => {
-      const mockContext = {};
+      const mockContext = createMockContext({});
 
       const settings: AutoIllustratorSettings = {
         enabled: true,
@@ -78,7 +79,7 @@ describe('prompt_injector', () => {
 
       // Should not throw
       expect(() => {
-        updateExtensionPrompt(mockContext as any, settings);
+        updateExtensionPrompt(mockContext, settings);
       }).not.toThrow();
     });
   });

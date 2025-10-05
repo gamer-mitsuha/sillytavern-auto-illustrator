@@ -1,4 +1,5 @@
 import {describe, it, expect, beforeEach, vi} from 'vitest';
+import {createMockContext} from './test_helpers';
 import {
   getDefaultSettings,
   loadSettings,
@@ -30,11 +31,11 @@ describe('settings', () => {
         metaPrompt: 'custom prompt',
       };
 
-      const mockContext = {
+      const mockContext = createMockContext({
         extensionSettings: {
           [EXTENSION_NAME]: existingSettings,
         },
-      } as any;
+      });
 
       const loaded = loadSettings(mockContext);
 
@@ -42,9 +43,9 @@ describe('settings', () => {
     });
 
     it('should return defaults if no settings exist', () => {
-      const mockContext = {
+      const mockContext = createMockContext({
         extensionSettings: {},
-      } as any;
+      });
 
       const loaded = loadSettings(mockContext);
 
@@ -57,11 +58,11 @@ describe('settings', () => {
         enabled: false,
       };
 
-      const mockContext = {
+      const mockContext = createMockContext({
         extensionSettings: {
           [EXTENSION_NAME]: partialSettings,
         },
-      } as any;
+      });
 
       const loaded = loadSettings(mockContext);
 
@@ -74,10 +75,10 @@ describe('settings', () => {
   describe('saveSettings', () => {
     it('should save settings to context and call saveSettingsDebounced', () => {
       const mockSaveDebounced = vi.fn();
-      const mockContext = {
+      const mockContext = createMockContext({
         extensionSettings: {},
         saveSettingsDebounced: mockSaveDebounced,
-      } as any;
+      });
 
       const settings: AutoIllustratorSettings = {
         enabled: true,
@@ -93,7 +94,7 @@ describe('settings', () => {
 
     it('should update existing settings', () => {
       const mockSaveDebounced = vi.fn();
-      const mockContext = {
+      const mockContext = createMockContext({
         extensionSettings: {
           [EXTENSION_NAME]: {
             enabled: true,
@@ -102,7 +103,7 @@ describe('settings', () => {
           },
         },
         saveSettingsDebounced: mockSaveDebounced,
-      } as any;
+      });
 
       const newSettings: AutoIllustratorSettings = {
         enabled: false,
