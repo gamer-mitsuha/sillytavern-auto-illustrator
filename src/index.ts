@@ -124,64 +124,35 @@ function handleResetSettings(): void {
 }
 
 /**
- * Finds the index of the last assistant message in the chat array
- * This is used to identify which message is currently being generated
- * @param context - SillyTavern context
- * @returns Message index, or -1 if not found
+ * Handles first streaming token to initialize streaming for the correct message
+ * STREAM_TOKEN_RECEIVED fires during streaming, so message definitely exists
+ * This is more reliable than GENERATION_STARTED which fires before message creation
  */
-function findLastAssistantMessageId(context: SillyTavernContext): number {
-  if (!context.chat || context.chat.length === 0) {
-    return -1;
+function handleFirstStreamToken(_text: string): void {
+  // Only initialize once per stream
+  if (streamingMonitor?.isActive()) {
+    return;
   }
 
-  // Search from the end of the chat array
-  for (let i = context.chat.length - 1; i >= 0; i--) {
-    const message = context.chat[i];
-    if (!message.is_user && !message.is_system) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-/**
- * Handles GENERATION_STARTED event for streaming image generation
- * Note: GENERATION_STARTED emits (generationType, args, isDryRun), not messageId
- * We need to find the messageId from the chat array
- */
-function handleGenerationStarted(
-  generationType: string,
-  _args: unknown,
-  isDryRun: boolean
-): void {
   if (!settings.streamingEnabled || !settings.enabled) {
-    console.log(
-      '[Auto Illustrator] Streaming disabled, skipping streaming handler'
-    );
     return;
   }
 
-  // Skip dry runs and certain generation types
-  if (isDryRun || ['quiet', 'impersonate'].includes(generationType)) {
-    console.log(
-      `[Auto Illustrator] Skipping streaming for type: ${generationType}, isDryRun: ${isDryRun}`
-    );
+  // Find the last assistant message - this is the one being streamed
+  if (!context.chat || context.chat.length === 0) {
     return;
   }
 
-  // Find the last assistant message being generated
-  // When GENERATION_STARTED fires, the message should already be in the chat array
-  const messageId = findLastAssistantMessageId(context);
-  if (messageId === -1) {
-    console.log(
-      '[Auto Illustrator] Could not find assistant message for streaming'
-    );
+  const messageId = context.chat.length - 1;
+  const message = context.chat[messageId];
+
+  // Verify it's an assistant message
+  if (message.is_user || message.is_system) {
     return;
   }
 
   console.log(
-    `[Auto Illustrator] GENERATION_STARTED for message ${messageId} (type: ${generationType})`
+    `[Auto Illustrator] First stream token received, starting streaming for message ${messageId}`
   );
 
   // Clean up any previous streaming state
@@ -192,7 +163,7 @@ function handleGenerationStarted(
     queueProcessor.stop();
   }
 
-  // Initialize new streaming state
+  // Initialize streaming
   streamingQueue = new ImageGenerationQueue();
   queueProcessor = new QueueProcessor(
     streamingQueue,
@@ -200,28 +171,23 @@ function handleGenerationStarted(
     settings.maxConcurrentGenerations
   );
 
-  // Create monitor with callback to trigger processor when new prompts detected
   streamingMonitor = new StreamingMonitor(
     streamingQueue,
     context,
     settings.streamingPollInterval,
-    () => queueProcessor?.trigger() // Trigger processing when new prompts added
+    () => queueProcessor?.trigger()
   );
 
-  // Track which message is being streamed to prevent duplicate MESSAGE_RECEIVED processing
   currentStreamingMessageId = messageId;
 
-  // Start monitoring and processing
   streamingMonitor.start(messageId);
   queueProcessor.start(messageId, async (prompt, imageUrl, msgId) => {
-    // Callback when image is generated - insert into message
     const result = await insertImageIntoMessage(
       prompt,
       imageUrl,
       msgId,
       context
     );
-    // Trigger processor to check for more work
     queueProcessor?.trigger();
     return result;
   });
@@ -309,18 +275,18 @@ function initialize(): void {
   });
 
   // Register streaming handlers
-  const GENERATION_STARTED =
-    context.eventTypes?.GENERATION_STARTED || 'GENERATION_STARTED';
+  const STREAM_TOKEN_RECEIVED =
+    context.eventTypes?.STREAM_TOKEN_RECEIVED || 'STREAM_TOKEN_RECEIVED';
   const GENERATION_ENDED =
     context.eventTypes?.GENERATION_ENDED || 'GENERATION_ENDED';
 
-  context.eventSource.on(GENERATION_STARTED, handleGenerationStarted);
+  context.eventSource.on(STREAM_TOKEN_RECEIVED, handleFirstStreamToken);
   context.eventSource.on(GENERATION_ENDED, handleGenerationEnded);
 
   console.log('[Auto Illustrator] Event handlers registered:', {
     MESSAGE_RECEIVED,
     CHAT_COMPLETION_PROMPT_READY,
-    GENERATION_STARTED,
+    STREAM_TOKEN_RECEIVED,
     GENERATION_ENDED,
   });
 
