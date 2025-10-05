@@ -41,10 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Max concurrent generations slider (1-5)
   - Reset to defaults button
 - Event-driven architecture using MESSAGE_RECEIVED, MESSAGE_EDITED, CHAT_COMPLETION_PROMPT_READY, GENERATION_STARTED, and GENERATION_ENDED events
-- Unit test suite with Vitest (71 tests, 100% passing)
+- Comprehensive unit test suite with Vitest (114 tests, 100% passing)
   - 22 tests for streaming queue data structure
-  - 49 tests for existing functionality
-  - Note: Streaming monitor and processor are functional but would benefit from additional integration tests
+  - 23 tests for streaming monitor (polling, prompt detection, lifecycle)
+  - 14 tests for queue processor (concurrency control, state management)
+  - 6 tests for progressive image insertion (insertImageIntoMessage)
+  - 49 tests for existing functionality (extraction, generation, settings, prompt injection)
 - Full TypeScript type definitions for SillyTavern API
 - Google TypeScript Style Guide compliance with `gts`
 - Webpack build system for production bundling
