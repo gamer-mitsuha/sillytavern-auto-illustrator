@@ -31,9 +31,16 @@ export function extractImagePrompts(text: string): ImagePromptMatch[] {
 
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
+    const prompt = match[1].replace(/\\"/g, '"').trim(); // Unescape quotes and trim
+
+    // Skip empty prompts (malformed tags during streaming)
+    if (prompt.length === 0) {
+      continue;
+    }
+
     matches.push({
       fullMatch: match[0],
-      prompt: match[1].replace(/\\"/g, '"'), // Unescape quotes
+      prompt: prompt,
       startIndex: match.index,
       endIndex: match.index + match[0].length,
     });

@@ -77,12 +77,20 @@ describe('image_extractor', () => {
       );
     });
 
-    it('should handle empty prompts', () => {
+    it('should skip empty prompts', () => {
       const text = 'Text with <img_prompt=""> empty prompt';
       const matches = extractImagePrompts(text);
 
-      expect(matches).toHaveLength(1);
-      expect(matches[0].prompt).toBe('');
+      // Empty prompts should be skipped (malformed during streaming)
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should skip whitespace-only prompts', () => {
+      const text = 'Text with <img_prompt="   "> whitespace prompt';
+      const matches = extractImagePrompts(text);
+
+      // Whitespace-only prompts should be skipped
+      expect(matches).toHaveLength(0);
     });
 
     it('should handle prompts with nested quotes', () => {
