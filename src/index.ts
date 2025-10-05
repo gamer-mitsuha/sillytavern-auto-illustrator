@@ -208,9 +208,15 @@ function handleGenerationStarted(
   streamingMonitor.start(messageId);
   queueProcessor.start(messageId, async (prompt, imageUrl, msgId) => {
     // Callback when image is generated - insert into message
-    await insertImageIntoMessage(prompt, imageUrl, msgId, context);
+    const result = await insertImageIntoMessage(
+      prompt,
+      imageUrl,
+      msgId,
+      context
+    );
     // Trigger processor to check for more work
     queueProcessor?.trigger();
+    return result;
   });
 
   console.log('[Auto Illustrator] Streaming monitor and processor started');

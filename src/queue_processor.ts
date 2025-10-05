@@ -4,16 +4,17 @@
  */
 
 import {ImageGenerationQueue, QueuedPrompt} from './streaming_image_queue';
-import {generateImage} from './image_generator';
+import {generateImage, ImageInsertionResult} from './image_generator';
 
 /**
  * Callback for when an image is generated
+ * Should insert the image into the message and return insertion details
  */
 export type ImageGeneratedCallback = (
   prompt: QueuedPrompt,
   imageUrl: string,
   messageId: number
-) => Promise<void>;
+) => Promise<ImageInsertionResult>;
 
 /**
  * Processes queued image generation prompts
@@ -174,9 +175,25 @@ export class QueueProcessor {
           `[Auto Illustrator Processor] Generated image: ${imageUrl}`
         );
 
-        // Notify callback
+        // Notify callback and get insertion details
         if (this.onImageGenerated && this.isRunning) {
-          await this.onImageGenerated(prompt, imageUrl, this.messageId);
+          const result = await this.onImageGenerated(
+            prompt,
+            imageUrl,
+            this.messageId
+          );
+
+          // Adjust queue positions based on insertion
+          if (
+            result.success &&
+            result.insertionPoint !== undefined &&
+            result.insertedLength !== undefined
+          ) {
+            this.queue.adjustPositionsAfterInsertion(
+              result.insertionPoint,
+              result.insertedLength
+            );
+          }
         }
       } else {
         // Failed
