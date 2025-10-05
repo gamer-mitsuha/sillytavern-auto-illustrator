@@ -339,9 +339,14 @@ export async function insertDeferredImages(
     `[Auto Illustrator] Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
   );
 
-  // Emit MESSAGE_EDITED once after all images are inserted
-  const MESSAGE_EDITED =
-    context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+  // Emit CHARACTER_MESSAGE_RENDERED to trigger UI re-render
+  const CHARACTER_MESSAGE_RENDERED =
+    context.eventTypes?.CHARACTER_MESSAGE_RENDERED ||
+    'CHARACTER_MESSAGE_RENDERED';
+  context.eventSource.emit(CHARACTER_MESSAGE_RENDERED, messageId, 'extension');
+
+  // Also emit MESSAGE_EDITED to trigger regex extensions
+  const MESSAGE_EDITED = context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
   context.eventSource.emit(MESSAGE_EDITED, messageId);
 
   return successCount;

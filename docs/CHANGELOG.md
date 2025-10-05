@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously message.mes would be reset between insertions (1858 chars after each)
   - Now all images inserted atomically in single operation
   - Only the last image would survive previous multi-write approach
+- **Emit both CHARACTER_MESSAGE_RENDERED and MESSAGE_EDITED events**
+  - CHARACTER_MESSAGE_RENDERED triggers UI re-render to display images immediately
+  - MESSAGE_EDITED triggers regex pattern extensions for post-processing
+  - Previously only emitted MESSAGE_EDITED which didn't render images
+  - Images now appear instantly after batch insertion
+  - Regex extensions can process the final message with images
 - **Streaming image generation race conditions and rate limiting**
   - Fixed `processRemaining()` to wait for active generations before processing queued prompts
   - Changed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors
