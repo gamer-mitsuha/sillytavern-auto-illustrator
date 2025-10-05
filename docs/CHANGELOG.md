@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Streaming image generation race conditions and rate limiting**
-  - Fixed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors
+  - Fixed `processRemaining()` to wait for active generations before processing queued prompts
+  - Changed `processRemaining()` to process sequentially instead of parallel, preventing 429 "Too Many Requests" errors
   - Added streaming message tracking to prevent duplicate processing by MESSAGE_RECEIVED
   - MESSAGE_RECEIVED now skips messages currently being processed by streaming
   - Prevents duplicate image generation attempts and tag removal conflicts

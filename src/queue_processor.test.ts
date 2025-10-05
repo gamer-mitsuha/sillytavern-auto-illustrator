@@ -168,4 +168,55 @@ describe('QueueProcessor', () => {
       expect(processor.getStatus().messageId).not.toBe(initialMessageId);
     });
   });
+
+  describe('processRemaining', () => {
+    it('should wait for active generations before processing queued prompts', async () => {
+      const prompt1 = queue.addPrompt('test1', 0, 10);
+      queue.addPrompt('test2', 20, 30);
+
+      // Mark first as GENERATING
+      queue.updateState(prompt1.id, 'GENERATING');
+
+      // Simulate active generation
+      const processorInternal = processor as any;
+      processorInternal.activeGenerations = 1;
+
+      const processRemainingPromise = processor.processRemaining();
+
+      // Give it a moment to start waiting
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Should still have both prompts - one GENERATING, one QUEUED
+      expect(queue.getPromptsByState('GENERATING')).toHaveLength(1);
+      expect(queue.getPromptsByState('QUEUED')).toHaveLength(1);
+
+      // Complete the active generation
+      processorInternal.activeGenerations = 0;
+
+      // Now it should process the remaining queued prompt
+      await processRemainingPromise;
+
+      // Should have processed the one QUEUED prompt
+      const sdCommand = mockContext.SlashCommandParser?.commands?.sd;
+      expect(sdCommand?.callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('should process all queued prompts sequentially after active generations complete', async () => {
+      queue.addPrompt('test1', 0, 10);
+      queue.addPrompt('test2', 20, 30);
+      queue.addPrompt('test3', 40, 50);
+
+      await processor.processRemaining();
+
+      const sdCommand = mockContext.SlashCommandParser?.commands?.sd;
+      expect(sdCommand?.callback).toHaveBeenCalledTimes(3);
+    });
+
+    it('should return early if no queued prompts', async () => {
+      await processor.processRemaining();
+
+      const sdCommand = mockContext.SlashCommandParser?.commands?.sd;
+      expect(sdCommand?.callback).not.toHaveBeenCalled();
+    });
+  });
 });
