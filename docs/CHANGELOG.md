@@ -21,17 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously monitored old messages with 3000+ chars already present, inserting images into wrong messages
   - Now correctly detects and monitors the actual streaming message from first token
   - Prevents monitoring wrong messages and generating images in old messages
-- Streaming image insertion now tracks position changes after each image
-  - Implemented `adjustPositionsAfterInsertion()` to update queue positions dynamically
-  - `insertImageIntoMessage()` now returns insertion details (position and length)
-  - Queue processor automatically adjusts remaining prompt positions after each insertion
-  - Fixes "Could not find prompt tag" errors for 2nd+ images in streaming response
-- **Streaming image insertion uses exact prompt matching with adjusted positions**
-  - `insertImageIntoMessage()` searches for exact prompt tag using stored text
-  - Relies on `adjustPositionsAfterInsertion()` to keep positions accurate
-  - Search region expanded to ±100 chars to handle minor position variations
-  - Prevents incorrect tag matching when multiple prompts exist in vicinity
-  - Note: LLMs don't modify already-generated text during streaming, so exact matching works reliably
+- **Streaming image insertion uses simple full-text search**
+  - `insertImageIntoMessage()` uses `indexOf()` to search entire message for prompt tag
+  - No position tracking or adjustment needed - simple and reliable
+  - Works correctly even when text grows during streaming and image insertion
+  - Fixes "Could not find prompt tag" errors for 2nd+ images
+  - Much simpler than position-based search with adjustment logic
 - **Prevent duplicate prompt detection after text shifts**
   - Added `hasPromptByText()` method to check for prompts by content only (ignoring position)
   - Monitor now uses `hasPromptByText()` to prevent re-detecting same prompts at different positions
