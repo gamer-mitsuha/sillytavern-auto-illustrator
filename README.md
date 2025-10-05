@@ -8,6 +8,7 @@ Automatically generates inline images in your SillyTavern conversations based on
 - 🔄 **Seamless Integration**: Images appear inline within assistant messages
 - ⚙️ **Customizable Settings**: Control generation frequency and meta-prompt template
 - 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
+- 🔔 **Real-time Notifications**: Visual feedback during image generation process
 
 ## How It Works
 
