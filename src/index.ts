@@ -123,9 +123,37 @@ function handleResetSettings(): void {
 }
 
 /**
- * Handles GENERATION_STARTED event for streaming image generation
+ * Finds the index of the last assistant message in the chat array
+ * This is used to identify which message is currently being generated
+ * @param context - SillyTavern context
+ * @returns Message index, or -1 if not found
  */
-function handleGenerationStarted(messageId: number): void {
+function findLastAssistantMessageId(context: SillyTavernContext): number {
+  if (!context.chat || context.chat.length === 0) {
+    return -1;
+  }
+
+  // Search from the end of the chat array
+  for (let i = context.chat.length - 1; i >= 0; i--) {
+    const message = context.chat[i];
+    if (!message.is_user && !message.is_system) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+/**
+ * Handles GENERATION_STARTED event for streaming image generation
+ * Note: GENERATION_STARTED emits (generationType, args, isDryRun), not messageId
+ * We need to find the messageId from the chat array
+ */
+function handleGenerationStarted(
+  generationType: string,
+  _args: unknown,
+  isDryRun: boolean
+): void {
   if (!settings.streamingEnabled || !settings.enabled) {
     console.log(
       '[Auto Illustrator] Streaming disabled, skipping streaming handler'
@@ -133,8 +161,26 @@ function handleGenerationStarted(messageId: number): void {
     return;
   }
 
+  // Skip dry runs and certain generation types
+  if (isDryRun || ['quiet', 'impersonate'].includes(generationType)) {
+    console.log(
+      `[Auto Illustrator] Skipping streaming for type: ${generationType}, isDryRun: ${isDryRun}`
+    );
+    return;
+  }
+
+  // Find the last assistant message being generated
+  // When GENERATION_STARTED fires, the message should already be in the chat array
+  const messageId = findLastAssistantMessageId(context);
+  if (messageId === -1) {
+    console.log(
+      '[Auto Illustrator] Could not find assistant message for streaming'
+    );
+    return;
+  }
+
   console.log(
-    `[Auto Illustrator] GENERATION_STARTED for message ${messageId}, initializing streaming`
+    `[Auto Illustrator] GENERATION_STARTED for message ${messageId} (type: ${generationType})`
   );
 
   // Clean up any previous streaming state
