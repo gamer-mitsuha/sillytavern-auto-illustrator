@@ -175,25 +175,11 @@ export class QueueProcessor {
           `[Auto Illustrator Processor] Generated image: ${imageUrl}`
         );
 
-        // Notify callback and get insertion details
+        // Notify callback to insert image into message
         if (this.onImageGenerated && this.isRunning) {
-          const result = await this.onImageGenerated(
-            prompt,
-            imageUrl,
-            this.messageId
-          );
+          await this.onImageGenerated(prompt, imageUrl, this.messageId);
 
-          // Adjust queue positions based on insertion
-          if (
-            result.success &&
-            result.insertionPoint !== undefined &&
-            result.insertedLength !== undefined
-          ) {
-            this.queue.adjustPositionsAfterInsertion(
-              result.insertionPoint,
-              result.insertedLength
-            );
-          }
+          // No need to adjust positions - insertion uses full-text search
         }
       } else {
         // Failed

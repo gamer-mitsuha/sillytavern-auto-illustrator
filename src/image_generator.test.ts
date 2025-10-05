@@ -403,6 +403,5 @@ describe('image_generator', () => {
       expect(mockContext.chat[0].mes).toContain('End');
       expect(mockContext.chat[0].mes).toContain('<img_prompt="test">');
     });
-
   });
 });

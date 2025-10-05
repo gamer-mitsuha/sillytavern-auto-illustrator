@@ -182,32 +182,21 @@ export async function insertImageIntoMessage(
 
     const currentText = message.mes || '';
 
-    // Find the exact prompt tag in the current text
-    // Positions should have been adjusted by adjustPositionsAfterInsertion()
-    // Search in a region around the stored position to account for minor shifts
+    // Find the exact prompt tag in the full message text
+    // Simple full-text search is reliable and efficient for typical message lengths
     const expectedTag = `<img_prompt="${promptInfo.prompt}">`;
-    const searchStart = Math.max(0, promptInfo.startIndex - 100);
-    const searchEnd = Math.min(
-      currentText.length,
-      promptInfo.endIndex + expectedTag.length + 100
-    );
-    const searchRegion = currentText.substring(searchStart, searchEnd);
-
-    const tagIndex = searchRegion.indexOf(expectedTag);
+    const tagIndex = currentText.indexOf(expectedTag);
 
     if (tagIndex === -1) {
       console.warn(
-        '[Auto Illustrator] Could not find prompt tag in search region:',
-        expectedTag,
-        '\nSearch region:',
-        searchRegion.substring(0, 200) + '...'
+        '[Auto Illustrator] Could not find prompt tag in message:',
+        expectedTag
       );
       return {success: false};
     }
 
-    // Calculate actual position in full text
-    const actualStartIndex = searchStart + tagIndex;
-    const actualEndIndex = actualStartIndex + expectedTag.length;
+    // Calculate position in full text
+    const actualEndIndex = tagIndex + expectedTag.length;
 
     // Check if image already inserted (to prevent duplicates)
     const afterPrompt = currentText.substring(
