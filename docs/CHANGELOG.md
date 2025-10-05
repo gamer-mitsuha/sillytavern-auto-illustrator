@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Refactored prompt injection to use `GENERATE_AFTER_COMBINE_PROMPTS` event instead of prompt interceptor
+- Refactored prompt injection to use `CHAT_COMPLETION_PROMPT_READY` event instead of prompt interceptor
 - Meta-prompt now injected as separate system message right before last message
 
 ### Added
