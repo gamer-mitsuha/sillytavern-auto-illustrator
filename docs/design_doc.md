@@ -9,10 +9,10 @@
 
 ## Implementation details For MVP
 
-- Monitor the `CHAT_COMPLETION_PROMPT_READY` event to inject the image generation meta prompts.
-  - This event is emitted when the prompt is ready to be sent to the LLM.
-  - The meta-prompt is injected as a separate system message right before the last message in the chat array.
-  - This approach ensures the prompt injection happens at the right time.
+- Use SillyTavern's `setExtensionPrompt` API to inject the image generation meta prompts.
+  - The meta-prompt is registered with position=1 (in-chat) and depth=0 (last message).
+  - A filter function controls whether the prompt is injected based on the extension's enabled status.
+  - This approach integrates properly with SillyTavern's prompt management system.
 - Image generation prompt format
   - The meta prompt should instruct the LLM to output with a special format like `<img_prompt="actual prompt">`.
 - Monitor the `MESSAGE_RECEIVED` event, and extract the image generation prompts from the response.

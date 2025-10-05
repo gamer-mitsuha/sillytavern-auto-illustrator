@@ -4,7 +4,7 @@
  */
 
 import './style.css';
-import {createPromptInjectionHandler} from './prompt_injector';
+import {updateExtensionPrompt} from './prompt_injector';
 import {createMessageHandler} from './message_handler';
 import {
   loadSettings,
@@ -60,6 +60,9 @@ function handleSettingsChange(): void {
 
   saveSettings(settings, context);
 
+  // Update the extension prompt based on new settings
+  updateExtensionPrompt(context, settings);
+
   console.log('[Auto Illustrator] Settings updated:', settings);
 }
 
@@ -70,6 +73,10 @@ function handleResetSettings(): void {
   settings = getDefaultSettings();
   saveSettings(settings, context);
   updateUI();
+
+  // Update the extension prompt with reset settings
+  updateExtensionPrompt(context, settings);
+
   console.log('[Auto Illustrator] Settings reset to defaults');
 }
 
@@ -96,22 +103,16 @@ function initialize(): void {
   settings = loadSettings(context);
   console.log('[Auto Illustrator] Loaded settings:', settings);
 
-  // Create event handlers
-  const messageHandler = createMessageHandler(context);
-  const promptInjectionHandler = createPromptInjectionHandler(() => settings);
+  // Set up extension prompt using SillyTavern's API
+  updateExtensionPrompt(context, settings);
 
-  // Register event handlers
-  const CHAT_COMPLETION_PROMPT_READY =
-    context.eventTypes?.CHAT_COMPLETION_PROMPT_READY ||
-    'CHAT_COMPLETION_PROMPT_READY';
+  // Create and register message handler
+  const messageHandler = createMessageHandler(context);
   const MESSAGE_RECEIVED =
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
-
-  context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, promptInjectionHandler);
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
   console.log('[Auto Illustrator] Event handlers registered:', {
-    CHAT_COMPLETION_PROMPT_READY,
     MESSAGE_RECEIVED,
   });
 
