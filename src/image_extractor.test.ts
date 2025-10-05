@@ -100,5 +100,36 @@ describe('image_extractor', () => {
       expect(matches).toHaveLength(1);
       expect(matches[0].prompt).toContain('saying');
     });
+
+    it('should not match incomplete tag - missing closing quote and bracket', () => {
+      const text = 'Streaming in progress <img_prompt="partial';
+      const matches = extractImagePrompts(text);
+
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should not match incomplete tag - missing closing bracket', () => {
+      const text = 'Streaming in progress <img_prompt="complete text"';
+      const matches = extractImagePrompts(text);
+
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should not match incomplete tag - opening tag only', () => {
+      const text = 'Streaming in progress <img_prompt=';
+      const matches = extractImagePrompts(text);
+
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should match complete tag after incomplete ones in streaming text', () => {
+      const text =
+        'First <img_prompt="incomplete then <img_prompt="complete tag"> done';
+      const matches = extractImagePrompts(text);
+
+      // Should only match the complete tag
+      expect(matches).toHaveLength(1);
+      expect(matches[0].prompt).toBe('complete tag');
+    });
   });
 });
