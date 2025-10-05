@@ -25,7 +25,9 @@ declare global {
       once(event: string, callback: (...args: any[]) => void): void;
       emit(event: string, ...args: any[]): void;
     };
-    eventTypes: Record<string, string>;
+    eventTypes: Record<string, string> & {
+      CHAT_COMPLETION_PROMPT_READY?: string;
+    };
     SlashCommandParser: {
       commands: Record<
         string,
