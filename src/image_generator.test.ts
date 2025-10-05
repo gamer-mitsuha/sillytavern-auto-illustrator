@@ -71,7 +71,7 @@ describe('image_generator', () => {
   });
 
   describe('replacePromptsWithImages', () => {
-    it('should replace single prompt with image', async () => {
+    it('should preserve prompt tag and add image on next line', async () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValue('https://example.com/image1.png');
@@ -88,13 +88,17 @@ describe('image_generator', () => {
       const text = 'Text before <img_prompt="sunset scene"> text after';
       const result = await replacePromptsWithImages(text, mockContext);
 
+      expect(result).toContain('<img_prompt="sunset scene">');
       expect(result).toContain('<img src="https://example.com/image1.png"');
       expect(result).toContain('title="sunset scene"');
       expect(result).toContain('alt="sunset scene"');
-      expect(result).not.toContain('<img_prompt');
+      // Check that image comes after the prompt
+      const promptIndex = result.indexOf('<img_prompt="sunset scene">');
+      const imgIndex = result.indexOf('<img src=');
+      expect(imgIndex).toBeGreaterThan(promptIndex);
     });
 
-    it('should replace multiple prompts with images', async () => {
+    it('should preserve multiple prompts and add images', async () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValueOnce('https://example.com/image1.png')
@@ -113,6 +117,8 @@ describe('image_generator', () => {
         'Start <img_prompt="scene 1"> middle <img_prompt="scene 2"> end';
       const result = await replacePromptsWithImages(text, mockContext);
 
+      expect(result).toContain('<img_prompt="scene 1">');
+      expect(result).toContain('<img_prompt="scene 2">');
       expect(result).toContain('https://example.com/image1.png');
       expect(result).toContain('https://example.com/image2.png');
       expect(mockCallback).toHaveBeenCalledTimes(2);
@@ -171,9 +177,10 @@ describe('image_generator', () => {
       const text = 'Start <img_prompt="middle"> end';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      expect(result).toMatch(/^Start .+ end$/);
+      expect(result).toContain('<img_prompt="middle">');
       expect(result.indexOf('Start')).toBe(0);
       expect(result.indexOf('end')).toBeGreaterThan(0);
+      expect(result).toContain('https://example.com/image.png');
     });
 
     it('should generate images sequentially to avoid rate limiting', async () => {

@@ -108,17 +108,14 @@ export async function replacePromptsWithImages(
     const imageUrl = imageUrls[i];
 
     if (imageUrl) {
-      // Create image tag with title and alt attributes
+      // Preserve the original prompt tag and add image on next line
       const imgTag = `<img src="${imageUrl}" title="${match.prompt}" alt="${match.prompt}">`;
       result =
-        result.substring(0, match.startIndex) +
+        result.substring(0, match.endIndex) +
+        '\n' +
         imgTag +
         result.substring(match.endIndex);
-      console.log(
-        '[Auto Illustrator] Replaced prompt at index',
-        i,
-        'with image'
-      );
+      console.log('[Auto Illustrator] Added image after prompt at index', i);
     } else {
       // Remove the prompt tag if image generation failed
       result =

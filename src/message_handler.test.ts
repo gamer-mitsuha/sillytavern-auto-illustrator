@@ -36,7 +36,9 @@ describe('message_handler', () => {
 
       await processMessageImages(message, messageId, mockContext);
 
-      expect(mockContext.chat[0].mes).not.toContain('<img_prompt');
+      expect(mockContext.chat[0].mes).toContain(
+        '<img_prompt="beautiful scene">'
+      );
       expect(mockContext.chat[0].mes).toContain(
         '<img src="https://example.com/image.png"'
       );
