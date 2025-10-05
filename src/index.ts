@@ -215,27 +215,31 @@ async function handleGenerationEnded(): Promise<void> {
   // Process any remaining queued prompts
   await queueProcessor.processRemaining();
 
-  // Get deferred images before stopping processor
+  // Get deferred images and message ID before clearing state
   const deferredImages = queueProcessor.getDeferredImages();
-
-  // Stop processor
-  queueProcessor.stop();
-
-  // Insert all deferred images now that streaming is complete
-  if (deferredImages.length > 0 && currentStreamingMessageId !== null) {
-    console.log(
-      `[Auto Illustrator] Inserting ${deferredImages.length} deferred images`
-    );
-    await insertDeferredImages(
-      deferredImages,
-      currentStreamingMessageId,
-      context
-    );
-  }
+  const messageId = currentStreamingMessageId;
 
   // Log final statistics
   const stats = streamingQueue.getStats();
   console.log('[Auto Illustrator] Final streaming stats:', stats);
+
+  // Stop processor
+  queueProcessor.stop();
+
+  // Clear state BEFORE inserting images
+  // This prevents MESSAGE_RECEIVED from processing this message
+  streamingQueue = null;
+  streamingMonitor = null;
+  queueProcessor = null;
+  currentStreamingMessageId = null;
+
+  // Insert all deferred images now that streaming is complete
+  if (deferredImages.length > 0 && messageId !== null) {
+    console.log(
+      `[Auto Illustrator] Inserting ${deferredImages.length} deferred images`
+    );
+    await insertDeferredImages(deferredImages, messageId, context);
+  }
 
   // Show notification if there were issues
   const failedCount = stats.FAILED;
@@ -245,12 +249,6 @@ async function handleGenerationEnded(): Promise<void> {
       'Auto Illustrator'
     );
   }
-
-  // Clear state
-  streamingQueue = null;
-  streamingMonitor = null;
-  queueProcessor = null;
-  currentStreamingMessageId = null; // Allow MESSAGE_RECEIVED to process future messages
 }
 
 /**
@@ -278,7 +276,11 @@ function initialize(): void {
   // Create and register message handler with streaming check
   const isMessageBeingStreamed = (messageId: number) =>
     currentStreamingMessageId === messageId;
-  const messageHandler = createMessageHandler(context, isMessageBeingStreamed);
+  const messageHandler = createMessageHandler(
+    context,
+    isMessageBeingStreamed,
+    settings
+  );
   const MESSAGE_RECEIVED =
     context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
