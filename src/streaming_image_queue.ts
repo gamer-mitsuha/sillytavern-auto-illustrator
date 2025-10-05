@@ -105,6 +105,21 @@ export class ImageGenerationQueue {
   }
 
   /**
+   * Checks if a prompt with this text exists anywhere in the queue
+   * (ignores position - useful for detecting duplicates after text shifts)
+   * @param prompt - Prompt text
+   * @returns True if a prompt with this text exists
+   */
+  hasPromptByText(prompt: string): boolean {
+    for (const queuedPrompt of this.prompts.values()) {
+      if (queuedPrompt.prompt === prompt) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Gets the next pending prompt (QUEUED state)
    * @returns Next prompt to process, or null if none available
    */

@@ -184,26 +184,43 @@ export async function insertImageIntoMessage(
 
     // Find the prompt in the current text
     // The text may have grown since the prompt was detected
-    // So we search for the prompt tag in the vicinity of the original position
+    // The LLM may also rewrite the prompt during streaming
+    // So we search for ANY img_prompt tag in the vicinity of the original position
     const searchStart = Math.max(0, promptInfo.startIndex - 50);
-    const searchEnd = Math.min(currentText.length, promptInfo.endIndex + 100);
+    const searchEnd = Math.min(currentText.length, promptInfo.endIndex + 200);
     const searchRegion = currentText.substring(searchStart, searchEnd);
 
-    // Build the expected prompt tag
-    const expectedTag = `<img_prompt="${promptInfo.prompt}">`;
-    const tagIndex = searchRegion.indexOf(expectedTag);
+    // Search for any img_prompt tag in the region (prompt text may have changed)
+    const promptTagRegex = /<img_prompt="([^"]+)">/;
+    const match = searchRegion.match(promptTagRegex);
 
-    if (tagIndex === -1) {
+    if (!match) {
       console.warn(
-        '[Auto Illustrator] Could not find prompt tag in message, text may have changed:',
-        expectedTag
+        '[Auto Illustrator] Could not find any img_prompt tag in search region (original prompt:',
+        promptInfo.prompt,
+        ')'
       );
       return {success: false};
     }
 
+    const actualPromptText = match[1]; // Extract the actual prompt from the tag
+    const actualTag = match[0]; // Full tag like <img_prompt="...">
+    const tagIndex = match.index!;
+
+    // Log if the LLM modified the prompt during streaming
+    if (actualPromptText !== promptInfo.prompt) {
+      console.log(
+        '[Auto Illustrator] LLM modified prompt during streaming:',
+        '\n  Original:',
+        promptInfo.prompt,
+        '\n  Current:',
+        actualPromptText
+      );
+    }
+
     // Calculate actual position in full text
     const actualStartIndex = searchStart + tagIndex;
-    const actualEndIndex = actualStartIndex + expectedTag.length;
+    const actualEndIndex = actualStartIndex + actualTag.length;
 
     // Check if image already inserted (to prevent duplicates)
     const afterPrompt = currentText.substring(
@@ -218,8 +235,8 @@ export async function insertImageIntoMessage(
       return {success: false};
     }
 
-    // Insert image tag after the prompt
-    const imgTag = `<img src="${imageUrl}" title="${promptInfo.prompt}" alt="${promptInfo.prompt}">`;
+    // Insert image tag after the prompt using the actual prompt text from the message
+    const imgTag = `<img src="${imageUrl}" title="${actualPromptText}" alt="${actualPromptText}">`;
     const insertedText = '\n' + imgTag;
     const newText =
       currentText.substring(0, actualEndIndex) +

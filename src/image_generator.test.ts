@@ -403,5 +403,53 @@ describe('image_generator', () => {
       expect(mockContext.chat[0].mes).toContain('End');
       expect(mockContext.chat[0].mes).toContain('<img_prompt="test">');
     });
+
+    it('should handle LLM modifying prompt text during streaming', async () => {
+      const mockEmit = vi.fn();
+      const mockContext = createMockContext({
+        chat: [
+          {
+            // LLM rewrote the prompt: changed order from "danbooru, rating" to "rating, danbooru"
+            mes: 'Text <img_prompt="rating:nsfw, danbooru:character, modified description"> more',
+            is_user: false,
+          },
+        ],
+        eventSource: {
+          on: vi.fn(),
+          once: vi.fn(),
+          emit: mockEmit,
+        },
+        eventTypes: {
+          MESSAGE_EDITED: 'MESSAGE_EDITED',
+        },
+      });
+
+      const promptInfo = {
+        id: 'test_id',
+        // Original detected prompt (different from current)
+        prompt: 'danbooru:character, rating:nsfw, original description',
+        startIndex: 5,
+        endIndex: 70,
+        state: 'COMPLETED' as const,
+        attempts: 1,
+        detectedAt: Date.now(),
+      };
+
+      const result = await insertImageIntoMessage(
+        promptInfo,
+        'test.jpg',
+        0,
+        mockContext
+      );
+
+      // Should still successfully insert using the modified prompt
+      expect(result.success).toBe(true);
+      expect(mockContext.chat[0].mes).toContain('<img src="test.jpg"');
+      // Image should use the current (modified) prompt text for alt/title
+      expect(mockContext.chat[0].mes).toContain(
+        'rating:nsfw, danbooru:character, modified description'
+      );
+      expect(mockEmit).toHaveBeenCalledWith('MESSAGE_EDITED', 0);
+    });
   });
 });

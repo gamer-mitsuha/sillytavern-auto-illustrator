@@ -148,8 +148,9 @@ export class StreamingMonitor {
     const newPrompts: ImagePromptMatch[] = [];
 
     for (const match of allPrompts) {
-      // Check if this prompt is already in the queue
-      if (!this.queue.hasPrompt(match.prompt, match.startIndex)) {
+      // Check if this prompt text is already in the queue (ignore position)
+      // This prevents duplicates when text positions shift after image insertion
+      if (!this.queue.hasPromptByText(match.prompt)) {
         newPrompts.push(match);
       }
     }
