@@ -194,15 +194,18 @@ function handleGenerationStarted(
 
   // Initialize new streaming state
   streamingQueue = new ImageGenerationQueue();
-  streamingMonitor = new StreamingMonitor(
-    streamingQueue,
-    context,
-    settings.streamingPollInterval
-  );
   queueProcessor = new QueueProcessor(
     streamingQueue,
     context,
     settings.maxConcurrentGenerations
+  );
+
+  // Create monitor with callback to trigger processor when new prompts detected
+  streamingMonitor = new StreamingMonitor(
+    streamingQueue,
+    context,
+    settings.streamingPollInterval,
+    () => queueProcessor?.trigger() // Trigger processing when new prompts added
   );
 
   // Track which message is being streamed to prevent duplicate MESSAGE_RECEIVED processing
