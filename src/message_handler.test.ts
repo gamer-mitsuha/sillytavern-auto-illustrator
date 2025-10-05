@@ -97,6 +97,7 @@ describe('message_handler', () => {
         },
         eventSource: {
           on: vi.fn(),
+          once: vi.fn(),
           emit: vi.fn(),
         },
         chat: [],
@@ -122,6 +123,7 @@ describe('message_handler', () => {
         },
         eventSource: {
           on: vi.fn(),
+          once: vi.fn(),
           emit: mockEmit,
         },
         eventTypes: {
