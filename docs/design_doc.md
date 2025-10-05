@@ -22,18 +22,34 @@
 - Finally emit a `MESSAGE_EDITED` event.
   - This is to trigger other existing regex patterns (if any) that "Run on Edit". In particular, this would help prevent problems with incorrect rendering for regexes that only "Alter Chat Display".
 
-## Future extension
+## Implemented Features Beyond MVP
+
+### Streaming Image Generation ✅
+- **Real-time prompt detection**: Monitors streaming messages and detects `<img_prompt>` tags as they appear
+- **Background generation**: Generates images while LLM continues streaming (deferred insertion mode)
+- **Two-way handshake**: Coordinates insertion after BOTH streaming completes AND all images are generated
+- **Atomic insertion**: All images inserted in single operation to prevent race conditions
+- **Event coordination**: Emits MESSAGE_UPDATED and MESSAGE_EDITED for proper rendering
+
+### Chat History Pruning ✅
+- **Automatic cleanup**: Removes generated `<img>` tags from chat history before sending to LLM
+- **Preserves prompts**: Keeps `<img_prompt>` tags so LLM can track what was generated
+- **Context management**: Prevents bloated context from image data
+
+### Advanced Settings ✅
+- **Streaming toggle**: Enable/disable streaming mode
+- **Poll interval**: Configurable prompt detection frequency (100-1000ms)
+- **Concurrency control**: Limit simultaneous image generations (1-5)
+- **Sequential processing**: Prevents rate limiting with ordered generation
+
+## Future Extensions
 
 - Allow user to choose where to insert the meta prompt
 - Optimize the meta prompt for image generation
-- Faster rendering
-  - Try to parse the response periodically to allow displaying images faster, e.g., once the 1st image generation prompt is detected, send it to the image generation model and then display the generated image as soon as possible.
 - Character consistency control
 - Independent generation of "image generation prompts"
 - Default meta prompts for various image generation models
-- More stable history management
-  - Instead of replacing the image generation prompt with the actual image, try to keep the image generation prompt (to let LLM recognize these prompts were actually generated in the previous responses), and add the new image tag containing the generated image after it.
-  - We can make the image generation prompt invisible using CSS.
+- CSS styling for image generation prompts (invisible but preserved in history)
 
 ## References
 - https://docs.sillytavern.app/for-contributors/writing-extensions/
