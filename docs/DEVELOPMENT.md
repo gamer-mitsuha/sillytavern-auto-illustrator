@@ -45,31 +45,38 @@ sillytavern-auto-illustrator/
 │   ├── prompt_injector.ts    # Meta-prompt injection logic
 │   ├── message_handler.ts    # MESSAGE_RECEIVED event handler
 │   ├── image_extractor.ts    # Regex-based prompt extraction
-│   ├── image_generator.ts    # SD command integration
+│   ├── image_generator.ts    # SD command integration, toastr notifications
 │   ├── settings.ts           # Settings management & UI
+│   ├── test_helpers.ts       # Test utility functions (createMockContext)
 │   ├── style.css             # Extension styles
-│   └── *.test.ts             # Unit tests
-├── globals.d.ts              # TypeScript type definitions
+│   └── *.test.ts             # Unit tests (36 tests, 100% passing)
+├── globals.d.ts              # TypeScript type definitions (SillyTavern context, toastr)
 ├── manifest.json             # Extension metadata
 ├── package.json              # Dependencies and scripts
-├── tsconfig.json             # TypeScript configuration
+├── tsconfig.json             # TypeScript configuration (with DOM types)
+├── tsconfig.build.json       # Production build config (excludes tests)
 ├── webpack.config.js         # Webpack build configuration
-└── README.md                 # This file
+└── docs/
+    ├── CHANGELOG.md          # Version history
+    ├── DEVELOPMENT.md        # This file
+    └── design_doc.md         # Architecture documentation
 ```
 
 ### Coding Standards
 
 - **Style Guide**: Google TypeScript Style Guide (enforced by `gts`)
-- **Testing**: Vitest with comprehensive code coverage
-- **Type Safety**: Strict TypeScript with proper type definitions
+- **Testing**: Vitest with comprehensive code coverage (36 tests)
+- **Type Safety**: Strict TypeScript with zero `any` in production code
 - **Architecture**: Modular design with single responsibility principle
+- **Test Helpers**: Use `createMockContext()` for type-safe partial mocks
+- **Notifications**: Use toastr for user feedback
 
 ### Testing
 
 The extension uses Vitest for unit testing with jsdom environment:
 
 ```bash
-# Run all tests
+# Run all tests (36 tests)
 npm test
 
 # Watch mode for TDD
@@ -78,6 +85,11 @@ npm run test:watch
 # Coverage report
 npm run test:coverage
 ```
+
+**Test Utilities:**
+- `createMockContext()` - Helper for creating type-safe partial SillyTavern context mocks
+- Global `toastr` mock - Prevents notification errors in tests
+- All tests use proper TypeScript types (no `as any` in assertions)
 
 ### Making Changes
 
