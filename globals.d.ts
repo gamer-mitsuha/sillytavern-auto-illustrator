@@ -7,6 +7,16 @@ import '../../../../public/global';
 import '../../../../global';
 
 declare global {
+  // Toastr notification library (loaded globally)
+  interface Toastr {
+    success(message: string, title?: string): void;
+    info(message: string, title?: string): void;
+    warning(message: string, title?: string): void;
+    error(message: string, title?: string): void;
+  }
+
+  const toastr: Toastr;
+
   // SillyTavern context type - manually typed since st-context.js has no type info
   /* eslint-disable @typescript-eslint/no-explicit-any */
   interface SillyTavernContext {
