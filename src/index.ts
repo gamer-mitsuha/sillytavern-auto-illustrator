@@ -18,6 +18,7 @@ import {
   createSettingsUI,
 } from './settings';
 import {createLogger, setLogLevel} from './logger';
+import {UI_ELEMENT_IDS} from './constants';
 
 const logger = createLogger('Main');
 
@@ -39,25 +40,25 @@ let currentStreamingMessageId: number | null = null; // Track which message is b
  */
 function updateUI(): void {
   const enabledCheckbox = document.getElementById(
-    'auto_illustrator_enabled'
+    UI_ELEMENT_IDS.ENABLED
   ) as HTMLInputElement;
   const wordIntervalInput = document.getElementById(
-    'auto_illustrator_word_interval'
+    UI_ELEMENT_IDS.WORD_INTERVAL
   ) as HTMLInputElement;
   const metaPromptTextarea = document.getElementById(
-    'auto_illustrator_meta_prompt'
+    UI_ELEMENT_IDS.META_PROMPT
   ) as HTMLTextAreaElement;
   const streamingEnabledCheckbox = document.getElementById(
-    'auto_illustrator_streaming_enabled'
+    UI_ELEMENT_IDS.STREAMING_ENABLED
   ) as HTMLInputElement;
   const streamingPollIntervalInput = document.getElementById(
-    'auto_illustrator_streaming_poll_interval'
+    UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL
   ) as HTMLInputElement;
   const maxConcurrentInput = document.getElementById(
-    'auto_illustrator_max_concurrent'
+    UI_ELEMENT_IDS.MAX_CONCURRENT
   ) as HTMLInputElement;
   const logLevelSelect = document.getElementById(
-    'auto_illustrator_log_level'
+    UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
 
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -79,25 +80,25 @@ function updateUI(): void {
  */
 function handleSettingsChange(): void {
   const enabledCheckbox = document.getElementById(
-    'auto_illustrator_enabled'
+    UI_ELEMENT_IDS.ENABLED
   ) as HTMLInputElement;
   const wordIntervalInput = document.getElementById(
-    'auto_illustrator_word_interval'
+    UI_ELEMENT_IDS.WORD_INTERVAL
   ) as HTMLInputElement;
   const metaPromptTextarea = document.getElementById(
-    'auto_illustrator_meta_prompt'
+    UI_ELEMENT_IDS.META_PROMPT
   ) as HTMLTextAreaElement;
   const streamingEnabledCheckbox = document.getElementById(
-    'auto_illustrator_streaming_enabled'
+    UI_ELEMENT_IDS.STREAMING_ENABLED
   ) as HTMLInputElement;
   const streamingPollIntervalInput = document.getElementById(
-    'auto_illustrator_streaming_poll_interval'
+    UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL
   ) as HTMLInputElement;
   const maxConcurrentInput = document.getElementById(
-    'auto_illustrator_max_concurrent'
+    UI_ELEMENT_IDS.MAX_CONCURRENT
   ) as HTMLInputElement;
   const logLevelSelect = document.getElementById(
-    'auto_illustrator_log_level'
+    UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
 
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
@@ -365,26 +366,24 @@ function initialize(): void {
     settingsContainer.insertAdjacentHTML('beforeend', settingsHTML);
 
     // Attach event listeners
-    const enabledCheckbox = document.getElementById('auto_illustrator_enabled');
+    const enabledCheckbox = document.getElementById(UI_ELEMENT_IDS.ENABLED);
     const wordIntervalInput = document.getElementById(
-      'auto_illustrator_word_interval'
+      UI_ELEMENT_IDS.WORD_INTERVAL
     );
     const metaPromptTextarea = document.getElementById(
-      'auto_illustrator_meta_prompt'
+      UI_ELEMENT_IDS.META_PROMPT
     );
     const streamingEnabledCheckbox = document.getElementById(
-      'auto_illustrator_streaming_enabled'
+      UI_ELEMENT_IDS.STREAMING_ENABLED
     );
     const streamingPollIntervalInput = document.getElementById(
-      'auto_illustrator_streaming_poll_interval'
+      UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL
     );
     const maxConcurrentInput = document.getElementById(
-      'auto_illustrator_max_concurrent'
+      UI_ELEMENT_IDS.MAX_CONCURRENT
     );
-    const logLevelSelect = document.getElementById(
-      'auto_illustrator_log_level'
-    );
-    const resetButton = document.getElementById('auto_illustrator_reset');
+    const logLevelSelect = document.getElementById(UI_ELEMENT_IDS.LOG_LEVEL);
+    const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
     wordIntervalInput?.addEventListener('change', handleSettingsChange);
