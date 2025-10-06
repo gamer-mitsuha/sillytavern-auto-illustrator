@@ -8,24 +8,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Centralized logging system using loglevel library with configurable log levels
-- Contextual loggers for each module (Monitor, Queue, Processor, Generator, etc.)
-- Comprehensive logging documentation in docs/LOGGING.md
-- Log level setting in UI (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- Automatic inline image generation based on LLM-generated prompts
+- Meta-prompt injection using SillyTavern's `setExtensionPrompt` API
+- Regex-based image prompt extraction (`<img_prompt="...">` format)
+- Integration with Stable Diffusion slash command (`/sd`)
+- Toastr notifications for image generation feedback
+  - Info: "Generating X images..." when starting
+  - Success: When all images generated successfully
+  - Warning: For partial success scenarios
+  - Error: When all images failed
+- Streaming image generation
+  - Generate images progressively as streaming text arrives
+  - Queue-based architecture detects prompts during LLM streaming
+  - Images appear as soon as generated (no waiting for full response)
+  - Configurable polling interval (100-1000ms, default 300ms)
+  - Configurable max concurrent generations (default: 1 for rate limiting)
+  - Significantly reduces perceived latency for image generation
+  - Two-way handshake coordination for deferred image insertion
+  - Batch image insertion using single-write approach
+  - Streaming message tracking to prevent duplicate processing
+  - Full-text search for image insertion (no position tracking needed)
+  - Duplicate prompt detection prevention after text shifts
+- Chat history pruning using `CHAT_COMPLETION_PROMPT_READY` event
+  - Removes generated `<img>` tags from chat history before sending to LLM
+  - Preserves `<img_prompt>` tags so LLM recognizes its own format
+  - Only removes images in assistant messages (preserves user-uploaded images)
+  - Does not modify saved chat files, only in-memory chat sent to LLM
+  - Skips dry run operations to prevent removing images from UI
+- Centralized logging system using loglevel library
+  - Contextual loggers for each module (Monitor, Queue, Processor, Generator, etc.)
+  - Log level setting in UI (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+  - Verbose "Text changed" logs use DEBUG level
+  - Image generation duration logging (individual and batch metrics)
+  - Comprehensive logging documentation in docs/LOGGING.md
 - Centralized regex patterns module (src/regex.ts) to avoid duplication
 - Constants module (src/constants.ts) for settings defaults and validation ranges
+- Centralized type definitions module (src/types.ts) for shared TypeScript types
+- Settings panel with configurable options:
+  - Enable/disable toggle
+  - Word interval slider (50-1000 words)
+  - Meta-prompt template customization
+  - Enable streaming image generation toggle
+  - Streaming poll interval slider (100-1000ms)
+  - Max concurrent generations slider (1-5)
+  - Log level dropdown (TRACE/DEBUG/INFO/WARN/ERROR/SILENT)
+  - Reset to defaults button
+- Event-driven architecture using MESSAGE_RECEIVED, MESSAGE_UPDATED, MESSAGE_EDITED, CHAT_COMPLETION_PROMPT_READY, STREAM_TOKEN_RECEIVED, GENERATION_ENDED, and CHAT_CHANGED events
+- Comprehensive unit test suite with Vitest
+  - Tests for streaming queue (data structure, position adjustment after insertion)
+  - Tests for streaming monitor (polling, prompt detection, lifecycle)
+  - Tests for queue processor (concurrency control, state management)
+  - Tests for messageId detection helper (findLastAssistantMessageId)
+  - Tests for progressive image insertion (insertImageIntoMessage)
+  - Tests for existing functionality (extraction, generation, settings, prompt injection)
+- Full TypeScript type definitions for SillyTavern API
+- Google TypeScript Style Guide compliance with `gts`
+- Webpack build system for production bundling
+- GitHub issue template for error handling improvements (.github-issue-error-handling.md)
 
-### Changed
-- Replaced all console.log/warn/error calls with structured logging
-- Improved chat history pruner regex to match img tags regardless of attributes
-- Simplified image title/alt attributes to use numeric indices (#1, #2, etc.)
-- Verbose "Text changed" logs in streaming monitor now use DEBUG level instead of INFO
-- Refactored regex patterns into reusable module with helper functions
-- Centralized all magic numbers into constants module with proper validation ranges
+### Technical Details
+- Built with TypeScript and Webpack
+- Queue-based streaming architecture with state management
+- Polling-based prompt detection (300ms intervals during streaming)
+- Progressive image insertion into streaming messages
+- Sequential image generation to prevent rate limiting (NovelAI 429 errors)
+- Smart deduplication prevents duplicate image generation
+- Graceful fallback to non-streaming mode if disabled or events unavailable
+- Zero `any` types in production code (full type safety)
+- Modular architecture with single responsibility principle
+- `createMockContext()` helper for clean, type-safe test mocks
+- Proper DOM type definitions in tsconfig
+- Zero lint warnings
+- In-place image prompt replacement preserving text order
+- Chat history interceptor prevents LLM context pollution from generated images
+- Position-aware image insertion handles growing streaming text
+- Helper functions to eliminate code duplication (~340 lines reduced in image_generator.ts)
+- Direct type imports from types.ts (no re-exports)
+- Event type references use eventTypes properties directly (no string fallbacks)
+- All event type properties required in globals.d.ts (no optional chaining)
+- Image titles use simple numeric indices (#1, #2, etc.) to avoid special character issues
+- Chat history pruner regex matches img tags regardless of attributes
+- Generated images persist after chat reload via context.saveChat()
+- MESSAGE_UPDATED and MESSAGE_EDITED events both emitted for proper UI rendering
 
-### Fixed
-- Chat history pruner now skips dry run operations to prevent removing images from UI when loading chats or counting tokens
-- Generated images now persist after chat reload by calling context.saveChat() after image insertion
+## [1.0.0] - TBD
 
-### Removed
-- Direct console.log usage throughout the codebase
+Initial release
