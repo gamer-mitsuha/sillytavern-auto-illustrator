@@ -4,17 +4,7 @@
  */
 
 import {ImageGenerationQueue, QueuedPrompt} from './streaming_image_queue';
-import {generateImage, ImageInsertionResult} from './image_generator';
-
-/**
- * Callback for when an image is generated
- * Should insert the image into the message and return insertion details
- */
-export type ImageGeneratedCallback = (
-  prompt: QueuedPrompt,
-  imageUrl: string,
-  messageId: number
-) => Promise<ImageInsertionResult>;
+import {generateImage} from './image_generator';
 
 /**
  * Deferred image for batch insertion after streaming
@@ -35,9 +25,7 @@ export class QueueProcessor {
   private isProcessing = false;
   private maxConcurrent: number;
   private activeGenerations = 0;
-  private onImageGenerated: ImageGeneratedCallback | null = null;
   private processPromise: Promise<void> | null = null;
-  private deferInsertions = false;
   private deferredImages: DeferredImage[] = [];
 
   /**
@@ -57,16 +45,11 @@ export class QueueProcessor {
   }
 
   /**
-   * Starts processing the queue
+   * Starts processing the queue with deferred insertions
+   * Images are generated during processing but inserted in batch after completion
    * @param messageId - Message being generated
-   * @param onImageGenerated - Callback when image is ready
-   * @param deferInsertions - If true, don't insert images immediately (for streaming)
    */
-  start(
-    messageId: number,
-    onImageGenerated: ImageGeneratedCallback,
-    deferInsertions = false
-  ): void {
+  start(messageId: number): void {
     if (this.isRunning) {
       console.warn(
         '[Auto Illustrator Processor] Already running, stopping previous processor'
@@ -76,13 +59,11 @@ export class QueueProcessor {
 
     this.messageId = messageId;
     this.isRunning = true;
-    this.onImageGenerated = onImageGenerated;
     this.activeGenerations = 0;
-    this.deferInsertions = deferInsertions;
     this.deferredImages = [];
 
     console.log(
-      `[Auto Illustrator Processor] Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent}, defer: ${deferInsertions})`
+      `[Auto Illustrator Processor] Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
     );
 
     // Start processing
@@ -100,7 +81,6 @@ export class QueueProcessor {
     console.log('[Auto Illustrator Processor] Stopping processor');
     this.isRunning = false;
     this.messageId = -1;
-    this.onImageGenerated = null;
     // Note: we don't cancel active generations, let them complete
   }
 
@@ -192,18 +172,11 @@ export class QueueProcessor {
           `[Auto Illustrator Processor] Generated image: ${imageUrl}`
         );
 
-        // If deferring insertions, store for later batch insertion
-        if (this.deferInsertions) {
-          this.deferredImages.push({prompt, imageUrl});
-          console.log(
-            `[Auto Illustrator Processor] Deferred image insertion (${this.deferredImages.length} total)`
-          );
-        } else {
-          // Insert immediately
-          if (this.onImageGenerated && this.isRunning) {
-            await this.onImageGenerated(prompt, imageUrl, this.messageId);
-          }
-        }
+        // Store for later batch insertion (after streaming completes)
+        this.deferredImages.push({prompt, imageUrl});
+        console.log(
+          `[Auto Illustrator Processor] Deferred image insertion (${this.deferredImages.length} total)`
+        );
       } else {
         // Failed
         this.queue.updateState(prompt.id, 'FAILED', {

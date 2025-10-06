@@ -4,22 +4,65 @@
  */
 
 import {extractImagePrompts} from './image_extractor';
-import {QueuedPrompt} from './streaming_image_queue';
 import {DeferredImage} from './queue_processor';
 
 /**
- * Escapes HTML special characters for use in attributes
- * Prevents HTML injection and attribute parsing issues
- * @param str - String to escape
- * @returns Escaped string safe for HTML attributes
+ * Creates an image tag with safe, simple attributes
+ * @param imageUrl - URL of the generated image
+ * @param index - Index of the image (for identification in title/alt)
+ * @returns HTML image tag
  */
-function escapeHtml(str: string): string {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function createImageTag(imageUrl: string, index: number): string {
+  const label = `AI generated image #${index + 1}`;
+  return `<img src="${imageUrl}" title="${label}" alt="${label}">`;
+}
+
+/**
+ * Inserts an image tag after a prompt tag in text
+ * @param text - Text containing the prompt tag
+ * @param promptText - The prompt text to search for
+ * @param imageUrl - URL of the image to insert
+ * @param index - Index of the image
+ * @returns Updated text and success status
+ */
+function insertImageAfterPrompt(
+  text: string,
+  promptText: string,
+  imageUrl: string,
+  index: number
+): {text: string; success: boolean} {
+  const expectedTag = `<img_prompt="${promptText}">`;
+  const tagIndex = text.indexOf(expectedTag);
+
+  if (tagIndex === -1) {
+    console.warn(
+      '[Auto Illustrator] Could not find prompt tag in text:',
+      expectedTag
+    );
+    return {text, success: false};
+  }
+
+  const actualEndIndex = tagIndex + expectedTag.length;
+
+  // Check if image already inserted (to prevent duplicates)
+  const afterPrompt = text.substring(actualEndIndex, actualEndIndex + 200);
+  if (afterPrompt.includes(`src="${imageUrl}"`)) {
+    console.log(
+      '[Auto Illustrator] Image already inserted, skipping:',
+      imageUrl
+    );
+    return {text, success: false};
+  }
+
+  // Insert image tag after the prompt
+  const imgTag = createImageTag(imageUrl, index);
+  const newText =
+    text.substring(0, actualEndIndex) +
+    '\n' +
+    imgTag +
+    text.substring(actualEndIndex);
+
+  return {text: newText, success: true};
 }
 
 /**
@@ -136,16 +179,17 @@ export async function replacePromptsWithImages(
     const imageUrl = imageUrls[i];
 
     if (imageUrl) {
-      // Preserve the original prompt tag and add image on next line
-      // Escape HTML to prevent attribute parsing issues with special characters
-      const escapedPrompt = escapeHtml(match.prompt);
-      const imgTag = `<img src="${imageUrl}" title="${escapedPrompt}" alt="${escapedPrompt}">`;
-      result =
-        result.substring(0, match.endIndex) +
-        '\n' +
-        imgTag +
-        result.substring(match.endIndex);
-      console.log('[Auto Illustrator] Added image after prompt at index', i);
+      // Use helper to insert image after prompt
+      const insertion = insertImageAfterPrompt(
+        result,
+        match.prompt,
+        imageUrl,
+        i
+      );
+      if (insertion.success) {
+        result = insertion.text;
+        console.log('[Auto Illustrator] Added image after prompt at index', i);
+      }
     } else {
       // Keep the prompt tag even if generation failed
       // This allows users to see what was attempted and enables manual retry
@@ -158,113 +202,6 @@ export async function replacePromptsWithImages(
   }
 
   return result;
-}
-
-/**
- * Result of image insertion into streaming message
- */
-export interface ImageInsertionResult {
-  success: boolean;
-  insertionPoint?: number;
-  insertedLength?: number;
-}
-
-/**
- * Inserts a single generated image into a message during streaming
- * @param promptInfo - Queued prompt information
- * @param imageUrl - Generated image URL
- * @param messageId - Message ID to update
- * @param context - SillyTavern context
- * @param emitEvent - Whether to emit MESSAGE_EDITED event (default: true)
- * @returns Insertion result with position details for queue adjustment
- */
-export async function insertImageIntoMessage(
-  promptInfo: QueuedPrompt,
-  imageUrl: string,
-  messageId: number,
-  context: SillyTavernContext,
-  emitEvent = true
-): Promise<ImageInsertionResult> {
-  console.log(
-    `[Auto Illustrator] Inserting image into message ${messageId} at position ${promptInfo.endIndex}`
-  );
-
-  try {
-    // Get current message
-    const message = context.chat?.[messageId];
-    if (!message) {
-      console.warn(
-        '[Auto Illustrator] Message not found for image insertion:',
-        messageId
-      );
-      return {success: false};
-    }
-
-    const currentText = message.mes || '';
-
-    // Find the exact prompt tag in the full message text
-    // Simple full-text search is reliable and efficient for typical message lengths
-    const expectedTag = `<img_prompt="${promptInfo.prompt}">`;
-    const tagIndex = currentText.indexOf(expectedTag);
-
-    if (tagIndex === -1) {
-      console.warn(
-        '[Auto Illustrator] Could not find prompt tag in message:',
-        expectedTag
-      );
-      return {success: false};
-    }
-
-    // Calculate position in full text
-    const actualEndIndex = tagIndex + expectedTag.length;
-
-    // Check if image already inserted (to prevent duplicates)
-    const afterPrompt = currentText.substring(
-      actualEndIndex,
-      actualEndIndex + 200
-    );
-    if (afterPrompt.includes(`src="${imageUrl}"`)) {
-      console.log(
-        '[Auto Illustrator] Image already inserted, skipping:',
-        imageUrl
-      );
-      return {success: false};
-    }
-
-    // Insert image tag after the prompt using the stored prompt text
-    // Escape HTML to prevent attribute parsing issues with special characters
-    const escapedPrompt = escapeHtml(promptInfo.prompt);
-    const imgTag = `<img src="${imageUrl}" title="${escapedPrompt}" alt="${escapedPrompt}">`;
-    const insertedText = '\n' + imgTag;
-    const newText =
-      currentText.substring(0, actualEndIndex) +
-      insertedText +
-      currentText.substring(actualEndIndex);
-
-    // Update message
-    message.mes = newText;
-
-    console.log(
-      `[Auto Illustrator] Inserted image into streaming message (${currentText.length} -> ${newText.length} chars)`
-    );
-
-    // Emit MESSAGE_EDITED to trigger UI update (if requested)
-    if (emitEvent) {
-      const MESSAGE_EDITED =
-        context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
-      context.eventSource.emit(MESSAGE_EDITED, messageId);
-    }
-
-    // Return insertion details so caller can adjust queue positions
-    return {
-      success: true,
-      insertionPoint: actualEndIndex,
-      insertedLength: insertedText.length,
-    };
-  } catch (error) {
-    console.error('[Auto Illustrator] Error inserting image:', error);
-    return {success: false};
-  }
 }
 
 /**
@@ -303,54 +240,30 @@ export async function insertDeferredImages(
   let finalText = message.mes || '';
   const originalLength = finalText.length;
 
-  // Sort images by position (last to first) to avoid position shifts
-  // When we insert from the end backwards, earlier positions remain valid
+  // Sort images by position (first to last)
   const sortedImages = [...deferredImages].sort(
-    (a, b) => b.prompt.startIndex - a.prompt.startIndex
+    (a, b) => a.prompt.startIndex - b.prompt.startIndex
   );
 
   let successCount = 0;
 
-  // Insert all images into the text string
-  for (const {prompt, imageUrl} of sortedImages) {
-    const expectedTag = `<img_prompt="${prompt.prompt}">`;
-    const tagIndex = finalText.indexOf(expectedTag);
+  // Insert images in reverse order to preserve positions
+  // (inserting from end backwards keeps earlier positions valid)
+  for (let i = sortedImages.length - 1; i >= 0; i--) {
+    const {prompt, imageUrl} = sortedImages[i];
 
-    if (tagIndex === -1) {
-      console.warn(
-        '[Auto Illustrator] Could not find prompt tag in message:',
-        expectedTag
-      );
-      continue;
-    }
-
-    const actualEndIndex = tagIndex + expectedTag.length;
-
-    // Check if image already inserted (to prevent duplicates)
-    const afterPrompt = finalText.substring(
-      actualEndIndex,
-      actualEndIndex + 200
+    // Use helper to insert image
+    const insertion = insertImageAfterPrompt(
+      finalText,
+      prompt.prompt,
+      imageUrl,
+      i
     );
-    if (afterPrompt.includes(`src="${imageUrl}"`)) {
-      console.log(
-        '[Auto Illustrator] Image already inserted, skipping:',
-        imageUrl
-      );
-      continue;
+
+    if (insertion.success) {
+      finalText = insertion.text;
+      successCount++;
     }
-
-    // Insert image tag after the prompt
-    // Escape HTML to prevent attribute parsing issues with special characters
-    const escapedPrompt = escapeHtml(prompt.prompt);
-    const imgTag = `<img src="${imageUrl}" title="${escapedPrompt}" alt="${escapedPrompt}">`;
-    const insertedText = '\n' + imgTag;
-
-    finalText =
-      finalText.substring(0, actualEndIndex) +
-      insertedText +
-      finalText.substring(actualEndIndex);
-
-    successCount++;
   }
 
   // Set message.mes ONCE with all images inserted
