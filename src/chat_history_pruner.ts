@@ -22,10 +22,10 @@ export function pruneGeneratedImages(
       continue;
     }
 
-    // Look for pattern: <img_prompt="...">OPTIONAL_WHITESPACE<img src="..." ...>
-    // This regex finds img tags that immediately follow img_prompt tags
-    const pattern =
-      /<img_prompt="[^"]*">\s*<img\s+src="[^"]*"[^>]*title="[^"]*"[^>]*alt="[^"]*"[^>]*>/g;
+    // Look for pattern: <img_prompt="...">OPTIONAL_WHITESPACE<img ...>
+    // This regex finds any img tag that immediately follows an img_prompt tag
+    // It matches regardless of img tag attributes (src, title, alt, etc.)
+    const pattern = /<img_prompt="[^"]*">\s*<img\s+[^>]*>/g;
 
     const originalContent = message.content;
     message.content = message.content.replace(pattern, match => {
