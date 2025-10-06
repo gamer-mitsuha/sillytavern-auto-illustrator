@@ -17,5 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved chat history pruner regex to match img tags regardless of attributes
 - Simplified image title/alt attributes to use numeric indices (#1, #2, etc.)
 
+### Fixed
+- Chat history pruner now skips dry run operations to prevent removing images from UI when loading chats or counting tokens
+
 ### Removed
 - Direct console.log usage throughout the codebase

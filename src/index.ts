@@ -315,6 +315,12 @@ function initialize(): void {
     context.eventTypes?.CHAT_COMPLETION_PROMPT_READY ||
     'CHAT_COMPLETION_PROMPT_READY';
   context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, eventData => {
+    // Skip if this is a dry run (token counting, not actual generation)
+    if (eventData?.dryRun) {
+      logger.info('Skipping pruning for dry run');
+      return;
+    }
+
     if (eventData?.chat) {
       pruneGeneratedImages(eventData.chat);
     }
