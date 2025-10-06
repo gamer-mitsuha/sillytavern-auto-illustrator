@@ -12,8 +12,12 @@ const logger = createLogger('Pruner');
  * Only removes <img> tags that immediately follow <img_prompt> tags in assistant messages
  * Preserves user-uploaded images and all user messages unchanged
  *
- * @param chat - Array of chat messages to process
- * @returns Modified chat array (original is modified in-place)
+ * IMPORTANT: This function modifies the chat array messages in-place by updating their content.
+ * It's designed to work with the CHAT_COMPLETION_PROMPT_READY event, which should provide
+ * a chat array that is safe to modify before sending to the LLM.
+ *
+ * @param chat - Array of chat messages to process (messages will be modified in-place)
+ * @returns Modified chat array (same reference as input)
  */
 export function pruneGeneratedImages(
   chat: Array<{role: string; content: string}>
