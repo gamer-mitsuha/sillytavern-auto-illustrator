@@ -9,6 +9,10 @@ Automatically generates inline images in your SillyTavern conversations based on
 - ⚡ **Streaming Support**: Generates images during streaming responses with coordinated insertion
 - ⚙️ **Customizable Settings**: Control generation frequency, concurrency, and meta-prompt template
 - 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
+- 🎯 **Preset Management**: Switch between predefined and custom meta-prompt presets
+  - Two predefined presets: Default and NAI 4.5 Full
+  - Create, edit, and delete custom presets
+  - Preview preset content before editing
 - 💾 **Persistent Images**: Generated images are automatically saved to chat history
 - 🧹 **Smart Chat Pruning**: Removes generated images from LLM context (not from UI)
 - 📊 **Configurable Logging**: Control logging verbosity from SILENT to DEBUG
@@ -88,6 +92,32 @@ Access settings via **Extensions** > **Auto Illustrator**
   - **SILENT**: No console output
 - **Reset to Defaults**: Restore all settings to default values
 
+### Meta Prompt Presets
+
+The extension includes a preset management system for organizing and switching between different meta prompt templates:
+
+**Predefined Presets:**
+- **Default**: General-purpose prompt template with basic image generation instructions
+- **NAI 4.5 Full**: Optimized for NovelAI Diffusion 4.5 with character consistency guidelines and Danbooru tag support
+
+**Using Presets:**
+1. **Select a preset**: Choose from the dropdown to load a preset
+2. **View preset content**: Preview area shows the current preset's content
+3. **Edit a preset**: Click Edit button to enter edit mode
+4. **Save changes**:
+   - For custom presets: Click **Save** to update in place
+   - For predefined presets: **Save** is disabled, use **Save As** to create a custom variant
+5. **Save As**: Create a new custom preset with a unique name
+   - Can overwrite existing custom presets with confirmation
+   - Cannot use predefined preset names (Default, NAI 4.5 Full)
+6. **Delete preset**: Remove custom presets (predefined presets cannot be deleted)
+7. **Cancel**: Discard changes and exit edit mode
+
+**Notes:**
+- Predefined presets are read-only to preserve original templates
+- Custom presets are stored in your SillyTavern settings
+- Preset selection persists across sessions
+
 ### Meta Prompt Template
 
 The default meta-prompt instructs the LLM to:
@@ -96,7 +126,7 @@ The default meta-prompt instructs the LLM to:
 - Keep prompts under 75 words
 - Generate prompts only when appropriate to the story
 
-You can customize this template to change generation behavior.
+You can customize this template via presets or by editing and saving custom variants.
 
 
 ## Troubleshooting

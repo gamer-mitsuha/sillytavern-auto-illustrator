@@ -16,6 +16,9 @@ describe('settings', () => {
       expect(defaults.wordInterval).toBe(250);
       expect(defaults.metaPrompt).toBeTruthy();
       expect(typeof defaults.metaPrompt).toBe('string');
+      expect(defaults.currentPresetId).toBe('default');
+      expect(Array.isArray(defaults.customPresets)).toBe(true);
+      expect(defaults.customPresets).toEqual([]);
     });
   });
 
@@ -29,6 +32,8 @@ describe('settings', () => {
         enabled: false,
         wordInterval: 500,
         metaPrompt: 'custom prompt',
+        currentPresetId: 'custom-123',
+        customPresets: [],
         streamingEnabled: false,
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
@@ -43,7 +48,10 @@ describe('settings', () => {
 
       const loaded = loadSettings(mockContext);
 
-      expect(loaded).toEqual(existingSettings);
+      expect(loaded.enabled).toEqual(existingSettings.enabled);
+      expect(loaded.wordInterval).toEqual(existingSettings.wordInterval);
+      expect(loaded.currentPresetId).toEqual(existingSettings.currentPresetId);
+      expect(loaded.customPresets).toEqual(existingSettings.customPresets);
     });
 
     it('should return defaults if no settings exist', () => {
@@ -88,9 +96,12 @@ describe('settings', () => {
         enabled: true,
         wordInterval: 300,
         metaPrompt: 'test prompt',
+        currentPresetId: 'default',
+        customPresets: [],
         streamingEnabled: true,
         streamingPollInterval: 300,
         maxConcurrentGenerations: 1,
+        logLevel: 'info',
       };
 
       saveSettings(settings, mockContext);
@@ -116,9 +127,12 @@ describe('settings', () => {
         enabled: false,
         wordInterval: 400,
         metaPrompt: 'new',
+        currentPresetId: 'custom-456',
+        customPresets: [],
         streamingEnabled: false,
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
+        logLevel: 'warn',
       };
 
       saveSettings(newSettings, mockContext);

@@ -1,3 +1,67 @@
-.hello-world-message {
-    color: blue;
+/* Preset Management Styles */
+.preset-management {
+  margin: 1rem 0;
+}
+
+.preset-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.preset-toolbar .flex_fill {
+  flex: 1;
+}
+
+.preset-toolbar button {
+  flex-shrink: 0;
+}
+
+.preset-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preset-content-preview {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.preset-content-preview label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.preset-preview-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.preset-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.preset-edit-actions button {
+  flex: 1;
+}
+
+.preset-edit-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

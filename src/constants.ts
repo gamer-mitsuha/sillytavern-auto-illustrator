@@ -62,6 +62,14 @@ export const LOG_LEVELS = {
 export const DEFAULT_LOG_LEVEL = LOG_LEVELS.INFO;
 
 /**
+ * Preset ID constants
+ */
+export const PRESET_IDS = {
+  DEFAULT: 'default',
+  NAI_45_FULL: 'nai-4.5-full',
+} as const;
+
+/**
  * Default settings for the extension
  * These values are used when no saved settings exist or when resetting
  */
@@ -72,6 +80,8 @@ export const DEFAULT_SETTINGS = {
   streamingPollInterval: STREAMING_POLL_INTERVAL.DEFAULT,
   maxConcurrentGenerations: MAX_CONCURRENT_GENERATIONS.DEFAULT,
   logLevel: DEFAULT_LOG_LEVEL,
+  currentPresetId: PRESET_IDS.DEFAULT,
+  customPresets: [],
 } as const;
 
 /**
@@ -81,6 +91,15 @@ export const UI_ELEMENT_IDS = {
   ENABLED: 'auto_illustrator_enabled',
   WORD_INTERVAL: 'auto_illustrator_word_interval',
   META_PROMPT: 'auto_illustrator_meta_prompt',
+  META_PROMPT_PRESET_SELECT: 'auto_illustrator_preset_select',
+  META_PROMPT_PRESET_EDIT: 'auto_illustrator_preset_edit',
+  META_PROMPT_PRESET_SAVE: 'auto_illustrator_preset_save',
+  META_PROMPT_PRESET_SAVE_AS: 'auto_illustrator_preset_save_as',
+  META_PROMPT_PRESET_DELETE: 'auto_illustrator_preset_delete',
+  META_PROMPT_PRESET_CANCEL: 'auto_illustrator_preset_cancel',
+  PRESET_EDITOR: 'auto_illustrator_preset_editor',
+  PRESET_VIEWER: 'auto_illustrator_preset_viewer',
+  PRESET_PREVIEW: 'auto_illustrator_preset_preview',
   STREAMING_ENABLED: 'auto_illustrator_streaming_enabled',
   STREAMING_POLL_INTERVAL: 'auto_illustrator_streaming_poll_interval',
   MAX_CONCURRENT: 'auto_illustrator_max_concurrent',

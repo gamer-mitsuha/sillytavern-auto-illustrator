@@ -77,10 +77,21 @@ declare global {
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // Extension-specific types
+
+  // Meta prompt preset interface
+  interface MetaPromptPreset {
+    id: string;
+    name: string;
+    template: string;
+    predefined: boolean;
+  }
+
   interface AutoIllustratorSettings {
     enabled: boolean;
     wordInterval: number;
     metaPrompt: string;
+    currentPresetId: string;
+    customPresets: MetaPromptPreset[];
     streamingEnabled: boolean;
     streamingPollInterval: number;
     maxConcurrentGenerations: number;
