@@ -81,8 +81,8 @@ export const DEFAULT_SETTINGS = {
   maxConcurrentGenerations: MAX_CONCURRENT_GENERATIONS.DEFAULT,
   logLevel: DEFAULT_LOG_LEVEL,
   currentPresetId: PRESET_IDS.DEFAULT,
-  customPresets: [],
-} as const;
+  customPresets: [] as MetaPromptPreset[],
+};
 
 /**
  * UI element IDs for settings controls
