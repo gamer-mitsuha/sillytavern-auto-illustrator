@@ -59,6 +59,7 @@ declare global {
     characters: any[];
     this_chid: number;
     saveSettingsDebounced(): void;
+    saveChat(): Promise<void>;
     setExtensionPrompt(
       key: string,
       value: string,

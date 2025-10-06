@@ -117,6 +117,7 @@ describe('message_handler', () => {
         .fn()
         .mockResolvedValue('https://example.com/image.png');
       const mockEmit = vi.fn();
+      const mockSaveChat = vi.fn().mockResolvedValue(undefined);
       const MESSAGE_EDITED = 'MESSAGE_EDITED';
       const mockContext = createMockContext({
         SlashCommandParser: {
@@ -137,6 +138,7 @@ describe('message_handler', () => {
         chat: [
           {is_user: false, mes: 'Here is a scene <img_prompt="test scene">'},
         ],
+        saveChat: mockSaveChat,
       });
 
       const isMessageBeingStreamed = () => false; // Not streaming during test

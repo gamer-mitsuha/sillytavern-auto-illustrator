@@ -120,5 +120,9 @@ export function createMessageHandler(
     const MESSAGE_EDITED =
       context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
     context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+    // Save the chat to persist the inserted images
+    await context.saveChat();
+    logger.debug('Chat saved after processing message images');
   };
 }

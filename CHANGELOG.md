@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Chat history pruner now skips dry run operations to prevent removing images from UI when loading chats or counting tokens
+- Generated images now persist after chat reload by calling context.saveChat() after image insertion
 
 ### Removed
 - Direct console.log usage throughout the codebase
