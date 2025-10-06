@@ -216,7 +216,9 @@ describe('Chat History Pruner', () => {
       expect(chat[0].content).toContain('<img_prompt="test1">');
       expect(chat[0].content).toContain('<img_prompt="test2">');
       expect(chat[0].content).not.toContain('<img src="image1.jpg">');
-      expect(chat[0].content).not.toContain('<img class="foo" src="image2.jpg"');
+      expect(chat[0].content).not.toContain(
+        '<img class="foo" src="image2.jpg"'
+      );
       expect(chat[0].content).toContain('Text');
       expect(chat[0].content).toContain('more text');
       expect(chat[0].content).toContain('end');

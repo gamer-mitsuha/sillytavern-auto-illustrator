@@ -17,6 +17,9 @@ import {
   getDefaultSettings,
   createSettingsUI,
 } from './settings';
+import {createLogger} from './logger';
+
+const logger = createLogger('Main');
 
 // Module state
 let context: SillyTavernContext;
@@ -109,7 +112,7 @@ function handleSettingsChange(): void {
   // Update the extension prompt based on new settings
   updateExtensionPrompt(context, settings);
 
-  console.log('[Auto Illustrator] Settings updated:', settings);
+  logger.info('Settings updated:', settings);
 }
 
 /**
@@ -123,7 +126,7 @@ function handleResetSettings(): void {
   // Update the extension prompt with reset settings
   updateExtensionPrompt(context, settings);
 
-  console.log('[Auto Illustrator] Settings reset to defaults');
+  logger.info('Settings reset to defaults');
 }
 
 /**
@@ -154,8 +157,8 @@ function handleFirstStreamToken(_text: string): void {
     return;
   }
 
-  console.log(
-    `[Auto Illustrator] First stream token received, starting streaming for message ${messageId}`
+  logger.info(
+    `First stream token received, starting streaming for message ${messageId}`
   );
 
   // Clean up any previous streaming state
@@ -189,7 +192,7 @@ function handleFirstStreamToken(_text: string): void {
   // Start processor (images generated during streaming, inserted in batch after completion)
   queueProcessor.start(messageId);
 
-  console.log('[Auto Illustrator] Streaming monitor and processor started');
+  logger.info('Streaming monitor and processor started');
 }
 
 /**
@@ -200,8 +203,8 @@ function handleFirstStreamToken(_text: string): void {
 async function tryInsertDeferredImages(): Promise<void> {
   if (pendingDeferredImages && messageReceivedFired) {
     const {images, messageId} = pendingDeferredImages;
-    console.log(
-      `[Auto Illustrator] Both conditions met, inserting ${images.length} deferred images`
+    logger.info(
+      `Both conditions met, inserting ${images.length} deferred images`
     );
 
     // Clear flags before insertion
@@ -222,7 +225,7 @@ async function handleGenerationEnded(): Promise<void> {
     return;
   }
 
-  console.log('[Auto Illustrator] GENERATION_ENDED, cleaning up streaming');
+  logger.info('GENERATION_ENDED, cleaning up streaming');
 
   // Stop monitoring (no more new prompts)
   streamingMonitor.stop();
@@ -236,7 +239,7 @@ async function handleGenerationEnded(): Promise<void> {
 
   // Log final statistics
   const stats = streamingQueue.getStats();
-  console.log('[Auto Illustrator] Final streaming stats:', stats);
+  logger.info('Final streaming stats:', stats);
 
   // Stop processor
   queueProcessor.stop();
@@ -244,8 +247,8 @@ async function handleGenerationEnded(): Promise<void> {
   // Store deferred images
   if (deferredImages.length > 0 && messageId !== null) {
     pendingDeferredImages = {images: deferredImages, messageId};
-    console.log(
-      `[Auto Illustrator] ${deferredImages.length} images ready, checking if MESSAGE_RECEIVED fired`
+    logger.info(
+      `${deferredImages.length} images ready, checking if MESSAGE_RECEIVED fired`
     );
   }
 
@@ -272,32 +275,27 @@ async function handleGenerationEnded(): Promise<void> {
  * Initializes the extension
  */
 function initialize(): void {
-  console.log('[Auto Illustrator] Initializing extension...');
+  logger.info('Initializing extension...');
 
   // Get SillyTavern context
   try {
     context = SillyTavern.getContext();
-    console.log('[Auto Illustrator] Got SillyTavern context');
+    logger.info('Got SillyTavern context');
   } catch (error) {
-    console.error(
-      '[Auto Illustrator] Failed to get SillyTavern context:',
-      error
-    );
+    logger.error('Failed to get SillyTavern context:', error);
     return;
   }
 
   // Load settings
   settings = loadSettings(context);
-  console.log('[Auto Illustrator] Loaded settings:', settings);
+  logger.info('Loaded settings:', settings);
 
   // Create and register message handler with streaming check
   const isMessageBeingStreamed = (messageId: number) =>
     currentStreamingMessageId === messageId;
   const getPendingDeferredImages = () => {
     // Mark MESSAGE_RECEIVED as fired and try insertion
-    console.log(
-      '[Auto Illustrator] MESSAGE_RECEIVED callback invoked, setting flag'
-    );
+    logger.info('MESSAGE_RECEIVED callback invoked, setting flag');
     messageReceivedFired = true;
     tryInsertDeferredImages(); // Try to insert if images are ready
     return null; // We don't return pending images anymore
@@ -331,7 +329,7 @@ function initialize(): void {
   context.eventSource.on(STREAM_TOKEN_RECEIVED, handleFirstStreamToken);
   context.eventSource.on(GENERATION_ENDED, handleGenerationEnded);
 
-  console.log('[Auto Illustrator] Event handlers registered:', {
+  logger.info('Event handlers registered:', {
     MESSAGE_RECEIVED,
     CHAT_COMPLETION_PROMPT_READY,
     STREAM_TOKEN_RECEIVED,
@@ -378,16 +376,14 @@ function initialize(): void {
     updateUI();
   }
 
-  console.log('[Auto Illustrator] Extension initialized successfully');
+  logger.info('Extension initialized successfully');
 
   // Set up extension prompt at the very end after everything is initialized
   // We need to call this when a chat is loaded, not just at init
   const CHAT_CHANGED = context.eventTypes?.CHAT_CHANGED;
 
   context.eventSource.on(CHAT_CHANGED, () => {
-    console.log(
-      '[Auto Illustrator] CHAT_CHANGED - reapplying extension prompt'
-    );
+    logger.info('CHAT_CHANGED - reapplying extension prompt');
     updateExtensionPrompt(context, settings);
   });
 

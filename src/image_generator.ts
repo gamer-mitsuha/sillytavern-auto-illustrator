@@ -5,6 +5,9 @@
 
 import {extractImagePrompts} from './image_extractor';
 import type {DeferredImage} from './types';
+import {createLogger} from './logger';
+
+const logger = createLogger('Generator');
 
 /**
  * Creates an image tag with safe, simple attributes
@@ -35,10 +38,7 @@ function insertImageAfterPrompt(
   const tagIndex = text.indexOf(expectedTag);
 
   if (tagIndex === -1) {
-    console.warn(
-      '[Auto Illustrator] Could not find prompt tag in text:',
-      expectedTag
-    );
+    logger.warn('Could not find prompt tag in text:', expectedTag);
     return {text, success: false};
   }
 
@@ -47,10 +47,7 @@ function insertImageAfterPrompt(
   // Check if image already inserted (to prevent duplicates)
   const afterPrompt = text.substring(actualEndIndex, actualEndIndex + 200);
   if (afterPrompt.includes(`src="${imageUrl}"`)) {
-    console.log(
-      '[Auto Illustrator] Image already inserted, skipping:',
-      imageUrl
-    );
+    logger.info('Image already inserted, skipping:', imageUrl);
     return {text, success: false};
   }
 
@@ -75,34 +72,34 @@ export async function generateImage(
   prompt: string,
   context: SillyTavernContext
 ): Promise<string | null> {
-  console.log('[Auto Illustrator] Generating image for prompt:', prompt);
+  logger.info('Generating image for prompt:', prompt);
 
   const startTime = performance.now();
 
   try {
     const sdCommand = context.SlashCommandParser?.commands?.['sd'];
     if (!sdCommand || !sdCommand.callback) {
-      console.error('[Auto Illustrator] SD command not available');
-      console.log(
-        '[Auto Illustrator] Available commands:',
+      logger.error('SD command not available');
+      logger.info(
+        'Available commands:',
         Object.keys(context.SlashCommandParser?.commands || {})
       );
       return null;
     }
 
-    console.log('[Auto Illustrator] Calling SD command...');
+    logger.info('Calling SD command...');
     const imageUrl = await sdCommand.callback({quiet: 'true'}, prompt);
 
     const duration = performance.now() - startTime;
-    console.log(
-      `[Auto Illustrator] Generated image URL: ${imageUrl} (took ${duration.toFixed(0)}ms)`
+    logger.info(
+      `Generated image URL: ${imageUrl} (took ${duration.toFixed(0)}ms)`
     );
 
     return imageUrl;
   } catch (error) {
     const duration = performance.now() - startTime;
-    console.error(
-      `[Auto Illustrator] Error generating image (after ${duration.toFixed(0)}ms):`,
+    logger.error(
+      `Error generating image (after ${duration.toFixed(0)}ms):`,
       error
     );
     return null;
@@ -121,18 +118,14 @@ export async function replacePromptsWithImages(
 ): Promise<string> {
   const matches = extractImagePrompts(text);
 
-  console.log(
-    '[Auto Illustrator] Found',
-    matches.length,
-    'image prompts to process'
-  );
+  logger.info('Found', matches.length, 'image prompts to process');
 
   if (matches.length === 0) {
     return text;
   }
 
-  console.log(
-    '[Auto Illustrator] Extracted prompts:',
+  logger.info(
+    'Extracted prompts:',
     matches.map(m => m.prompt)
   );
 
@@ -153,8 +146,8 @@ export async function replacePromptsWithImages(
 
   const batchDuration = performance.now() - batchStartTime;
   const successCount = imageUrls.filter(u => u).length;
-  console.log(
-    `[Auto Illustrator] Generated ${successCount} images successfully (total time: ${batchDuration.toFixed(0)}ms, avg: ${(batchDuration / imageCount).toFixed(0)}ms per image)`
+  logger.info(
+    `Generated ${successCount} images successfully (total time: ${batchDuration.toFixed(0)}ms, avg: ${(batchDuration / imageCount).toFixed(0)}ms per image)`
   );
 
   // Show completion notification
@@ -188,13 +181,13 @@ export async function replacePromptsWithImages(
       );
       if (insertion.success) {
         result = insertion.text;
-        console.log('[Auto Illustrator] Added image after prompt at index', i);
+        logger.info('Added image after prompt at index', i);
       }
     } else {
       // Keep the prompt tag even if generation failed
       // This allows users to see what was attempted and enables manual retry
-      console.log(
-        '[Auto Illustrator] Image generation failed for prompt at index',
+      logger.info(
+        'Image generation failed for prompt at index',
         i,
         '- keeping tag'
       );
@@ -222,17 +215,14 @@ export async function insertDeferredImages(
     return 0;
   }
 
-  console.log(
-    `[Auto Illustrator] Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
+  logger.info(
+    `Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
   );
 
   // Get current message
   const message = context.chat?.[messageId];
   if (!message) {
-    console.warn(
-      '[Auto Illustrator] Message not found for batch insertion:',
-      messageId
-    );
+    logger.warn('Message not found for batch insertion:', messageId);
     return 0;
   }
 
@@ -269,8 +259,8 @@ export async function insertDeferredImages(
   // Set message.mes ONCE with all images inserted
   message.mes = finalText;
 
-  console.log(
-    `[Auto Illustrator] Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
+  logger.info(
+    `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
   );
 
   // Emit MESSAGE_UPDATED to trigger UI re-render
