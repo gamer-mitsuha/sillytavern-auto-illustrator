@@ -1,9 +1,5 @@
 import {describe, it, expect, beforeEach, vi} from 'vitest';
-import {
-  generateImage,
-  replacePromptsWithImages,
-  insertImageIntoMessage,
-} from './image_generator';
+import {generateImage, replacePromptsWithImages} from './image_generator';
 import {createMockContext} from './test_helpers';
 
 // Mock toastr globally
@@ -94,8 +90,8 @@ describe('image_generator', () => {
 
       expect(result).toContain('<img_prompt="sunset scene">');
       expect(result).toContain('<img src="https://example.com/image1.png"');
-      expect(result).toContain('title="sunset scene"');
-      expect(result).toContain('alt="sunset scene"');
+      expect(result).toContain('title="AI generated image #1"');
+      expect(result).toContain('alt="AI generated image #1"');
       // Check that image comes after the prompt
       const promptIndex = result.indexOf('<img_prompt="sunset scene">');
       const imgIndex = result.indexOf('<img src=');
@@ -217,7 +213,7 @@ describe('image_generator', () => {
       expect(mockCallback).toHaveBeenCalledTimes(3);
     });
 
-    it('should escape HTML special characters in title and alt attributes', async () => {
+    it('should use simple title and alt attributes', async () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValue('https://example.com/image.png');
@@ -235,15 +231,14 @@ describe('image_generator', () => {
         '<img_prompt="rating:nsfw, asuna_(sao), danbooru, 1girl, close-up">';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      // Should escape commas and special characters in attributes
+      // Should use simple, safe title/alt (avoids all special character issues)
       expect(result).toContain('<img_prompt="rating:nsfw, asuna_(sao)');
-      expect(result).toContain('title="rating:nsfw, asuna_(sao)');
-      expect(result).toContain('alt="rating:nsfw, asuna_(sao)');
-      // Should not break HTML with unescaped special characters
+      expect(result).toContain('title="AI generated image #1"');
+      expect(result).toContain('alt="AI generated image #1"');
       expect(result).toContain('https://example.com/image.png');
     });
 
-    it('should escape quotes in prompts to prevent attribute breaking', async () => {
+    it('should handle prompts with parentheses and special chars', async () => {
       const mockCallback = vi
         .fn()
         .mockResolvedValue('https://example.com/image.png');
@@ -257,225 +252,18 @@ describe('image_generator', () => {
         },
       });
 
-      const text = '<img_prompt="character with \\"blue eyes\\" and <arms>">';
+      // Test with parentheses and other valid prompt characters
+      const text = '<img_prompt="character (masterpiece), detailed face">';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      // Should escape quotes and angle brackets
-      expect(result).toContain('title="character with &quot;blue eyes&quot;');
-      expect(result).toContain('&lt;arms&gt;');
+      // Simple title/alt works with any valid prompt characters
+      expect(result).toContain('title="AI generated image #1"');
+      expect(result).toContain('alt="AI generated image #1"');
+      expect(result).toContain('https://example.com/image.png');
       // Original prompt tag should remain unchanged
       expect(result).toContain(
-        '<img_prompt="character with \\"blue eyes\\" and <arms>">'
+        '<img_prompt="character (masterpiece), detailed face">'
       );
-    });
-
-    it('should escape ampersands in prompts', async () => {
-      const mockCallback = vi
-        .fn()
-        .mockResolvedValue('https://example.com/image.png');
-      const mockContext = createMockContext({
-        SlashCommandParser: {
-          commands: {
-            sd: {
-              callback: mockCallback,
-            },
-          },
-        },
-      });
-
-      const text = '<img_prompt="cat & dog scene">';
-      const result = await replacePromptsWithImages(text, mockContext);
-
-      // Should escape ampersand
-      expect(result).toContain('title="cat &amp; dog scene"');
-      expect(result).toContain('alt="cat &amp; dog scene"');
-    });
-  });
-
-  describe('insertImageIntoMessage', () => {
-    it('should insert image after prompt in message', async () => {
-      const mockEmit = vi.fn();
-      const mockContext = createMockContext({
-        chat: [
-          {
-            mes: 'Text <img_prompt="test prompt"> more text',
-            is_user: false,
-          },
-        ],
-        eventSource: {
-          on: vi.fn(),
-          once: vi.fn(),
-          emit: mockEmit,
-        },
-        eventTypes: {
-          MESSAGE_EDITED: 'MESSAGE_EDITED',
-        },
-      });
-
-      const promptInfo = {
-        id: 'test_id',
-        prompt: 'test prompt',
-        startIndex: 5,
-        endIndex: 31,
-        state: 'COMPLETED' as const,
-        attempts: 1,
-        detectedAt: Date.now(),
-      };
-
-      await insertImageIntoMessage(
-        promptInfo,
-        'https://example.com/test.jpg',
-        0,
-        mockContext
-      );
-
-      expect(mockContext.chat[0].mes).toContain('<img_prompt="test prompt">');
-      expect(mockContext.chat[0].mes).toContain(
-        '<img src="https://example.com/test.jpg"'
-      );
-      expect(mockEmit).toHaveBeenCalledWith('MESSAGE_EDITED', 0);
-    });
-
-    it('should handle message not found', async () => {
-      const mockContext = createMockContext({
-        chat: [],
-      });
-
-      const promptInfo = {
-        id: 'test_id',
-        prompt: 'test',
-        startIndex: 0,
-        endIndex: 10,
-        state: 'COMPLETED' as const,
-        attempts: 1,
-        detectedAt: Date.now(),
-      };
-
-      // Should not throw
-      await insertImageIntoMessage(promptInfo, 'test.jpg', 0, mockContext);
-    });
-
-    it('should handle prompt tag not found in text', async () => {
-      const mockContext = createMockContext({
-        chat: [
-          {
-            mes: 'Text without the prompt tag',
-            is_user: false,
-          },
-        ],
-      });
-
-      const promptInfo = {
-        id: 'test_id',
-        prompt: 'nonexistent prompt',
-        startIndex: 0,
-        endIndex: 10,
-        state: 'COMPLETED' as const,
-        attempts: 1,
-        detectedAt: Date.now(),
-      };
-
-      await insertImageIntoMessage(promptInfo, 'test.jpg', 0, mockContext);
-
-      // Message should be unchanged
-      expect(mockContext.chat[0].mes).toBe('Text without the prompt tag');
-    });
-
-    it('should not insert duplicate images', async () => {
-      const initialMessage =
-        '<img_prompt="test">\n<img src="existing.jpg" title="test" alt="test">';
-      const mockContext = createMockContext({
-        chat: [
-          {
-            mes: initialMessage,
-            is_user: false,
-          },
-        ],
-      });
-
-      const promptInfo = {
-        id: 'test_id',
-        prompt: 'test',
-        startIndex: 0,
-        endIndex: 20,
-        state: 'COMPLETED' as const,
-        attempts: 1,
-        detectedAt: Date.now(),
-      };
-
-      await insertImageIntoMessage(promptInfo, 'existing.jpg', 0, mockContext);
-
-      // Should not add duplicate - message should be unchanged
-      expect(mockContext.chat[0].mes).toBe(initialMessage);
-    });
-
-    it('should handle growing streaming text with position search', async () => {
-      const mockEmit = vi.fn();
-      const mockContext = createMockContext({
-        chat: [
-          {
-            // Text has grown since prompt was detected
-            mes: 'Before <img_prompt="test"> middle text and more new streamed text...',
-            is_user: false,
-          },
-        ],
-        eventSource: {
-          on: vi.fn(),
-          once: vi.fn(),
-          emit: mockEmit,
-        },
-        eventTypes: {
-          MESSAGE_EDITED: 'MESSAGE_EDITED',
-        },
-      });
-
-      const promptInfo = {
-        id: 'test_id',
-        prompt: 'test',
-        startIndex: 7, // Original position when detected
-        endIndex: 26,
-        state: 'COMPLETED' as const,
-        attempts: 1,
-        detectedAt: Date.now(),
-      };
-
-      await insertImageIntoMessage(promptInfo, 'test.jpg', 0, mockContext);
-
-      // Should still find and insert the image
-      expect(mockContext.chat[0].mes).toContain('<img src="test.jpg"');
-      expect(mockEmit).toHaveBeenCalled();
-    });
-
-    it('should preserve existing text before and after insertion', async () => {
-      const mockContext = createMockContext({
-        chat: [
-          {
-            mes: 'Start <img_prompt="test"> End',
-            is_user: false,
-          },
-        ],
-        eventSource: {
-          on: vi.fn(),
-          once: vi.fn(),
-          emit: vi.fn(),
-        },
-      });
-
-      const promptInfo = {
-        id: 'test_id',
-        prompt: 'test',
-        startIndex: 6,
-        endIndex: 26,
-        state: 'COMPLETED' as const,
-        attempts: 1,
-        detectedAt: Date.now(),
-      };
-
-      await insertImageIntoMessage(promptInfo, 'test.jpg', 0, mockContext);
-
-      expect(mockContext.chat[0].mes).toContain('Start');
-      expect(mockContext.chat[0].mes).toContain('End');
-      expect(mockContext.chat[0].mes).toContain('<img_prompt="test">');
     });
   });
 });

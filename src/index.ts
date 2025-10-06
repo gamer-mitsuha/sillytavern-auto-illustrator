@@ -10,7 +10,6 @@ import {pruneGeneratedImages} from './chat_history_pruner';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {StreamingMonitor} from './streaming_monitor';
 import {QueueProcessor, type DeferredImage} from './queue_processor';
-import {insertImageIntoMessage} from './image_generator';
 import {
   loadSettings,
   saveSettings,
@@ -186,20 +185,8 @@ function handleFirstStreamToken(_text: string): void {
   pendingDeferredImages = null;
 
   streamingMonitor.start(messageId);
-  queueProcessor.start(
-    messageId,
-    async (prompt, imageUrl, msgId) => {
-      const result = await insertImageIntoMessage(
-        prompt,
-        imageUrl,
-        msgId,
-        context
-      );
-      queueProcessor?.trigger();
-      return result;
-    },
-    true // Defer insertions until streaming completes
-  );
+  // Start processor (images generated during streaming, inserted in batch after completion)
+  queueProcessor.start(messageId);
 
   console.log('[Auto Illustrator] Streaming monitor and processor started');
 }
