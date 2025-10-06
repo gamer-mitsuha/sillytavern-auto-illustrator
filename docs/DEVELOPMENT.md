@@ -41,42 +41,58 @@
 ```
 sillytavern-auto-illustrator/
 ├── src/
-│   ├── index.ts              # Entry point, initialization
-│   ├── prompt_injector.ts    # Meta-prompt injection logic
-│   ├── message_handler.ts    # MESSAGE_RECEIVED event handler
-│   ├── image_extractor.ts    # Regex-based prompt extraction
-│   ├── image_generator.ts    # SD command integration, toastr notifications
-│   ├── settings.ts           # Settings management & UI
-│   ├── test_helpers.ts       # Test utility functions (createMockContext)
-│   ├── style.css             # Extension styles
-│   └── *.test.ts             # Unit tests (36 tests, 100% passing)
-├── globals.d.ts              # TypeScript type definitions (SillyTavern context, toastr)
-├── manifest.json             # Extension metadata
-├── package.json              # Dependencies and scripts
-├── tsconfig.json             # TypeScript configuration (with DOM types)
-├── tsconfig.build.json       # Production build config (excludes tests)
-├── webpack.config.js         # Webpack build configuration
+│   ├── index.ts                    # Entry point, initialization, event handlers
+│   ├── constants.ts                # Centralized configuration constants & validation ranges
+│   ├── types.ts                    # Shared TypeScript type definitions
+│   ├── regex.ts                    # Centralized regex patterns for img_prompt tags
+│   ├── logger.ts                   # Structured logging with loglevel (configurable verbosity)
+│   ├── prompt_injector.ts          # Meta-prompt injection via setExtensionPrompt API
+│   ├── message_handler.ts          # MESSAGE_RECEIVED event handler
+│   ├── image_extractor.ts          # Regex-based prompt extraction from text
+│   ├── image_generator.ts          # SD command integration, image insertion
+│   ├── chat_history_pruner.ts      # Removes generated images from LLM context
+│   ├── settings.ts                 # Settings management & UI generation
+│   ├── streaming_monitor.ts        # Monitors streaming text for new prompts
+│   ├── streaming_image_queue.ts    # Queue management for detected prompts
+│   ├── queue_processor.ts          # Async image generation processor
+│   ├── test_helpers.ts             # Test utility functions (createMockContext)
+│   ├── style.css                   # Extension styles
+│   └── *.test.ts                   # Unit tests with comprehensive coverage
+├── globals.d.ts                    # TypeScript type definitions (SillyTavern context)
+├── manifest.json                   # Extension metadata
+├── package.json                    # Dependencies and scripts
+├── tsconfig.json                   # TypeScript configuration (with DOM types)
+├── tsconfig.build.json             # Production build config (excludes tests)
+├── webpack.config.js               # Webpack build configuration
+├── .github-issue-error-handling.md # Issue template for error handling improvements
+├── CHANGELOG.md                    # Version history
 └── docs/
-    ├── CHANGELOG.md          # Version history
-    ├── DEVELOPMENT.md        # This file
-    └── design_doc.md         # Architecture documentation
+    ├── DEVELOPMENT.md              # This file
+    ├── LOGGING.md                  # Logging system documentation
+    └── design_doc.md               # Architecture documentation
 ```
 
 ### Coding Standards
 
 - **Style Guide**: Google TypeScript Style Guide (enforced by `gts`)
-- **Testing**: Vitest with comprehensive code coverage (36 tests)
-- **Type Safety**: Strict TypeScript with zero `any` in production code
+- **Testing**: Vitest with comprehensive code coverage
+- **Type Safety**: Strict TypeScript with minimal `any` usage
 - **Architecture**: Modular design with single responsibility principle
+- **Centralization**:
+  - All constants in `src/constants.ts`
+  - All regex patterns in `src/regex.ts`
+  - All shared types in `src/types.ts`
+  - All event types in `globals.d.ts` (no string fallbacks)
+- **Logging**: Use structured logging via `logger.ts` (never `console.log`)
 - **Test Helpers**: Use `createMockContext()` for type-safe partial mocks
-- **Notifications**: Use toastr for user feedback
+- **Error Handling**: See `.github-issue-error-handling.md` for improvement roadmap
 
 ### Testing
 
 The extension uses Vitest for unit testing with jsdom environment:
 
 ```bash
-# Run all tests (36 tests)
+# Run all tests
 npm test
 
 # Watch mode for TDD
@@ -88,8 +104,16 @@ npm run test:coverage
 
 **Test Utilities:**
 - `createMockContext()` - Helper for creating type-safe partial SillyTavern context mocks
-- Global `toastr` mock - Prevents notification errors in tests
-- All tests use proper TypeScript types (no `as any` in assertions)
+- All tests use proper TypeScript types with minimal `any` usage
+
+**Test Coverage:**
+- Comprehensive test suite covering all major modules
+- Image extraction and generation
+- Settings management
+- Streaming monitor and queue
+- Queue processor
+- Chat history pruning
+- Message handling
 
 ### Making Changes
 
