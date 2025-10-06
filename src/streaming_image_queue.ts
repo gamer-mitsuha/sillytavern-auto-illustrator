@@ -3,39 +3,7 @@
  * Manages a queue of image prompts detected during streaming
  */
 
-/** State of a queued prompt */
-export type PromptState =
-  | 'DETECTED'
-  | 'QUEUED'
-  | 'GENERATING'
-  | 'COMPLETED'
-  | 'FAILED';
-
-/** A queued image generation prompt */
-export interface QueuedPrompt {
-  /** Unique identifier (hash of prompt + position) */
-  id: string;
-  /** The image generation prompt text */
-  prompt: string;
-  /** Start index in the message text */
-  startIndex: number;
-  /** End index in the message text */
-  endIndex: number;
-  /** Current state of the prompt */
-  state: PromptState;
-  /** Generated image URL (if completed) */
-  imageUrl?: string;
-  /** Error message (if failed) */
-  error?: string;
-  /** Number of generation attempts */
-  attempts: number;
-  /** Timestamp when detected */
-  detectedAt: number;
-  /** Timestamp when generation started */
-  generationStartedAt?: number;
-  /** Timestamp when completed/failed */
-  completedAt?: number;
-}
+import type {PromptState, QueuedPrompt} from './types';
 
 /**
  * Generates a unique ID for a prompt based on text and position

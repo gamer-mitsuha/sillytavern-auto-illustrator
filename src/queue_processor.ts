@@ -3,16 +3,9 @@
  * Processes image generation queue asynchronously
  */
 
-import {ImageGenerationQueue, QueuedPrompt} from './streaming_image_queue';
+import {ImageGenerationQueue} from './streaming_image_queue';
 import {generateImage} from './image_generator';
-
-/**
- * Deferred image for batch insertion after streaming
- */
-export interface DeferredImage {
-  prompt: QueuedPrompt;
-  imageUrl: string;
-}
+import type {QueuedPrompt, DeferredImage} from './types';
 
 /**
  * Processes queued image generation prompts

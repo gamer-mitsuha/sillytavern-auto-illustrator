@@ -3,6 +3,8 @@
  * Handles extraction of image generation prompts from LLM responses
  */
 
+import type {ImagePromptMatch} from './types';
+
 /**
  * Regular expression to match image prompts in the format: <img_prompt="...">
  * Matches both escaped and regular quotes within the prompt

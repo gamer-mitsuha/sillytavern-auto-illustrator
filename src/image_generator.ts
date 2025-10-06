@@ -4,7 +4,7 @@
  */
 
 import {extractImagePrompts} from './image_extractor';
-import {DeferredImage} from './queue_processor';
+import type {DeferredImage} from './types';
 
 /**
  * Creates an image tag with safe, simple attributes
