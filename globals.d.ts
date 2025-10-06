@@ -79,6 +79,7 @@ declare global {
     streamingEnabled: boolean;
     streamingPollInterval: number;
     maxConcurrentGenerations: number;
+    logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
   }
 
   interface ImagePromptMatch {

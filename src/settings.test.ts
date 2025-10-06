@@ -32,6 +32,7 @@ describe('settings', () => {
         streamingEnabled: false,
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
+        logLevel: 'debug',
       };
 
       const mockContext = createMockContext({
