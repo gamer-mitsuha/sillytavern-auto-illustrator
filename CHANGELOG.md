@@ -12,12 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Contextual loggers for each module (Monitor, Queue, Processor, Generator, etc.)
 - Comprehensive logging documentation in docs/LOGGING.md
 - Log level setting in UI (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- Centralized regex patterns module (src/regex.ts) to avoid duplication
 
 ### Changed
 - Replaced all console.log/warn/error calls with structured logging
 - Improved chat history pruner regex to match img tags regardless of attributes
 - Simplified image title/alt attributes to use numeric indices (#1, #2, etc.)
 - Verbose "Text changed" logs in streaming monitor now use DEBUG level instead of INFO
+- Refactored regex patterns into reusable module with helper functions
 
 ### Fixed
 - Chat history pruner now skips dry run operations to prevent removing images from UI when loading chats or counting tokens

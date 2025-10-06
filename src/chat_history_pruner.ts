@@ -4,6 +4,7 @@
  */
 
 import {createLogger} from './logger';
+import {createImagePromptWithImgRegex, IMAGE_PROMPT_TAG_PATTERN} from './regex';
 
 const logger = createLogger('Pruner');
 
@@ -33,12 +34,12 @@ export function pruneGeneratedImages(
     // Look for pattern: <img_prompt="...">OPTIONAL_WHITESPACE<img ...>
     // This regex finds any img tag that immediately follows an img_prompt tag
     // It matches regardless of img tag attributes (src, title, alt, etc.)
-    const pattern = /<img_prompt="[^"]*">\s*<img\s+[^>]*>/g;
+    const pattern = createImagePromptWithImgRegex();
 
     const originalContent = message.content;
     message.content = message.content.replace(pattern, match => {
       // Extract just the img_prompt part
-      const promptMatch = match.match(/<img_prompt="[^"]*">/);
+      const promptMatch = match.match(IMAGE_PROMPT_TAG_PATTERN);
       return promptMatch ? promptMatch[0] : match;
     });
 

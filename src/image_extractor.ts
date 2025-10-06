@@ -4,12 +4,7 @@
  */
 
 import type {ImagePromptMatch} from './types';
-
-/**
- * Regular expression to match image prompts in the format: <img_prompt="...">
- * Matches both escaped and regular quotes within the prompt
- */
-const IMAGE_PROMPT_REGEX = /<img_prompt="([^"\\]*(?:\\.[^"\\]*)*)"\s*>/g;
+import {createImagePromptRegex, unescapePromptQuotes} from './regex';
 
 /**
  * Checks if the text contains any image prompts
@@ -18,7 +13,7 @@ const IMAGE_PROMPT_REGEX = /<img_prompt="([^"\\]*(?:\\.[^"\\]*)*)"\s*>/g;
  */
 export function hasImagePrompts(text: string): boolean {
   // Create a new regex instance to avoid state issues with global flag
-  const regex = new RegExp(IMAGE_PROMPT_REGEX.source, IMAGE_PROMPT_REGEX.flags);
+  const regex = createImagePromptRegex();
   return regex.test(text);
 }
 
@@ -29,11 +24,11 @@ export function hasImagePrompts(text: string): boolean {
  */
 export function extractImagePrompts(text: string): ImagePromptMatch[] {
   const matches: ImagePromptMatch[] = [];
-  const regex = new RegExp(IMAGE_PROMPT_REGEX.source, IMAGE_PROMPT_REGEX.flags);
+  const regex = createImagePromptRegex();
 
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
-    const prompt = match[1].replace(/\\"/g, '"').trim(); // Unescape quotes and trim
+    const prompt = unescapePromptQuotes(match[1]).trim();
 
     // Skip empty prompts (malformed tags during streaming)
     if (prompt.length === 0) {
