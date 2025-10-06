@@ -4,8 +4,16 @@
  */
 
 import {getDefaultMetaPrompt} from './prompt_injector';
+import {
+  EXTENSION_NAME,
+  DEFAULT_SETTINGS,
+  WORD_INTERVAL,
+  STREAMING_POLL_INTERVAL,
+  MAX_CONCURRENT_GENERATIONS,
+  UI_ELEMENT_IDS,
+} from './constants';
 
-export const EXTENSION_NAME = 'auto_illustrator';
+export {EXTENSION_NAME};
 
 /**
  * Gets the default settings for the extension
@@ -13,13 +21,8 @@ export const EXTENSION_NAME = 'auto_illustrator';
  */
 export function getDefaultSettings(): AutoIllustratorSettings {
   return {
-    enabled: true,
-    wordInterval: 250,
-    metaPrompt: getDefaultMetaPrompt(250),
-    streamingEnabled: true,
-    streamingPollInterval: 300,
-    maxConcurrentGenerations: 1,
-    logLevel: 'info',
+    ...DEFAULT_SETTINGS,
+    metaPrompt: getDefaultMetaPrompt(WORD_INTERVAL.DEFAULT),
   };
 }
 
@@ -72,51 +75,51 @@ export function createSettingsUI(): string {
         </div>
         <div class="inline-drawer-content">
           <div style="display: flex; align-items: center; justify-content: space-between;">
-            <label class="checkbox_label" for="auto_illustrator_enabled">
-              <input id="auto_illustrator_enabled" type="checkbox" />
+            <label class="checkbox_label" for="${UI_ELEMENT_IDS.ENABLED}">
+              <input id="${UI_ELEMENT_IDS.ENABLED}" type="checkbox" />
               <span>Enable Auto Illustrator</span>
             </label>
-            <div id="auto_illustrator_reset" class="menu_button menu_button_icon">
+            <div id="${UI_ELEMENT_IDS.RESET_BUTTON}" class="menu_button menu_button_icon">
               <i class="fa-solid fa-undo"></i>
               <span>Reset to Defaults</span>
             </div>
           </div>
 
-          <label for="auto_illustrator_word_interval">
+          <label for="${UI_ELEMENT_IDS.WORD_INTERVAL}">
             <span>Word Interval (approx. words between images)</span>
-            <input id="auto_illustrator_word_interval" class="text_pole" type="number" min="50" max="1000" step="50" />
+            <input id="${UI_ELEMENT_IDS.WORD_INTERVAL}" class="text_pole" type="number" min="${WORD_INTERVAL.MIN}" max="${WORD_INTERVAL.MAX}" step="${WORD_INTERVAL.STEP}" />
           </label>
 
-          <label for="auto_illustrator_meta_prompt">
+          <label for="${UI_ELEMENT_IDS.META_PROMPT}">
             <span>Meta Prompt Template</span>
             <small>Instructions sent to the LLM for generating image prompts</small>
-            <textarea id="auto_illustrator_meta_prompt" class="text_pole textarea_compact" rows="10"></textarea>
+            <textarea id="${UI_ELEMENT_IDS.META_PROMPT}" class="text_pole textarea_compact" rows="10"></textarea>
           </label>
 
           <hr>
 
-          <label class="checkbox_label" for="auto_illustrator_streaming_enabled">
-            <input id="auto_illustrator_streaming_enabled" type="checkbox" />
+          <label class="checkbox_label" for="${UI_ELEMENT_IDS.STREAMING_ENABLED}">
+            <input id="${UI_ELEMENT_IDS.STREAMING_ENABLED}" type="checkbox" />
             <span>Enable Streaming Image Generation</span>
             <small>Generate images as streaming text arrives (faster perceived latency)</small>
           </label>
 
-          <label for="auto_illustrator_streaming_poll_interval">
+          <label for="${UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL}">
             <span>Streaming Poll Interval (ms)</span>
             <small>How often to check for new prompts during streaming (lower = faster detection, more CPU)</small>
-            <input id="auto_illustrator_streaming_poll_interval" class="text_pole" type="number" min="100" max="1000" step="50" />
+            <input id="${UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL}" class="text_pole" type="number" min="${STREAMING_POLL_INTERVAL.MIN}" max="${STREAMING_POLL_INTERVAL.MAX}" step="${STREAMING_POLL_INTERVAL.STEP}" />
           </label>
 
-          <label for="auto_illustrator_max_concurrent">
+          <label for="${UI_ELEMENT_IDS.MAX_CONCURRENT}">
             <span>Max Concurrent Generations</span>
             <small>Maximum number of images to generate simultaneously (1 recommended for rate limiting)</small>
-            <input id="auto_illustrator_max_concurrent" class="text_pole" type="number" min="1" max="5" step="1" />
+            <input id="${UI_ELEMENT_IDS.MAX_CONCURRENT}" class="text_pole" type="number" min="${MAX_CONCURRENT_GENERATIONS.MIN}" max="${MAX_CONCURRENT_GENERATIONS.MAX}" step="${MAX_CONCURRENT_GENERATIONS.STEP}" />
           </label>
 
-          <label for="auto_illustrator_log_level">
+          <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
             <span>Log Level</span>
             <small>Controls logging verbosity (DEBUG shows detailed monitoring, INFO shows key events, WARN/ERROR minimal)</small>
-            <select id="auto_illustrator_log_level" class="text_pole">
+            <select id="${UI_ELEMENT_IDS.LOG_LEVEL}" class="text_pole">
               <option value="trace">TRACE (Most Verbose)</option>
               <option value="debug">DEBUG</option>
               <option value="info">INFO (Default)</option>
