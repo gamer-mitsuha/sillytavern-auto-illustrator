@@ -19,6 +19,7 @@ export function getDefaultSettings(): AutoIllustratorSettings {
     streamingEnabled: true,
     streamingPollInterval: 300,
     maxConcurrentGenerations: 1,
+    logLevel: 'info',
   };
 }
 
@@ -110,6 +111,19 @@ export function createSettingsUI(): string {
             <span>Max Concurrent Generations</span>
             <small>Maximum number of images to generate simultaneously (1 recommended for rate limiting)</small>
             <input id="auto_illustrator_max_concurrent" class="text_pole" type="number" min="1" max="5" step="1" />
+          </label>
+
+          <label for="auto_illustrator_log_level">
+            <span>Log Level</span>
+            <small>Controls logging verbosity (DEBUG shows detailed monitoring, INFO shows key events, WARN/ERROR minimal)</small>
+            <select id="auto_illustrator_log_level" class="text_pole">
+              <option value="trace">TRACE (Most Verbose)</option>
+              <option value="debug">DEBUG</option>
+              <option value="info">INFO (Default)</option>
+              <option value="warn">WARN</option>
+              <option value="error">ERROR</option>
+              <option value="silent">SILENT (No Logs)</option>
+            </select>
           </label>
         </div>
       </div>

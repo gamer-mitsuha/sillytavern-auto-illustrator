@@ -17,7 +17,7 @@ import {
   getDefaultSettings,
   createSettingsUI,
 } from './settings';
-import {createLogger} from './logger';
+import {createLogger, setLogLevel} from './logger';
 
 const logger = createLogger('Main');
 
@@ -56,6 +56,9 @@ function updateUI(): void {
   const maxConcurrentInput = document.getElementById(
     'auto_illustrator_max_concurrent'
   ) as HTMLInputElement;
+  const logLevelSelect = document.getElementById(
+    'auto_illustrator_log_level'
+  ) as HTMLSelectElement;
 
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
   if (wordIntervalInput)
@@ -68,6 +71,7 @@ function updateUI(): void {
       settings.streamingPollInterval.toString();
   if (maxConcurrentInput)
     maxConcurrentInput.value = settings.maxConcurrentGenerations.toString();
+  if (logLevelSelect) logLevelSelect.value = settings.logLevel;
 }
 
 /**
@@ -92,6 +96,9 @@ function handleSettingsChange(): void {
   const maxConcurrentInput = document.getElementById(
     'auto_illustrator_max_concurrent'
   ) as HTMLInputElement;
+  const logLevelSelect = document.getElementById(
+    'auto_illustrator_log_level'
+  ) as HTMLSelectElement;
 
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.wordInterval = wordIntervalInput
@@ -106,6 +113,12 @@ function handleSettingsChange(): void {
   settings.maxConcurrentGenerations = maxConcurrentInput
     ? parseInt(maxConcurrentInput.value)
     : settings.maxConcurrentGenerations;
+  settings.logLevel =
+    (logLevelSelect?.value as AutoIllustratorSettings['logLevel']) ??
+    settings.logLevel;
+
+  // Apply log level
+  setLogLevel(settings.logLevel);
 
   saveSettings(settings, context);
 
@@ -290,6 +303,9 @@ function initialize(): void {
   settings = loadSettings(context);
   logger.info('Loaded settings:', settings);
 
+  // Apply log level from settings
+  setLogLevel(settings.logLevel);
+
   // Create and register message handler with streaming check
   const isMessageBeingStreamed = (messageId: number) =>
     currentStreamingMessageId === messageId;
@@ -365,6 +381,9 @@ function initialize(): void {
     const maxConcurrentInput = document.getElementById(
       'auto_illustrator_max_concurrent'
     );
+    const logLevelSelect = document.getElementById(
+      'auto_illustrator_log_level'
+    );
     const resetButton = document.getElementById('auto_illustrator_reset');
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
@@ -376,6 +395,7 @@ function initialize(): void {
       handleSettingsChange
     );
     maxConcurrentInput?.addEventListener('change', handleSettingsChange);
+    logLevelSelect?.addEventListener('change', handleSettingsChange);
     resetButton?.addEventListener('click', handleResetSettings);
 
     // Update UI with loaded settings

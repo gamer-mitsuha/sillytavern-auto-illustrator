@@ -112,7 +112,7 @@ export class StreamingMonitor {
       return;
     }
 
-    logger.info(
+    logger.debug(
       `Text changed (${this.lastSeenText.length} -> ${currentText.length} chars)`
     );
 
