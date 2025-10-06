@@ -323,14 +323,12 @@ function initialize(): void {
     settings,
     getPendingDeferredImages
   );
-  const MESSAGE_RECEIVED =
-    context.eventTypes?.MESSAGE_RECEIVED || 'MESSAGE_RECEIVED';
+  const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
   // Register chat history pruner to remove generated images before sending to LLM
   const CHAT_COMPLETION_PROMPT_READY =
-    context.eventTypes?.CHAT_COMPLETION_PROMPT_READY ||
-    'CHAT_COMPLETION_PROMPT_READY';
+    context.eventTypes.CHAT_COMPLETION_PROMPT_READY;
   context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, eventData => {
     // Skip if this is a dry run (token counting, not actual generation)
     if (eventData?.dryRun) {
@@ -344,10 +342,8 @@ function initialize(): void {
   });
 
   // Register streaming handlers
-  const STREAM_TOKEN_RECEIVED =
-    context.eventTypes?.STREAM_TOKEN_RECEIVED || 'STREAM_TOKEN_RECEIVED';
-  const GENERATION_ENDED =
-    context.eventTypes?.GENERATION_ENDED || 'GENERATION_ENDED';
+  const STREAM_TOKEN_RECEIVED = context.eventTypes.STREAM_TOKEN_RECEIVED;
+  const GENERATION_ENDED = context.eventTypes.GENERATION_ENDED;
 
   context.eventSource.on(STREAM_TOKEN_RECEIVED, handleFirstStreamToken);
   context.eventSource.on(GENERATION_ENDED, handleGenerationEnded);
@@ -405,7 +401,7 @@ function initialize(): void {
 
   // Set up extension prompt at the very end after everything is initialized
   // We need to call this when a chat is loaded, not just at init
-  const CHAT_CHANGED = context.eventTypes?.CHAT_CHANGED;
+  const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
 
   context.eventSource.on(CHAT_CHANGED, () => {
     logger.info('CHAT_CHANGED - reapplying extension prompt');
