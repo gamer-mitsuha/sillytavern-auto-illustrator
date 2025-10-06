@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Streaming message tracking to prevent duplicate processing
   - Full-text search for image insertion (no position tracking needed)
   - Duplicate prompt detection prevention after text shifts
+  - Final scan on GENERATION_ENDED to catch prompts added at the very end of streaming
 - Meta prompt preset management system
   - Two predefined presets: Default and NAI 4.5 Full (optimized for NovelAI Diffusion 4.5)
   - Create, update, and delete custom presets

@@ -90,6 +90,15 @@ export class StreamingMonitor {
   }
 
   /**
+   * Performs a final scan for any remaining prompts
+   * Should be called before stopping the monitor to catch any last-moment prompts
+   */
+  finalScan(): void {
+    logger.info('Performing final scan for remaining prompts');
+    this.checkForNewPrompts();
+  }
+
+  /**
    * Checks for new prompts in the current message text
    * Called by the polling interval
    */
