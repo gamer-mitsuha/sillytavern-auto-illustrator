@@ -5,6 +5,7 @@
 
 import {extractImagePrompts} from './image_extractor';
 import {ImageGenerationQueue} from './streaming_image_queue';
+import type {ImagePromptMatch} from './types';
 
 /**
  * Monitors streaming message text for new image prompts

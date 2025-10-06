@@ -9,7 +9,8 @@ import {createMessageHandler} from './message_handler';
 import {pruneGeneratedImages} from './chat_history_pruner';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {StreamingMonitor} from './streaming_monitor';
-import {QueueProcessor, type DeferredImage} from './queue_processor';
+import {QueueProcessor} from './queue_processor';
+import type {DeferredImage} from './types';
 import {
   loadSettings,
   saveSettings,
