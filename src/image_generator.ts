@@ -264,12 +264,11 @@ export async function insertDeferredImages(
   );
 
   // Emit MESSAGE_UPDATED to trigger UI re-render
-  const MESSAGE_UPDATED =
-    context.eventTypes?.MESSAGE_UPDATED || 'MESSAGE_UPDATED';
+  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
   context.eventSource.emit(MESSAGE_UPDATED, messageId);
 
   // Also emit MESSAGE_EDITED to trigger regex extensions
-  const MESSAGE_EDITED = context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
   context.eventSource.emit(MESSAGE_EDITED, messageId);
 
   // Save the chat to persist the inserted images

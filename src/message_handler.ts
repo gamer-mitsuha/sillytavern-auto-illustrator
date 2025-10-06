@@ -117,8 +117,7 @@ export function createMessageHandler(
 
     // Emit MESSAGE_EDITED event to trigger UI updates and regex processing
     logger.info('Emitting MESSAGE_EDITED event');
-    const MESSAGE_EDITED =
-      context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
+    const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
     context.eventSource.emit(MESSAGE_EDITED, messageId);
 
     // Save the chat to persist the inserted images
