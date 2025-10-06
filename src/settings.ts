@@ -3,7 +3,7 @@
  * Handles loading, saving, and managing extension settings
  */
 
-import {getDefaultMetaPrompt} from './prompt_injector';
+import {getDefaultMetaPrompt, getPresetById} from './meta_prompt_presets';
 import {
   EXTENSION_NAME,
   DEFAULT_SETTINGS,
@@ -42,10 +42,19 @@ export function loadSettings(
   }
 
   // Merge saved settings with defaults to handle missing fields
-  return {
+  const merged = {
     ...defaults,
     ...saved,
   };
+
+  // Load preset content for current preset ID
+  const preset = getPresetById(
+    merged.currentPresetId,
+    merged.customPresets || []
+  );
+  merged.metaPrompt = preset.template;
+
+  return merged;
 }
 
 /**
@@ -90,11 +99,50 @@ export function createSettingsUI(): string {
             <input id="${UI_ELEMENT_IDS.WORD_INTERVAL}" class="text_pole" type="number" min="${WORD_INTERVAL.MIN}" max="${WORD_INTERVAL.MAX}" step="${WORD_INTERVAL.STEP}" />
           </label>
 
-          <label for="${UI_ELEMENT_IDS.META_PROMPT}">
-            <span>Meta Prompt Template</span>
-            <small>Instructions sent to the LLM for generating image prompts</small>
-            <textarea id="${UI_ELEMENT_IDS.META_PROMPT}" class="text_pole textarea_compact" rows="10"></textarea>
-          </label>
+          <div class="preset-management">
+            <label>Meta Prompt Preset</label>
+            <div class="preset-toolbar">
+              <select id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_SELECT}" class="text_pole flex_fill">
+                <optgroup label="Predefined Presets">
+                  <option value="default">Default</option>
+                  <option value="nai-4.5-full">NAI 4.5 Full</option>
+                </optgroup>
+                <optgroup label="Custom Presets" id="custom_presets_group">
+                  <!-- populated by JavaScript -->
+                </optgroup>
+              </select>
+              <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_EDIT}" class="menu_button menu_button_icon" title="Edit preset">
+                <i class="fa-solid fa-edit"></i>
+              </button>
+              <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_DELETE}" class="menu_button menu_button_icon" title="Delete custom preset">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+
+            <div id="${UI_ELEMENT_IDS.PRESET_EDITOR}" style="display:none">
+              <label for="${UI_ELEMENT_IDS.META_PROMPT}">
+                <span>Meta Prompt Template</span>
+                <small>Editing preset - Save or Save As to keep changes</small>
+                <textarea id="${UI_ELEMENT_IDS.META_PROMPT}" class="text_pole textarea_compact" rows="10" readonly></textarea>
+              </label>
+              <div class="preset-edit-actions">
+                <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE}" class="menu_button">
+                  <i class="fa-solid fa-save"></i> Save
+                </button>
+                <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE_AS}" class="menu_button">
+                  <i class="fa-solid fa-copy"></i> Save As...
+                </button>
+                <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_CANCEL}" class="menu_button">
+                  <i class="fa-solid fa-times"></i> Cancel
+                </button>
+              </div>
+            </div>
+
+            <div id="${UI_ELEMENT_IDS.PRESET_VIEWER}" class="preset-content-preview">
+              <label>Preset Content Preview:</label>
+              <pre id="${UI_ELEMENT_IDS.PRESET_PREVIEW}" class="preset-preview-text"></pre>
+            </div>
+          </div>
 
           <hr>
 

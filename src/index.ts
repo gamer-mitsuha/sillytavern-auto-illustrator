@@ -19,12 +19,18 @@ import {
 } from './settings';
 import {createLogger, setLogLevel} from './logger';
 import {UI_ELEMENT_IDS} from './constants';
+import {
+  getPresetById,
+  isPresetPredefined,
+  isPredefinedPresetName,
+} from './meta_prompt_presets';
 
 const logger = createLogger('Main');
 
 // Module state
 let context: SillyTavernContext;
 let settings: AutoIllustratorSettings;
+let isEditingPreset = false; // Track if user is currently editing a preset
 
 // Streaming state
 let pendingDeferredImages: {images: DeferredImage[]; messageId: number} | null =
@@ -48,6 +54,21 @@ function updateUI(): void {
   const metaPromptTextarea = document.getElementById(
     UI_ELEMENT_IDS.META_PROMPT
   ) as HTMLTextAreaElement;
+  const presetSelect = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT_PRESET_SELECT
+  ) as HTMLSelectElement;
+  const presetDeleteButton = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT_PRESET_DELETE
+  ) as HTMLButtonElement;
+  const presetEditor = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_EDITOR
+  ) as HTMLDivElement;
+  const presetViewer = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_VIEWER
+  ) as HTMLDivElement;
+  const presetPreview = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_PREVIEW
+  ) as HTMLPreElement;
   const streamingEnabledCheckbox = document.getElementById(
     UI_ELEMENT_IDS.STREAMING_ENABLED
   ) as HTMLInputElement;
@@ -61,10 +82,10 @@ function updateUI(): void {
     UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
 
+  // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
   if (wordIntervalInput)
     wordIntervalInput.value = settings.wordInterval.toString();
-  if (metaPromptTextarea) metaPromptTextarea.value = settings.metaPrompt;
   if (streamingEnabledCheckbox)
     streamingEnabledCheckbox.checked = settings.streamingEnabled;
   if (streamingPollIntervalInput)
@@ -73,6 +94,47 @@ function updateUI(): void {
   if (maxConcurrentInput)
     maxConcurrentInput.value = settings.maxConcurrentGenerations.toString();
   if (logLevelSelect) logLevelSelect.value = settings.logLevel;
+
+  // Update preset dropdown with custom presets
+  if (presetSelect) {
+    const customPresetsGroup = presetSelect.querySelector(
+      '#custom_presets_group'
+    );
+    if (customPresetsGroup) {
+      customPresetsGroup.innerHTML = '';
+      settings.customPresets.forEach(preset => {
+        const option = document.createElement('option');
+        option.value = preset.id;
+        option.textContent = preset.name;
+        customPresetsGroup.appendChild(option);
+      });
+    }
+    presetSelect.value = settings.currentPresetId;
+  }
+
+  // Update delete button state based on preset type
+  if (presetDeleteButton) {
+    const isPredefined = isPresetPredefined(settings.currentPresetId);
+    presetDeleteButton.disabled = isPredefined;
+    presetDeleteButton.title = isPredefined
+      ? 'Cannot delete predefined presets'
+      : 'Delete custom preset';
+  }
+
+  // Update preview area with current preset content
+  if (presetPreview) {
+    presetPreview.textContent = settings.metaPrompt;
+  }
+
+  // Update textarea (used in edit mode)
+  if (metaPromptTextarea) {
+    metaPromptTextarea.value = settings.metaPrompt;
+  }
+
+  // Ensure editor is hidden and viewer is shown (not in edit mode)
+  if (presetEditor) presetEditor.style.display = 'none';
+  if (presetViewer) presetViewer.style.display = 'block';
+  isEditingPreset = false;
 }
 
 /**
@@ -141,6 +203,264 @@ function handleResetSettings(): void {
   updateExtensionPrompt(context, settings);
 
   logger.info('Settings reset to defaults');
+}
+
+/**
+ * Handles preset selection change
+ */
+function handlePresetChange(): void {
+  // Exit edit mode if active
+  if (isEditingPreset) {
+    handlePresetCancel();
+  }
+
+  const presetSelect = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT_PRESET_SELECT
+  ) as HTMLSelectElement;
+  if (!presetSelect) return;
+
+  const selectedId = presetSelect.value;
+  const preset = getPresetById(selectedId, settings.customPresets);
+
+  settings.currentPresetId = selectedId;
+  settings.metaPrompt = preset.template;
+  saveSettings(settings, context);
+  updateExtensionPrompt(context, settings);
+  updateUI();
+
+  logger.info('Preset changed:', {id: selectedId, name: preset.name});
+}
+
+/**
+ * Handles entering edit mode for current preset
+ */
+function handlePresetEdit(): void {
+  const presetEditor = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_EDITOR
+  ) as HTMLDivElement;
+  const presetViewer = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_VIEWER
+  ) as HTMLDivElement;
+  const metaPromptTextarea = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT
+  ) as HTMLTextAreaElement;
+  const presetSaveButton = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE
+  ) as HTMLButtonElement;
+
+  if (!presetEditor || !presetViewer || !metaPromptTextarea) return;
+
+  // Show editor, hide viewer
+  presetViewer.style.display = 'none';
+  presetEditor.style.display = 'block';
+
+  // Make textarea editable and populate with current content
+  metaPromptTextarea.removeAttribute('readonly');
+  metaPromptTextarea.value = settings.metaPrompt;
+
+  // Update save button state (disabled for predefined presets)
+  if (presetSaveButton) {
+    const isPredefined = isPresetPredefined(settings.currentPresetId);
+    presetSaveButton.disabled = isPredefined;
+    presetSaveButton.title = isPredefined
+      ? 'Cannot save changes to predefined presets (use Save As)'
+      : 'Save changes to this preset';
+  }
+
+  isEditingPreset = true;
+  logger.info('Entered preset edit mode');
+}
+
+/**
+ * Handles saving changes to current custom preset
+ */
+function handlePresetSave(): void {
+  if (isPresetPredefined(settings.currentPresetId)) {
+    toastr.error(
+      'Cannot save changes to predefined presets. Use "Save As" to create a custom preset.',
+      'Auto Illustrator'
+    );
+    return;
+  }
+
+  const metaPromptTextarea = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT
+  ) as HTMLTextAreaElement;
+  if (!metaPromptTextarea) return;
+
+  const content = metaPromptTextarea.value;
+
+  // Find and update the custom preset
+  const presetIndex = settings.customPresets.findIndex(
+    p => p.id === settings.currentPresetId
+  );
+  if (presetIndex === -1) {
+    toastr.error('Preset not found', 'Auto Illustrator');
+    return;
+  }
+
+  settings.customPresets[presetIndex].template = content;
+  settings.metaPrompt = content;
+  saveSettings(settings, context);
+  updateExtensionPrompt(context, settings);
+
+  // Exit edit mode
+  const presetEditor = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_EDITOR
+  ) as HTMLDivElement;
+  const presetViewer = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_VIEWER
+  ) as HTMLDivElement;
+  if (presetEditor) presetEditor.style.display = 'none';
+  if (presetViewer) presetViewer.style.display = 'block';
+  isEditingPreset = false;
+
+  updateUI();
+  toastr.success('Preset saved', 'Auto Illustrator');
+  logger.info('Preset saved:', settings.customPresets[presetIndex].name);
+}
+
+/**
+ * Handles saving current content as a new preset or overwriting existing
+ */
+function handlePresetSaveAs(): void {
+  const metaPromptTextarea = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT
+  ) as HTMLTextAreaElement;
+  if (!metaPromptTextarea) return;
+
+  const content = metaPromptTextarea.value;
+  const name = prompt('Enter name for new preset:');
+
+  if (!name || name.trim() === '') {
+    return;
+  }
+
+  const trimmedName = name.trim();
+
+  // Check if name is a predefined preset name
+  if (isPredefinedPresetName(trimmedName)) {
+    toastr.error(
+      'Cannot use predefined preset names (Default, NAI 4.5 Full)',
+      'Auto Illustrator'
+    );
+    return;
+  }
+
+  // Check if name already exists in custom presets
+  const existingPreset = settings.customPresets.find(
+    p => p.name === trimmedName
+  );
+
+  if (existingPreset) {
+    const overwrite = confirm(`Overwrite existing preset '${trimmedName}'?`);
+    if (!overwrite) {
+      return;
+    }
+
+    // Overwrite existing preset
+    existingPreset.template = content;
+    settings.currentPresetId = existingPreset.id;
+    settings.metaPrompt = content;
+  } else {
+    // Create new preset
+    const newPreset: MetaPromptPreset = {
+      id: `custom-${Date.now()}`,
+      name: trimmedName,
+      template: content,
+      predefined: false,
+    };
+
+    settings.customPresets.push(newPreset);
+    settings.currentPresetId = newPreset.id;
+    settings.metaPrompt = content;
+  }
+
+  saveSettings(settings, context);
+  updateExtensionPrompt(context, settings);
+
+  // Exit edit mode
+  const presetEditor = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_EDITOR
+  ) as HTMLDivElement;
+  const presetViewer = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_VIEWER
+  ) as HTMLDivElement;
+  if (presetEditor) presetEditor.style.display = 'none';
+  if (presetViewer) presetViewer.style.display = 'block';
+  isEditingPreset = false;
+
+  updateUI();
+  toastr.success(`Preset '${trimmedName}' saved`, 'Auto Illustrator');
+  logger.info('Preset saved as:', trimmedName);
+}
+
+/**
+ * Handles canceling preset edit
+ */
+function handlePresetCancel(): void {
+  const presetEditor = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_EDITOR
+  ) as HTMLDivElement;
+  const presetViewer = document.getElementById(
+    UI_ELEMENT_IDS.PRESET_VIEWER
+  ) as HTMLDivElement;
+  const metaPromptTextarea = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT
+  ) as HTMLTextAreaElement;
+
+  if (!presetEditor || !presetViewer || !metaPromptTextarea) return;
+
+  // Hide editor, show viewer
+  presetEditor.style.display = 'none';
+  presetViewer.style.display = 'block';
+
+  // Reset textarea to readonly and restore content
+  metaPromptTextarea.setAttribute('readonly', 'readonly');
+  metaPromptTextarea.value = settings.metaPrompt;
+
+  isEditingPreset = false;
+  logger.info('Cancelled preset edit');
+}
+
+/**
+ * Handles deleting a custom preset
+ */
+function handlePresetDelete(): void {
+  if (isPresetPredefined(settings.currentPresetId)) {
+    toastr.error('Cannot delete predefined presets', 'Auto Illustrator');
+    return;
+  }
+
+  const preset = settings.customPresets.find(
+    p => p.id === settings.currentPresetId
+  );
+  if (!preset) {
+    toastr.error('Preset not found', 'Auto Illustrator');
+    return;
+  }
+
+  const confirmDelete = confirm(`Delete preset '${preset.name}'?`);
+  if (!confirmDelete) {
+    return;
+  }
+
+  // Remove preset from array
+  settings.customPresets = settings.customPresets.filter(
+    p => p.id !== settings.currentPresetId
+  );
+
+  // Switch to default preset
+  settings.currentPresetId = 'default';
+  const defaultPreset = getPresetById('default', settings.customPresets);
+  settings.metaPrompt = defaultPreset.template;
+
+  saveSettings(settings, context);
+  updateExtensionPrompt(context, settings);
+  updateUI();
+
+  toastr.success(`Preset '${preset.name}' deleted`, 'Auto Illustrator');
+  logger.info('Preset deleted:', preset.name);
 }
 
 /**
@@ -366,8 +686,23 @@ function initialize(): void {
     const wordIntervalInput = document.getElementById(
       UI_ELEMENT_IDS.WORD_INTERVAL
     );
-    const metaPromptTextarea = document.getElementById(
-      UI_ELEMENT_IDS.META_PROMPT
+    const presetSelect = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_PRESET_SELECT
+    );
+    const presetEditButton = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_PRESET_EDIT
+    );
+    const presetSaveButton = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE
+    );
+    const presetSaveAsButton = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE_AS
+    );
+    const presetDeleteButton = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_PRESET_DELETE
+    );
+    const presetCancelButton = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_PRESET_CANCEL
     );
     const streamingEnabledCheckbox = document.getElementById(
       UI_ELEMENT_IDS.STREAMING_ENABLED
@@ -383,7 +718,12 @@ function initialize(): void {
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
     wordIntervalInput?.addEventListener('change', handleSettingsChange);
-    metaPromptTextarea?.addEventListener('input', handleSettingsChange);
+    presetSelect?.addEventListener('change', handlePresetChange);
+    presetEditButton?.addEventListener('click', handlePresetEdit);
+    presetSaveButton?.addEventListener('click', handlePresetSave);
+    presetSaveAsButton?.addEventListener('click', handlePresetSaveAs);
+    presetDeleteButton?.addEventListener('click', handlePresetDelete);
+    presetCancelButton?.addEventListener('click', handlePresetCancel);
     streamingEnabledCheckbox?.addEventListener('change', handleSettingsChange);
     streamingPollIntervalInput?.addEventListener(
       'change',

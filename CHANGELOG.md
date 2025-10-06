@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Streaming message tracking to prevent duplicate processing
   - Full-text search for image insertion (no position tracking needed)
   - Duplicate prompt detection prevention after text shifts
+- Meta prompt preset management system
+  - Two predefined presets: Default and NAI 4.5 Full (optimized for NovelAI Diffusion 4.5)
+  - Create, update, and delete custom presets
+  - Edit mode with Save and Save As functionality
+  - Preset content preview with scrollable display
+  - Predefined presets are read-only (can only be saved as new custom presets)
+  - Custom presets can be overwritten with confirmation
+  - Cannot use predefined preset names for custom presets
+  - Delete button disabled for predefined presets (visible but not clickable)
+  - Save button disabled for predefined presets (only Save As available)
 - Chat history pruning using `CHAT_COMPLETION_PROMPT_READY` event
   - Removes generated `<img>` tags from chat history before sending to LLM
   - Preserves `<img_prompt>` tags so LLM recognizes its own format

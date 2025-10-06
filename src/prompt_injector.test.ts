@@ -1,22 +1,8 @@
 import {describe, it, expect} from 'vitest';
 import {createMockContext} from './test_helpers';
-import {getDefaultMetaPrompt, updateExtensionPrompt} from './prompt_injector';
+import {updateExtensionPrompt} from './prompt_injector';
 
 describe('prompt_injector', () => {
-  describe('getDefaultMetaPrompt', () => {
-    it('should return a meta prompt with default word interval', () => {
-      const metaPrompt = getDefaultMetaPrompt(250);
-      expect(metaPrompt).toContain('250');
-      expect(metaPrompt).toContain('<img_prompt="');
-      expect(metaPrompt).toContain('">');
-    });
-
-    it('should handle different word intervals', () => {
-      const metaPrompt = getDefaultMetaPrompt(500);
-      expect(metaPrompt).toContain('500');
-    });
-  });
-
   describe('updateExtensionPrompt', () => {
     it('should call setExtensionPrompt with correct parameters when enabled', () => {
       const calls: unknown[][] = [];
@@ -30,6 +16,12 @@ describe('prompt_injector', () => {
         enabled: true,
         wordInterval: 250,
         metaPrompt: 'test prompt',
+        currentPresetId: 'default',
+        customPresets: [],
+        streamingEnabled: true,
+        streamingPollInterval: 300,
+        maxConcurrentGenerations: 1,
+        logLevel: 'info',
       };
 
       updateExtensionPrompt(mockContext, settings);
@@ -55,6 +47,12 @@ describe('prompt_injector', () => {
         enabled: false,
         wordInterval: 250,
         metaPrompt: 'test prompt',
+        currentPresetId: 'default',
+        customPresets: [],
+        streamingEnabled: true,
+        streamingPollInterval: 300,
+        maxConcurrentGenerations: 1,
+        logLevel: 'info',
       };
 
       updateExtensionPrompt(mockContext, settings);
@@ -75,6 +73,12 @@ describe('prompt_injector', () => {
         enabled: true,
         wordInterval: 250,
         metaPrompt: 'test prompt',
+        currentPresetId: 'default',
+        customPresets: [],
+        streamingEnabled: true,
+        streamingPollInterval: 300,
+        maxConcurrentGenerations: 1,
+        logLevel: 'info',
       };
 
       // Should not throw
