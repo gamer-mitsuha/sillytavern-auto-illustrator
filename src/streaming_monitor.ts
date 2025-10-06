@@ -6,6 +6,9 @@
 import {extractImagePrompts} from './image_extractor';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import type {ImagePromptMatch} from './types';
+import {createLogger} from './logger';
+
+const logger = createLogger('Monitor');
 
 /**
  * Monitors streaming message text for new image prompts
@@ -45,9 +48,7 @@ export class StreamingMonitor {
    */
   start(messageId: number): void {
     if (this.isRunning) {
-      console.warn(
-        '[Auto Illustrator Monitor] Already running, stopping previous monitor'
-      );
+      logger.warn('Already running, stopping previous monitor');
       this.stop();
     }
 
@@ -55,8 +56,8 @@ export class StreamingMonitor {
     this.lastSeenText = '';
     this.isRunning = true;
 
-    console.log(
-      `[Auto Illustrator Monitor] Starting monitor for message ${messageId} (interval: ${this.intervalMs}ms)`
+    logger.info(
+      `Starting monitor for message ${messageId} (interval: ${this.intervalMs}ms)`
     );
 
     // Start polling
@@ -76,7 +77,7 @@ export class StreamingMonitor {
       return;
     }
 
-    console.log('[Auto Illustrator Monitor] Stopping monitor');
+    logger.info('Stopping monitor');
     this.isRunning = false;
 
     if (this.pollInterval) {
@@ -100,10 +101,7 @@ export class StreamingMonitor {
     // Get current message text
     const message = this.context.chat?.[this.messageId];
     if (!message) {
-      console.warn(
-        '[Auto Illustrator Monitor] Message not found:',
-        this.messageId
-      );
+      logger.warn('Message not found:', this.messageId);
       return;
     }
 
@@ -114,17 +112,15 @@ export class StreamingMonitor {
       return;
     }
 
-    console.log(
-      `[Auto Illustrator Monitor] Text changed (${this.lastSeenText.length} -> ${currentText.length} chars)`
+    logger.info(
+      `Text changed (${this.lastSeenText.length} -> ${currentText.length} chars)`
     );
 
     // Extract new prompts
     const newPrompts = this.extractNewPrompts(currentText);
 
     if (newPrompts.length > 0) {
-      console.log(
-        `[Auto Illustrator Monitor] Found ${newPrompts.length} new prompts`
-      );
+      logger.info(`Found ${newPrompts.length} new prompts`);
 
       for (const match of newPrompts) {
         this.queue.addPrompt(match.prompt, match.startIndex, match.endIndex);

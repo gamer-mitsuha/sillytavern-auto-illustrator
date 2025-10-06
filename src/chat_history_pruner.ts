@@ -3,6 +3,10 @@
  * Removes generated images from chat history before sending to LLM
  */
 
+import {createLogger} from './logger';
+
+const logger = createLogger('Pruner');
+
 /**
  * Prunes generated images from chat history
  * Only removes <img> tags that immediately follow <img_prompt> tags in assistant messages
@@ -14,7 +18,7 @@
 export function pruneGeneratedImages(
   chat: Array<{role: string; content: string}>
 ): Array<{role: string; content: string}> {
-  console.log('[Auto Illustrator] Pruning generated images from chat history');
+  logger.info('Pruning generated images from chat history');
 
   for (const message of chat) {
     // Only process assistant messages
@@ -35,9 +39,7 @@ export function pruneGeneratedImages(
     });
 
     if (originalContent !== message.content) {
-      console.log(
-        '[Auto Illustrator] Pruned generated images from assistant message'
-      );
+      logger.info('Pruned generated images from assistant message');
     }
   }
 

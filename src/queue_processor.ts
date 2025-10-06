@@ -6,6 +6,9 @@
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {generateImage} from './image_generator';
 import type {QueuedPrompt, DeferredImage} from './types';
+import {createLogger} from './logger';
+
+const logger = createLogger('Processor');
 
 /**
  * Processes queued image generation prompts
@@ -44,9 +47,7 @@ export class QueueProcessor {
    */
   start(messageId: number): void {
     if (this.isRunning) {
-      console.warn(
-        '[Auto Illustrator Processor] Already running, stopping previous processor'
-      );
+      logger.warn('Already running, stopping previous processor');
       this.stop();
     }
 
@@ -55,8 +56,8 @@ export class QueueProcessor {
     this.activeGenerations = 0;
     this.deferredImages = [];
 
-    console.log(
-      `[Auto Illustrator Processor] Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
+    logger.info(
+      `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
     );
 
     // Start processing
@@ -71,7 +72,7 @@ export class QueueProcessor {
       return;
     }
 
-    console.log('[Auto Illustrator Processor] Stopping processor');
+    logger.info('Stopping processor');
     this.isRunning = false;
     this.messageId = -1;
     // Note: we don't cancel active generations, let them complete
@@ -99,15 +100,11 @@ export class QueueProcessor {
       if (!nextPrompt) {
         // No more pending prompts
         this.isProcessing = false;
-        console.log(
-          '[Auto Illustrator Processor] No pending prompts, waiting...'
-        );
+        logger.info('No pending prompts, waiting...');
         return;
       }
 
-      console.log(
-        `[Auto Illustrator Processor] Processing prompt: ${nextPrompt.id}`
-      );
+      logger.info(`Processing prompt: ${nextPrompt.id}`);
 
       // Mark as generating and increment active count
       this.queue.updateState(nextPrompt.id, 'GENERATING');
@@ -122,10 +119,7 @@ export class QueueProcessor {
           this.processNext();
         })
         .catch(error => {
-          console.error(
-            '[Auto Illustrator Processor] Unexpected error:',
-            error
-          );
+          logger.error('Unexpected error:', error);
           this.activeGenerations--;
           this.processNext();
         });
@@ -138,10 +132,7 @@ export class QueueProcessor {
         this.isProcessing = false;
       }
     } catch (error) {
-      console.error(
-        '[Auto Illustrator Processor] Error in processNext:',
-        error
-      );
+      logger.error('Error in processNext:', error);
       this.isProcessing = false;
     }
   }
@@ -152,42 +143,33 @@ export class QueueProcessor {
    */
   private async generateImageForPrompt(prompt: QueuedPrompt): Promise<void> {
     try {
-      console.log(
-        `[Auto Illustrator Processor] Generating image for: ${prompt.prompt}`
-      );
+      logger.info(`Generating image for: ${prompt.prompt}`);
 
       const imageUrl = await generateImage(prompt.prompt, this.context);
 
       if (imageUrl) {
         // Success
         this.queue.updateState(prompt.id, 'COMPLETED', {imageUrl});
-        console.log(
-          `[Auto Illustrator Processor] Generated image: ${imageUrl}`
-        );
+        logger.info(`Generated image: ${imageUrl}`);
 
         // Store for later batch insertion (after streaming completes)
         this.deferredImages.push({prompt, imageUrl});
-        console.log(
-          `[Auto Illustrator Processor] Deferred image insertion (${this.deferredImages.length} total)`
+        logger.info(
+          `Deferred image insertion (${this.deferredImages.length} total)`
         );
       } else {
         // Failed
         this.queue.updateState(prompt.id, 'FAILED', {
           error: 'Image generation returned null',
         });
-        console.warn(
-          `[Auto Illustrator Processor] Failed to generate image for: ${prompt.prompt}`
-        );
+        logger.warn(`Failed to generate image for: ${prompt.prompt}`);
       }
     } catch (error) {
       // Error
       this.queue.updateState(prompt.id, 'FAILED', {
         error: error instanceof Error ? error.message : String(error),
       });
-      console.error(
-        '[Auto Illustrator Processor] Error generating image:',
-        error
-      );
+      logger.error('Error generating image:', error);
     }
   }
 
@@ -198,21 +180,19 @@ export class QueueProcessor {
    * @returns Promise that resolves when all prompts are processed
    */
   async processRemaining(): Promise<void> {
-    console.log('[Auto Illustrator Processor] Processing remaining prompts...');
+    logger.info('Processing remaining prompts...');
 
     // Wait for any active generations to complete first
     // This prevents concurrent execution beyond maxConcurrent limit
     while (this.activeGenerations > 0) {
-      console.log(
-        `[Auto Illustrator Processor] Waiting for ${this.activeGenerations} active generations to complete...`
+      logger.info(
+        `Waiting for ${this.activeGenerations} active generations to complete...`
       );
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     const pending = this.queue.getPromptsByState('QUEUED');
-    console.log(
-      `[Auto Illustrator Processor] ${pending.length} prompts remaining`
-    );
+    logger.info(`${pending.length} prompts remaining`);
 
     if (pending.length === 0) {
       return;
@@ -224,9 +204,7 @@ export class QueueProcessor {
       await this.generateImageForPrompt(prompt);
     }
 
-    console.log(
-      '[Auto Illustrator Processor] Finished processing remaining prompts'
-    );
+    logger.info('Finished processing remaining prompts');
   }
 
   /**

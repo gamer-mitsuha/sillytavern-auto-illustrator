@@ -5,6 +5,9 @@
 
 import {hasImagePrompts} from './image_extractor';
 import {replacePromptsWithImages} from './image_generator';
+import {createLogger} from './logger';
+
+const logger = createLogger('MessageHandler');
 
 /**
  * Processes a message to extract and generate images from prompts
@@ -22,7 +25,7 @@ export async function processMessageImages(
     return;
   }
 
-  console.log('[Auto Illustrator] Processing message for images:', messageId);
+  logger.info('Processing message for images:', messageId);
 
   try {
     // Generate images and replace prompts
@@ -33,7 +36,7 @@ export async function processMessageImages(
       context.chat[messageId].mes = processedMessage;
     }
   } catch (error) {
-    console.error('[Auto Illustrator] Error processing message:', error);
+    logger.error('Error processing message:', error);
   }
 }
 
@@ -55,16 +58,11 @@ export function createMessageHandler(
   } | null
 ): (messageId: number) => Promise<void> {
   return async (messageId: number) => {
-    console.log(
-      '[Auto Illustrator] MESSAGE_RECEIVED event, messageId:',
-      messageId
-    );
+    logger.info('MESSAGE_RECEIVED event, messageId:', messageId);
 
     // If streaming is enabled, mark MESSAGE_RECEIVED as fired and try insertion
     if (settings.streamingEnabled && getPendingDeferredImages) {
-      console.log(
-        '[Auto Illustrator] MESSAGE_RECEIVED fired for streaming message, marking flag'
-      );
+      logger.info('MESSAGE_RECEIVED fired for streaming message, marking flag');
       // Call the callback to signal MESSAGE_RECEIVED fired
       getPendingDeferredImages();
       return;
@@ -72,16 +70,16 @@ export function createMessageHandler(
 
     // Skip if streaming is enabled - streaming handles all image generation
     if (settings.streamingEnabled) {
-      console.log(
-        '[Auto Illustrator] Skipping MESSAGE_RECEIVED - streaming mode handles image generation'
+      logger.info(
+        'Skipping MESSAGE_RECEIVED - streaming mode handles image generation'
       );
       return;
     }
 
     // Skip if this message is currently being processed by streaming
     if (isMessageBeingStreamed(messageId)) {
-      console.log(
-        '[Auto Illustrator] Skipping MESSAGE_RECEIVED - message is being processed by streaming'
+      logger.info(
+        'Skipping MESSAGE_RECEIVED - message is being processed by streaming'
       );
       return;
     }
@@ -89,11 +87,11 @@ export function createMessageHandler(
     // Get the message from chat
     const message = context.chat?.[messageId];
     if (!message) {
-      console.log('[Auto Illustrator] No message found at index:', messageId);
+      logger.info('No message found at index:', messageId);
       return;
     }
 
-    console.log('[Auto Illustrator] Message details:', {
+    logger.info('Message details:', {
       is_user: message.is_user,
       is_system: message.is_system,
       name: message.name,
@@ -101,27 +99,24 @@ export function createMessageHandler(
     });
 
     if (message.is_user) {
-      console.log('[Auto Illustrator] Skipping user message');
+      logger.info('Skipping user message');
       return;
     }
 
-    console.log(
-      '[Auto Illustrator] Message text preview:',
-      message.mes.substring(0, 200)
-    );
+    logger.info('Message text preview:', message.mes.substring(0, 200));
 
     // Check if message has image prompts
     if (!hasImagePrompts(message.mes)) {
-      console.log('[Auto Illustrator] No image prompts found in message');
+      logger.info('No image prompts found in message');
       return;
     }
 
-    console.log('[Auto Illustrator] Image prompts detected, processing...');
+    logger.info('Image prompts detected, processing...');
 
     await processMessageImages(message.mes, messageId, context);
 
     // Emit MESSAGE_EDITED event to trigger UI updates and regex processing
-    console.log('[Auto Illustrator] Emitting MESSAGE_EDITED event');
+    logger.info('Emitting MESSAGE_EDITED event');
     const MESSAGE_EDITED =
       context.eventTypes?.MESSAGE_EDITED || 'MESSAGE_EDITED';
     context.eventSource.emit(MESSAGE_EDITED, messageId);

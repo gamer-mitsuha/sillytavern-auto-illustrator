@@ -4,6 +4,9 @@
  */
 
 import type {PromptState, QueuedPrompt} from './types';
+import {createLogger} from './logger';
+
+const logger = createLogger('Queue');
 
 /**
  * Generates a unique ID for a prompt based on text and position
@@ -42,7 +45,7 @@ export class ImageGenerationQueue {
 
     // Check if already exists
     if (this.prompts.has(id)) {
-      console.log('[Auto Illustrator Queue] Prompt already queued:', id);
+      logger.info('Prompt already queued:', id);
       return null;
     }
 
@@ -57,7 +60,7 @@ export class ImageGenerationQueue {
     };
 
     this.prompts.set(id, queuedPrompt);
-    console.log('[Auto Illustrator Queue] Added prompt:', id, prompt);
+    logger.info('Added prompt:', id, prompt);
     return queuedPrompt;
   }
 
@@ -113,7 +116,7 @@ export class ImageGenerationQueue {
   ): void {
     const prompt = this.prompts.get(id);
     if (!prompt) {
-      console.warn('[Auto Illustrator Queue] Prompt not found:', id);
+      logger.warn('Prompt not found:', id);
       return;
     }
 
@@ -136,7 +139,7 @@ export class ImageGenerationQueue {
       prompt.error = data.error;
     }
 
-    console.log('[Auto Illustrator Queue] Updated state:', id, state);
+    logger.info('Updated state:', id, state);
   }
 
   /**
@@ -189,7 +192,7 @@ export class ImageGenerationQueue {
    * Clears all prompts from the queue
    */
   clear(): void {
-    console.log('[Auto Illustrator Queue] Clearing queue');
+    logger.info('Clearing queue');
     this.prompts.clear();
   }
 

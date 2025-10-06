@@ -3,6 +3,10 @@
  * Handles injection of meta-prompts to instruct the LLM to generate image prompts inline
  */
 
+import {createLogger} from './logger';
+
+const logger = createLogger('PromptInjector');
+
 const EXTENSION_PROMPT_KEY = 'auto_illustrator';
 
 /**
@@ -41,16 +45,14 @@ export function updateExtensionPrompt(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): void {
-  console.log('[Auto Illustrator] Updating extension prompt', {
+  logger.info('Updating extension prompt', {
     enabled: settings.enabled,
     metaPromptLength: settings.metaPrompt.length,
     hasSetExtensionPrompt: typeof context.setExtensionPrompt === 'function',
   });
 
   if (typeof context.setExtensionPrompt !== 'function') {
-    console.error(
-      '[Auto Illustrator] setExtensionPrompt function not available in context'
-    );
+    logger.error('setExtensionPrompt function not available in context');
     return;
   }
 
@@ -62,7 +64,7 @@ export function updateExtensionPrompt(
 
   if (settings.enabled) {
     // Set the prompt when enabled
-    console.log('[Auto Illustrator] Setting extension prompt (enabled)');
+    logger.info('Setting extension prompt (enabled)');
     context.setExtensionPrompt(
       EXTENSION_PROMPT_KEY, // key
       settings.metaPrompt, // value
@@ -73,7 +75,7 @@ export function updateExtensionPrompt(
     );
   } else {
     // Clear the prompt when disabled (set empty string)
-    console.log('[Auto Illustrator] Clearing extension prompt (disabled)');
+    logger.info('Clearing extension prompt (disabled)');
     context.setExtensionPrompt(
       EXTENSION_PROMPT_KEY, // key
       '', // value: empty string clears the prompt
@@ -87,7 +89,7 @@ export function updateExtensionPrompt(
   // Verify the prompt was registered by checking extensionPrompts
   const registeredPrompt = context.extensionPrompts?.[EXTENSION_PROMPT_KEY];
 
-  console.log('[Auto Illustrator] Extension prompt configured', {
+  logger.info('Extension prompt configured', {
     key: EXTENSION_PROMPT_KEY,
     enabled: settings.enabled,
     registered: !!registeredPrompt,
