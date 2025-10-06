@@ -199,5 +199,27 @@ describe('Chat History Pruner', () => {
       expect(chat[0].content).toContain('<img_prompt="beautiful sunset">');
       expect(chat[0].content).not.toContain('<img src="sunset.jpg"');
     });
+
+    it('should remove img tags regardless of attribute presence or order', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Text <img_prompt="test1">\n<img src="image1.jpg"> more text ' +
+            '<img_prompt="test2">\n<img class="foo" src="image2.jpg" id="bar"> end',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      // Should remove both img tags regardless of attributes
+      expect(chat[0].content).toContain('<img_prompt="test1">');
+      expect(chat[0].content).toContain('<img_prompt="test2">');
+      expect(chat[0].content).not.toContain('<img src="image1.jpg">');
+      expect(chat[0].content).not.toContain('<img class="foo" src="image2.jpg"');
+      expect(chat[0].content).toContain('Text');
+      expect(chat[0].content).toContain('more text');
+      expect(chat[0].content).toContain('end');
+    });
   });
 });
