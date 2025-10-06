@@ -285,4 +285,85 @@ describe('StreamingMonitor', () => {
       expect(monitor.isActive()).toBe(false);
     });
   });
+
+  describe('finalScan', () => {
+    it('should detect prompts added after last poll', () => {
+      mockContext.chat[0].mes = 'Initial text';
+      monitor.start(0);
+
+      // Wait for initial scan
+      vi.advanceTimersByTime(0);
+
+      // Add prompt after polling but before stop
+      mockContext.chat[0].mes = 'Initial text <img_prompt="last moment">';
+
+      // Do final scan
+      monitor.finalScan();
+
+      expect(queue.size()).toBe(1);
+      expect(queue.getAllPrompts()[0].prompt).toBe('last moment');
+    });
+
+    it('should detect multiple prompts in final scan', () => {
+      mockContext.chat[0].mes = '';
+      monitor.start(0);
+
+      mockContext.chat[0].mes =
+        '<img_prompt="first"> <img_prompt="second"> <img_prompt="third">';
+
+      monitor.finalScan();
+
+      expect(queue.size()).toBe(3);
+    });
+
+    it('should not duplicate prompts already detected', () => {
+      mockContext.chat[0].mes = '<img_prompt="existing">';
+      monitor.start(0);
+
+      // Initial scan detects the prompt
+      expect(queue.size()).toBe(1);
+
+      // Final scan with no new prompts
+      monitor.finalScan();
+
+      expect(queue.size()).toBe(1);
+    });
+
+    it('should handle final scan when monitor is stopped', () => {
+      monitor.start(0);
+      monitor.stop();
+
+      // Should not throw
+      expect(() => {
+        monitor.finalScan();
+      }).not.toThrow();
+    });
+
+    it('should detect prompt added at very end of stream', () => {
+      // Simulate streaming scenario
+      mockContext.chat[0].mes = 'Text is streaming';
+      monitor.start(0);
+
+      // Advance through several polls
+      mockContext.chat[0].mes = 'Text is streaming <img_prompt="first">';
+      vi.advanceTimersByTime(300);
+
+      expect(queue.size()).toBe(1);
+
+      // More streaming
+      mockContext.chat[0].mes =
+        'Text is streaming <img_prompt="first"> more text';
+      vi.advanceTimersByTime(300);
+
+      // Last prompt added after final poll but before GENERATION_ENDED
+      mockContext.chat[0].mes =
+        'Text is streaming <img_prompt="first"> more text <img_prompt="last">';
+
+      // Final scan catches it
+      monitor.finalScan();
+
+      expect(queue.size()).toBe(2);
+      expect(queue.getAllPrompts()[1].prompt).toBe('last');
+    });
+  });
 });

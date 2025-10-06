@@ -561,6 +561,9 @@ async function handleGenerationEnded(): Promise<void> {
 
   logger.info('GENERATION_ENDED, cleaning up streaming');
 
+  // Do one final scan to catch any prompts added at the very end
+  streamingMonitor.finalScan();
+
   // Stop monitoring (no more new prompts)
   streamingMonitor.stop();
 
