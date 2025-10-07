@@ -6,6 +6,94 @@ import {describe, it, expect, beforeEach} from 'vitest';
 import {hasExistingImage, removeExistingImages} from './manual_generation';
 
 describe('Manual Generation', () => {
+  describe('Append mode - finding last image position', () => {
+    it('should find position after single image', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">';
+      const promptTag = '<img_prompt="test">';
+      const insertPos = promptTag.length;
+      const afterPrompt = text.substring(insertPos);
+
+      const imgTagRegex = /\s*<img\s+[^>]*>/g;
+      let lastMatchEnd = 0;
+      let match;
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (
+          match.index === lastMatchEnd ||
+          afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+        ) {
+          lastMatchEnd = imgTagRegex.lastIndex;
+        } else {
+          break;
+        }
+      }
+
+      expect(lastMatchEnd).toBeGreaterThan(0);
+      expect(afterPrompt.substring(0, lastMatchEnd)).toContain(
+        '<img src="1.jpg">'
+      );
+    });
+
+    it('should find position after multiple consecutive images', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">\n<img src="3.jpg">';
+      const promptTag = '<img_prompt="test">';
+      const insertPos = promptTag.length;
+      const afterPrompt = text.substring(insertPos);
+
+      const imgTagRegex = /\s*<img\s+[^>]*>/g;
+      let lastMatchEnd = 0;
+      let match;
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (
+          match.index === lastMatchEnd ||
+          afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+        ) {
+          lastMatchEnd = imgTagRegex.lastIndex;
+        } else {
+          break;
+        }
+      }
+
+      expect(lastMatchEnd).toBeGreaterThan(0);
+      const matchedText = afterPrompt.substring(0, lastMatchEnd);
+      expect(matchedText).toContain('<img src="1.jpg">');
+      expect(matchedText).toContain('<img src="2.jpg">');
+      expect(matchedText).toContain('<img src="3.jpg">');
+    });
+
+    it('should stop at non-image content', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">\nSome text\n<img src="3.jpg">';
+      const promptTag = '<img_prompt="test">';
+      const insertPos = promptTag.length;
+      const afterPrompt = text.substring(insertPos);
+
+      const imgTagRegex = /\s*<img\s+[^>]*>/g;
+      let lastMatchEnd = 0;
+      let match;
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (
+          match.index === lastMatchEnd ||
+          afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+        ) {
+          lastMatchEnd = imgTagRegex.lastIndex;
+        } else {
+          break;
+        }
+      }
+
+      expect(lastMatchEnd).toBeGreaterThan(0);
+      const matchedText = afterPrompt.substring(0, lastMatchEnd);
+      expect(matchedText).toContain('<img src="1.jpg">');
+      expect(matchedText).toContain('<img src="2.jpg">');
+      expect(matchedText).not.toContain('Some text');
+      expect(matchedText).not.toContain('<img src="3.jpg">');
+    });
+  });
+
   describe('hasExistingImage', () => {
     it('should return true when image exists after prompt', () => {
       const text =
