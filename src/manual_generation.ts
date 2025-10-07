@@ -112,6 +112,7 @@ export async function generateImagesForMessage(
   const generatedImages: Array<{
     prompt: ImagePromptMatch;
     imageUrl: string;
+    originalIndex: number;
   }> = [];
 
   for (let i = 0; i < promptsToGenerate.length; i++) {
@@ -121,14 +122,16 @@ export async function generateImagesForMessage(
     const imageUrl = await generateImage(prompt.prompt, context);
 
     if (imageUrl) {
-      generatedImages.push({prompt, imageUrl});
+      generatedImages.push({prompt, imageUrl, originalIndex: i});
     }
   }
 
-  // Step 2: Insert images in reverse order to avoid position shifting
+  // Step 2: Sort by prompt position (end to start) and insert in reverse order
+  // This ensures that inserting later prompts doesn't shift earlier positions
+  generatedImages.sort((a, b) => b.prompt.startIndex - a.prompt.startIndex);
+
   let successCount = 0;
-  for (let i = generatedImages.length - 1; i >= 0; i--) {
-    const {prompt, imageUrl} = generatedImages[i];
+  for (const {prompt, imageUrl, originalIndex} of generatedImages) {
     const promptTag = `<img_prompt="${prompt.prompt}">`;
     const tagIndex = text.indexOf(promptTag);
 
@@ -163,7 +166,7 @@ export async function generateImagesForMessage(
         }
       }
 
-      const imageTag = `\n<img src="${imageUrl}" title="AI generated image #${generatedImages.length - i}" alt="AI generated image #${generatedImages.length - i}">`;
+      const imageTag = `\n<img src="${imageUrl}" title="AI generated image #${originalIndex + 1}" alt="AI generated image #${originalIndex + 1}">`;
       text =
         text.substring(0, insertPos) + imageTag + text.substring(insertPos);
       successCount++;
@@ -381,17 +384,16 @@ export async function regenerateImage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  const message = context.chat?.[messageId];
+  // Initial message check
+  let message = context.chat?.[messageId];
   if (!message) {
     logger.error('Message not found:', messageId);
     toastr.error('Message not found', 'Auto Illustrator');
     return 0;
   }
 
-  let text = message.mes || '';
-
-  // Find the prompt for this image
-  const promptText = findPromptForImage(text, imageSrc);
+  // Find the prompt for this image (using current message state)
+  const promptText = findPromptForImage(message.mes || '', imageSrc);
   if (!promptText) {
     toastr.error('Could not find prompt for this image', 'Auto Illustrator');
     return 0;
@@ -399,18 +401,7 @@ export async function regenerateImage(
 
   logger.info(`Regenerating image for prompt: "${promptText}" (mode: ${mode})`);
 
-  // In replace mode, remove the existing image first
-  if (mode === 'replace') {
-    const escapedSrc = imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const imgPattern = new RegExp(
-      `\\s*<img\\s+src="${escapedSrc}"[^>]*>\\s*`,
-      'g'
-    );
-    text = text.replace(imgPattern, '');
-    logger.info('Removed existing image in replace mode');
-  }
-
-  // Generate new image
+  // Generate new image (this respects concurrency limit and may wait in queue)
   toastr.info('Generating new image...', 'Auto Illustrator');
   const imageUrl = await generateImage(promptText, context);
 
@@ -419,20 +410,55 @@ export async function regenerateImage(
     return 0;
   }
 
-  // Insert the new image
+  // IMPORTANT: Re-read message AFTER generation completes
+  // This ensures we have the latest state if other regenerations happened while we were queued
+  message = context.chat?.[messageId];
+  if (!message) {
+    logger.error('Message not found after generation:', messageId);
+    toastr.error('Message disappeared during generation', 'Auto Illustrator');
+    return 0;
+  }
+
+  let text = message.mes || '';
+
+  // Find the prompt tag
   const promptTag = `<img_prompt="${promptText}">`;
   const promptIndex = text.indexOf(promptTag);
 
   if (promptIndex === -1) {
-    logger.error('Prompt tag not found in text after removal');
-    toastr.error('Failed to insert new image', 'Auto Illustrator');
+    logger.error('Prompt tag not found in text');
+    toastr.error('Failed to find prompt tag', 'Auto Illustrator');
     return 0;
   }
 
   let insertPos = promptIndex + promptTag.length;
 
-  // In append mode, find position after existing images
-  if (mode === 'append') {
+  // In replace mode, find and remove the specific clicked image, remember its position
+  if (mode === 'replace') {
+    const afterPrompt = text.substring(insertPos);
+    const escapedSrc = imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Find the specific image we clicked
+    const imgPattern = new RegExp(`\\s*<img\\s+src="${escapedSrc}"[^>]*>`, '');
+    const imgMatch = afterPrompt.match(imgPattern);
+
+    if (imgMatch && imgMatch.index !== undefined) {
+      // Found the clicked image - remove it
+      const imgStart = insertPos + imgMatch.index;
+      const imgEnd = imgStart + imgMatch[0].length;
+
+      // Remove the image
+      text = text.substring(0, imgStart) + text.substring(imgEnd);
+
+      // Insert new image at the same position where old one was
+      insertPos = imgStart;
+
+      logger.info('Removed and will replace clicked image at same position');
+    } else {
+      logger.warn('Could not find clicked image in text, will append instead');
+    }
+  } else {
+    // In append mode, find position after all existing images
     const afterPrompt = text.substring(insertPos);
     const imgTagRegex = /\s*<img\s+[^>]*>/g;
     let lastMatchEnd = 0;

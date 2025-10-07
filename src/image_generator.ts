@@ -6,8 +6,34 @@
 import {extractImagePrompts} from './image_extractor';
 import type {DeferredImage} from './types';
 import {createLogger} from './logger';
+import {ConcurrencyLimiter} from './concurrency_limiter';
 
 const logger = createLogger('Generator');
+
+// Global concurrency limiter for image generation
+let concurrencyLimiter: ConcurrencyLimiter | null = null;
+
+/**
+ * Initializes the concurrency limiter
+ * @param maxConcurrent - Maximum concurrent generations
+ */
+export function initializeConcurrencyLimiter(maxConcurrent: number): void {
+  logger.info(`Initializing concurrency limiter (max: ${maxConcurrent})`);
+  concurrencyLimiter = new ConcurrencyLimiter(maxConcurrent);
+}
+
+/**
+ * Updates the maximum concurrent limit
+ * @param maxConcurrent - New max concurrent limit
+ */
+export function updateMaxConcurrent(maxConcurrent: number): void {
+  if (concurrencyLimiter) {
+    concurrencyLimiter.setMaxConcurrent(maxConcurrent);
+  } else {
+    logger.warn('Concurrency limiter not initialized, initializing now');
+    initializeConcurrencyLimiter(maxConcurrent);
+  }
+}
 
 /**
  * Creates an image tag with safe, simple attributes
@@ -72,38 +98,47 @@ export async function generateImage(
   prompt: string,
   context: SillyTavernContext
 ): Promise<string | null> {
-  logger.info('Generating image for prompt:', prompt);
+  // If limiter not initialized, create with default value of 1
+  if (!concurrencyLimiter) {
+    logger.warn('Concurrency limiter not initialized, using default (1)');
+    concurrencyLimiter = new ConcurrencyLimiter(1);
+  }
 
-  const startTime = performance.now();
+  // Wrap the actual generation in the limiter
+  return concurrencyLimiter.run(async () => {
+    logger.info('Generating image for prompt:', prompt);
 
-  try {
-    const sdCommand = context.SlashCommandParser?.commands?.['sd'];
-    if (!sdCommand || !sdCommand.callback) {
-      logger.error('SD command not available');
+    const startTime = performance.now();
+
+    try {
+      const sdCommand = context.SlashCommandParser?.commands?.['sd'];
+      if (!sdCommand || !sdCommand.callback) {
+        logger.error('SD command not available');
+        logger.info(
+          'Available commands:',
+          Object.keys(context.SlashCommandParser?.commands || {})
+        );
+        return null;
+      }
+
+      logger.info('Calling SD command...');
+      const imageUrl = await sdCommand.callback({quiet: 'true'}, prompt);
+
+      const duration = performance.now() - startTime;
       logger.info(
-        'Available commands:',
-        Object.keys(context.SlashCommandParser?.commands || {})
+        `Generated image URL: ${imageUrl} (took ${duration.toFixed(0)}ms)`
+      );
+
+      return imageUrl;
+    } catch (error) {
+      const duration = performance.now() - startTime;
+      logger.error(
+        `Error generating image (after ${duration.toFixed(0)}ms):`,
+        error
       );
       return null;
     }
-
-    logger.info('Calling SD command...');
-    const imageUrl = await sdCommand.callback({quiet: 'true'}, prompt);
-
-    const duration = performance.now() - startTime;
-    logger.info(
-      `Generated image URL: ${imageUrl} (took ${duration.toFixed(0)}ms)`
-    );
-
-    return imageUrl;
-  } catch (error) {
-    const duration = performance.now() - startTime;
-    logger.error(
-      `Error generating image (after ${duration.toFixed(0)}ms):`,
-      error
-    );
-    return null;
-  }
+  });
 }
 
 /**

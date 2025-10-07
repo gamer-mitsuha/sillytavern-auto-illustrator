@@ -27,6 +27,10 @@ import {
   addManualGenerationButton,
   addImageClickHandlers,
 } from './manual_generation';
+import {
+  initializeConcurrencyLimiter,
+  updateMaxConcurrent,
+} from './image_generator';
 
 const logger = createLogger('Main');
 
@@ -188,6 +192,9 @@ function handleSettingsChange(): void {
 
   // Apply log level
   setLogLevel(settings.logLevel);
+
+  // Update concurrency limiter if max concurrent changed
+  updateMaxConcurrent(settings.maxConcurrentGenerations);
 
   saveSettings(settings, context);
 
@@ -641,6 +648,12 @@ function initialize(): void {
 
   // Apply log level from settings
   setLogLevel(settings.logLevel);
+
+  // Initialize concurrency limiter with maxConcurrentGenerations setting
+  initializeConcurrencyLimiter(settings.maxConcurrentGenerations);
+  logger.info(
+    `Initialized concurrency limiter: ${settings.maxConcurrentGenerations}`
+  );
 
   // Create and register message handler with streaming check
   const isMessageBeingStreamed = (messageId: number) =>
