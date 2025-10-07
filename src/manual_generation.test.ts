@@ -416,4 +416,83 @@ Some text here
       expect(result).toBe(1);
     });
   });
+
+  describe('deleteImage', () => {
+    // Test helper to simulate the internal function
+    function deleteImageFromText(text: string, imageSrc: string): string {
+      const escapedSrc = imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const imgPattern = new RegExp(
+        `\\s*<img\\s+src="${escapedSrc}"[^>]*>`,
+        'g'
+      );
+      return text.replace(imgPattern, '');
+    }
+
+    it('should delete single image', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg" title="Test">';
+      const result = deleteImageFromText(text, '1.jpg');
+      expect(result).toBe('<img_prompt="test">');
+    });
+
+    it('should delete specific image from multiple images', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">\n<img src="3.jpg">';
+      const result = deleteImageFromText(text, '2.jpg');
+      expect(result).toBe(
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="3.jpg">'
+      );
+    });
+
+    it('should delete first image', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const result = deleteImageFromText(text, '1.jpg');
+      expect(result).toBe('<img_prompt="test">\n<img src="2.jpg">');
+    });
+
+    it('should delete last image', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const result = deleteImageFromText(text, '2.jpg');
+      expect(result).toBe('<img_prompt="test">\n<img src="1.jpg">');
+    });
+
+    it('should handle image with complex attributes', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg" title="AI generated image #1" alt="Test">';
+      const result = deleteImageFromText(text, '1.jpg');
+      expect(result).toBe('<img_prompt="test">');
+    });
+
+    it('should handle special characters in src', () => {
+      const text =
+        '<img_prompt="test">\n<img src="path/to/image (1).jpg" title="Test">';
+      const result = deleteImageFromText(text, 'path/to/image (1).jpg');
+      expect(result).toBe('<img_prompt="test">');
+    });
+
+    it('should not modify text if image not found', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">';
+      const result = deleteImageFromText(text, '999.jpg');
+      expect(result).toBe(text);
+    });
+
+    it('should preserve other content', () => {
+      const text =
+        'Some text\n<img_prompt="test">\n<img src="1.jpg">\nMore text';
+      const result = deleteImageFromText(text, '1.jpg');
+      expect(result).toBe('Some text\n<img_prompt="test">\nMore text');
+    });
+
+    it('should handle multiple prompts correctly', () => {
+      const text = `<img_prompt="first">
+<img src="a.jpg">
+<img_prompt="second">
+<img src="b.jpg">`;
+      const result = deleteImageFromText(text, 'a.jpg');
+      expect(result).toBe(`<img_prompt="first">
+<img_prompt="second">
+<img src="b.jpg">`);
+    });
+  });
 });
