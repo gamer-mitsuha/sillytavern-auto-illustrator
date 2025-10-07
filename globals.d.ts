@@ -17,6 +17,12 @@ declare global {
 
   const toastr: Toastr;
 
+  // jQuery (loaded globally by SillyTavern)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const $: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type JQuery = any;
+
   // SillyTavern context type - manually typed since st-context.js has no type info
   /* eslint-disable @typescript-eslint/no-explicit-any */
   interface SillyTavernContext {
@@ -101,6 +107,7 @@ declare global {
     streamingPollInterval: number;
     maxConcurrentGenerations: number;
     logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
+    manualGenerationMode: 'replace' | 'append';
   }
 
   interface ImagePromptMatch {

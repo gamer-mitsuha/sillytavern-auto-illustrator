@@ -64,3 +64,8 @@ export interface ImagePromptMatch {
   /** End index of the match in the text */
   endIndex: number;
 }
+
+/**
+ * Manual generation mode type
+ */
+export type ManualGenerationMode = 'replace' | 'append';

@@ -70,6 +70,16 @@ export const PRESET_IDS = {
 } as const;
 
 /**
+ * Manual generation mode configuration
+ * Controls whether to replace existing images or append new ones
+ */
+export const MANUAL_GENERATION_MODE = {
+  REPLACE: 'replace',
+  APPEND: 'append',
+  DEFAULT: 'replace',
+} as const;
+
+/**
  * Default settings for the extension
  * These values are used when no saved settings exist or when resetting
  */
@@ -82,6 +92,7 @@ export const DEFAULT_SETTINGS = {
   logLevel: DEFAULT_LOG_LEVEL,
   currentPresetId: PRESET_IDS.DEFAULT,
   customPresets: [] as MetaPromptPreset[],
+  manualGenerationMode: MANUAL_GENERATION_MODE.DEFAULT,
 };
 
 /**
@@ -104,5 +115,6 @@ export const UI_ELEMENT_IDS = {
   STREAMING_POLL_INTERVAL: 'auto_illustrator_streaming_poll_interval',
   MAX_CONCURRENT: 'auto_illustrator_max_concurrent',
   LOG_LEVEL: 'auto_illustrator_log_level',
+  MANUAL_GEN_MODE: 'auto_illustrator_manual_gen_mode',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;
