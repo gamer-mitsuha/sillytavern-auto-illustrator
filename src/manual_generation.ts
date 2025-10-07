@@ -523,6 +523,14 @@ export async function regenerateImage(
 
   let text = message.mes || '';
 
+  // Determine which image index we're regenerating BEFORE modifying the text
+  const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
+  if (!imageIndex) {
+    logger.error('Could not determine image index for regeneration');
+    toastr.error('Failed to determine image index', 'Auto Illustrator');
+    return 0;
+  }
+
   // Find the prompt tag
   const promptTag = `<img_prompt="${promptText}">`;
   const promptIndex = text.indexOf(promptTag);
@@ -580,14 +588,6 @@ export async function regenerateImage(
     if (lastMatchEnd > 0) {
       insertPos += lastMatchEnd;
     }
-  }
-
-  // Determine which image index we're regenerating
-  const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
-  if (!imageIndex) {
-    logger.error('Could not determine image index for regeneration');
-    toastr.error('Failed to determine image index', 'Auto Illustrator');
-    return 0;
   }
 
   // Count existing regenerations for this image index
