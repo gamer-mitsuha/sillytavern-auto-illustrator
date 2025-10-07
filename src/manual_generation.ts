@@ -166,7 +166,9 @@ export async function generateImagesForMessage(
         }
       }
 
-      const imageTag = `\n<img src="${imageUrl}" title="AI generated image #${originalIndex + 1}" alt="AI generated image #${originalIndex + 1}">`;
+      // Create image tag with index
+      const imageTitle = `AI generated image #${originalIndex + 1}`;
+      const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
       text =
         text.substring(0, insertPos) + imageTag + text.substring(insertPos);
       successCount++;
@@ -369,6 +371,106 @@ export function findPromptForImage(
 }
 
 /**
+ * Finds the index (1-based) of a specific image after a prompt
+ * @param text - Message text
+ * @param promptText - The prompt text
+ * @param imageSrc - Source URL of the image to find
+ * @returns 1-based index of the image, or null if not found
+ */
+function findImageIndexInPrompt(
+  text: string,
+  promptText: string,
+  imageSrc: string
+): number | null {
+  const promptTag = `<img_prompt="${promptText}">`;
+  const promptIndex = text.indexOf(promptTag);
+
+  if (promptIndex === -1) {
+    return null;
+  }
+
+  const afterPrompt = text.substring(promptIndex + promptTag.length);
+  const imgTagRegex = /\s*<img\s+[^>]*>/g;
+  let index = 0;
+  let lastMatchEnd = 0;
+  let match;
+
+  // Find consecutive images after the prompt
+  while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+    if (
+      match.index === lastMatchEnd ||
+      afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+    ) {
+      index++;
+      lastMatchEnd = imgTagRegex.lastIndex;
+
+      // Check if this image matches the src we're looking for
+      if (match[0].includes(`src="${imageSrc}"`)) {
+        return index;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Counts existing regenerated images for a specific image index
+ * @param text - Message text
+ * @param promptText - The prompt text
+ * @param imageIndex - The 1-based index of the image
+ * @returns Highest regeneration number found (0 if none exist)
+ */
+function countRegeneratedImages(
+  text: string,
+  promptText: string,
+  imageIndex: number
+): number {
+  const promptTag = `<img_prompt="${promptText}">`;
+  const promptIndex = text.indexOf(promptTag);
+
+  if (promptIndex === -1) {
+    return 0;
+  }
+
+  const afterPrompt = text.substring(promptIndex + promptTag.length);
+  const imgTagRegex = /\s*<img\s+[^>]*>/g;
+  let maxRegenNumber = 0;
+  let lastMatchEnd = 0;
+  let match;
+
+  // Pattern to match "AI generated image #N (Regenerated M)"
+  const regenPattern = new RegExp(
+    `AI generated image #${imageIndex} \\(Regenerated (\\d+)\\)`
+  );
+
+  // Find consecutive images after the prompt
+  while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+    if (
+      match.index === lastMatchEnd ||
+      afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+    ) {
+      lastMatchEnd = imgTagRegex.lastIndex;
+
+      // Check if this is a regenerated image for our index
+      const regenMatch = match[0].match(regenPattern);
+      if (regenMatch) {
+        const regenNumber = parseInt(regenMatch[1], 10);
+        if (regenNumber > maxRegenNumber) {
+          maxRegenNumber = regenNumber;
+        }
+      }
+    } else {
+      break;
+    }
+  }
+
+  return maxRegenNumber;
+}
+
+/**
  * Regenerates a specific image in a message
  * @param messageId - Message ID
  * @param imageSrc - Source URL of image to regenerate
@@ -480,7 +582,21 @@ export async function regenerateImage(
     }
   }
 
-  const imageTag = `\n<img src="${imageUrl}" title="AI generated image (regenerated)" alt="AI generated image (regenerated)">`;
+  // Determine which image index we're regenerating
+  const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
+  if (!imageIndex) {
+    logger.error('Could not determine image index for regeneration');
+    toastr.error('Failed to determine image index', 'Auto Illustrator');
+    return 0;
+  }
+
+  // Count existing regenerations for this image index
+  const regenCount = countRegeneratedImages(text, promptText, imageIndex);
+  const nextRegenNumber = regenCount + 1;
+
+  // Create image tag with meaningful name (without prompt text to avoid display issues)
+  const imageTitle = `AI generated image #${imageIndex} (Regenerated ${nextRegenNumber})`;
+  const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
   text = text.substring(0, insertPos) + imageTag + text.substring(insertPos);
 
   // Update message
