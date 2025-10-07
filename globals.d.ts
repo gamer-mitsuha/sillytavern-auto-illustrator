@@ -23,7 +23,7 @@ declare global {
     eventSource: {
       on(event: string, callback: (...args: any[]) => void): void;
       once(event: string, callback: (...args: any[]) => void): void;
-      emit(event: string, ...args: any[]): void;
+      emit(event: string, ...args: any[]): Promise<void>;
     };
     eventTypes: Record<string, string> & {
       CHAT_COMPLETION_PROMPT_READY: string;
@@ -72,6 +72,11 @@ declare global {
       scan?: boolean,
       role?: number,
       filter?: (() => boolean) | null
+    ): void;
+    updateMessageBlock(
+      messageId: number,
+      message: any,
+      options?: {rerenderMessage?: boolean}
     ): void;
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */

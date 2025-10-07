@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed image rendering after deferred insertion by using `updateMessageBlock()` to trigger DOM re-render
+- Images now appear immediately after streaming completes without requiring manual message edit
+- Proper event sequence (MESSAGE_EDITED → updateMessageBlock → MESSAGE_UPDATED) ensures regex "Run on Edit" scripts execute correctly
+- Fixed deferred images being lost when multiple STREAM_TOKEN_RECEIVED events fire for the same message
+- Prevented processor recreation that would clear deferred images array during active streaming
+
 ### Added
 - Automatic inline image generation based on LLM-generated prompts
 - Meta-prompt injection using SillyTavern's `setExtensionPrompt` API

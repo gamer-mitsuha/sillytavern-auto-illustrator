@@ -491,11 +491,20 @@ function handleFirstStreamToken(_text: string): void {
     return;
   }
 
+  // Don't restart if already monitoring this message
+  // This prevents recreating the processor and losing deferred images
+  if (streamingMonitor && currentStreamingMessageId === messageId) {
+    logger.debug(
+      `Already monitoring message ${messageId}, skipping reinitialization`
+    );
+    return;
+  }
+
   logger.info(
     `First stream token received, starting streaming for message ${messageId}`
   );
 
-  // Clean up any previous streaming state
+  // Clean up any previous streaming state (different message)
   if (streamingMonitor) {
     streamingMonitor.stop();
   }
@@ -577,6 +586,9 @@ async function handleGenerationEnded(): Promise<void> {
   // Log final statistics
   const stats = streamingQueue.getStats();
   logger.info('Final streaming stats:', stats);
+  logger.info(
+    `Deferred images count: ${deferredImages.length} for message ${messageId}`
+  );
 
   // Stop processor
   queueProcessor.stop();
