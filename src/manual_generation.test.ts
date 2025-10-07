@@ -2,7 +2,7 @@
  * Unit tests for Manual Generation Module
  */
 
-import {describe, it, expect, beforeEach} from 'vitest';
+import {describe, it, expect} from 'vitest';
 import {hasExistingImage, removeExistingImages} from './manual_generation';
 
 describe('Manual Generation', () => {
@@ -194,6 +194,226 @@ Some text
         '<img_prompt="test"> \n\t <img src="test.jpg" title="Test" alt="Test">';
       const result = removeExistingImages(text);
       expect(result).toBe('<img_prompt="test">');
+    });
+  });
+
+  describe('findImageIndexInPrompt', () => {
+    // Test helper to simulate the internal function
+    function findImageIndexInPrompt(
+      text: string,
+      promptText: string,
+      imageSrc: string
+    ): number | null {
+      const promptTag = `<img_prompt="${promptText}">`;
+      const promptIndex = text.indexOf(promptTag);
+
+      if (promptIndex === -1) {
+        return null;
+      }
+
+      const afterPrompt = text.substring(promptIndex + promptTag.length);
+      const imgTagRegex = /\s*<img\s+[^>]*>/g;
+      let index = 0;
+      let lastMatchEnd = 0;
+      let match;
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (
+          match.index === lastMatchEnd ||
+          afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+        ) {
+          index++;
+          lastMatchEnd = imgTagRegex.lastIndex;
+
+          if (match[0].includes(`src="${imageSrc}"`)) {
+            return index;
+          }
+        } else {
+          break;
+        }
+      }
+
+      return null;
+    }
+
+    it('should find first image index', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const result = findImageIndexInPrompt(text, 'test', '1.jpg');
+      expect(result).toBe(1);
+    });
+
+    it('should find second image index', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const result = findImageIndexInPrompt(text, 'test', '2.jpg');
+      expect(result).toBe(2);
+    });
+
+    it('should find third image index', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">\n<img src="3.jpg">';
+      const result = findImageIndexInPrompt(text, 'test', '3.jpg');
+      expect(result).toBe(3);
+    });
+
+    it('should return null when image not found', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">';
+      const result = findImageIndexInPrompt(text, 'test', '999.jpg');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when prompt not found', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">';
+      const result = findImageIndexInPrompt(text, 'nonexistent', '1.jpg');
+      expect(result).toBeNull();
+    });
+
+    it('should handle images with complex attributes', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg" title="AI generated image #1">\n<img src="2.jpg" title="AI generated image #2">';
+      const result = findImageIndexInPrompt(text, 'test', '2.jpg');
+      expect(result).toBe(2);
+    });
+
+    it('should stop at non-contiguous images', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\nSome text\n<img src="2.jpg">';
+      const result = findImageIndexInPrompt(text, 'test', '2.jpg');
+      expect(result).toBeNull();
+    });
+
+    it('should handle multiple prompts correctly', () => {
+      const text = `<img_prompt="first">
+<img src="a.jpg">
+<img src="b.jpg">
+<img_prompt="second">
+<img src="c.jpg">
+<img src="d.jpg">`;
+
+      expect(findImageIndexInPrompt(text, 'first', 'a.jpg')).toBe(1);
+      expect(findImageIndexInPrompt(text, 'first', 'b.jpg')).toBe(2);
+      expect(findImageIndexInPrompt(text, 'second', 'c.jpg')).toBe(1);
+      expect(findImageIndexInPrompt(text, 'second', 'd.jpg')).toBe(2);
+    });
+  });
+
+  describe('countRegeneratedImages', () => {
+    // Test helper to simulate the internal function
+    function countRegeneratedImages(
+      text: string,
+      promptText: string,
+      imageIndex: number
+    ): number {
+      const promptTag = `<img_prompt="${promptText}">`;
+      const promptIndex = text.indexOf(promptTag);
+
+      if (promptIndex === -1) {
+        return 0;
+      }
+
+      const afterPrompt = text.substring(promptIndex + promptTag.length);
+      const imgTagRegex = /\s*<img\s+[^>]*>/g;
+      let maxRegenNumber = 0;
+      let lastMatchEnd = 0;
+      let match;
+
+      const regenPattern = new RegExp(
+        `AI generated image #${imageIndex} \\(Regenerated (\\d+)\\)`
+      );
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (
+          match.index === lastMatchEnd ||
+          afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+        ) {
+          lastMatchEnd = imgTagRegex.lastIndex;
+
+          const regenMatch = match[0].match(regenPattern);
+          if (regenMatch) {
+            const regenNumber = parseInt(regenMatch[1], 10);
+            if (regenNumber > maxRegenNumber) {
+              maxRegenNumber = regenNumber;
+            }
+          }
+        } else {
+          break;
+        }
+      }
+
+      return maxRegenNumber;
+    }
+
+    it('should return 0 when no regenerated images exist', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg" title="AI generated image #1">';
+      const result = countRegeneratedImages(text, 'test', 1);
+      expect(result).toBe(0);
+    });
+
+    it('should count single regenerated image', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg" title="AI generated image #1">\n<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">';
+      const result = countRegeneratedImages(text, 'test', 1);
+      expect(result).toBe(1);
+    });
+
+    it('should count multiple regenerated images', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">
+<img src="3.jpg" title="AI generated image #1 (Regenerated 2)">
+<img src="4.jpg" title="AI generated image #1 (Regenerated 3)">`;
+      const result = countRegeneratedImages(text, 'test', 1);
+      expect(result).toBe(3);
+    });
+
+    it('should return highest regeneration number', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">
+<img src="3.jpg" title="AI generated image #1 (Regenerated 5)">
+<img src="4.jpg" title="AI generated image #1 (Regenerated 2)">`;
+      const result = countRegeneratedImages(text, 'test', 1);
+      expect(result).toBe(5);
+    });
+
+    it('should only count regenerations for specific image index', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #2">
+<img src="3.jpg" title="AI generated image #1 (Regenerated 1)">
+<img src="4.jpg" title="AI generated image #2 (Regenerated 1)">`;
+      expect(countRegeneratedImages(text, 'test', 1)).toBe(1);
+      expect(countRegeneratedImages(text, 'test', 2)).toBe(1);
+    });
+
+    it('should return 0 when prompt not found', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg" title="AI generated image #1 (Regenerated 1)">';
+      const result = countRegeneratedImages(text, 'nonexistent', 1);
+      expect(result).toBe(0);
+    });
+
+    it('should handle multiple prompts correctly', () => {
+      const text = `<img_prompt="first">
+<img src="a.jpg" title="AI generated image #1">
+<img src="b.jpg" title="AI generated image #1 (Regenerated 1)">
+<img_prompt="second">
+<img src="c.jpg" title="AI generated image #1">
+<img src="d.jpg" title="AI generated image #1 (Regenerated 1)">
+<img src="e.jpg" title="AI generated image #1 (Regenerated 2)">`;
+
+      expect(countRegeneratedImages(text, 'first', 1)).toBe(1);
+      expect(countRegeneratedImages(text, 'second', 1)).toBe(2);
+    });
+
+    it('should stop counting at non-contiguous images', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">
+Some text here
+<img src="3.jpg" title="AI generated image #1 (Regenerated 2)">`;
+      const result = countRegeneratedImages(text, 'test', 1);
+      expect(result).toBe(1);
     });
   });
 });
