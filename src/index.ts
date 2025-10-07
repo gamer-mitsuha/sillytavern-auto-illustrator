@@ -687,6 +687,15 @@ function initialize(): void {
     }, 100);
   });
 
+  // Add click handlers when messages are updated (e.g., after deferred image insertion)
+  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+  context.eventSource.on(MESSAGE_UPDATED, () => {
+    // Use setTimeout to ensure DOM is fully updated
+    setTimeout(() => {
+      addImageClickHandlers(context, settings);
+    }, 100);
+  });
+
   // Register GENERATION_STARTED to track generation type
   const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
   context.eventSource.on(GENERATION_STARTED, (type: string) => {
@@ -746,6 +755,7 @@ function initialize(): void {
 
   logger.info('Event handlers registered:', {
     MESSAGE_RECEIVED,
+    MESSAGE_UPDATED,
     GENERATION_STARTED,
     CHAT_COMPLETION_PROMPT_READY,
     STREAM_TOKEN_RECEIVED,
