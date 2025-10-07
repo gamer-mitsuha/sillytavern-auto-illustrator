@@ -626,6 +626,70 @@ export async function regenerateImage(
 }
 
 /**
+ * Deletes a specific image from a message
+ * @param messageId - Message ID
+ * @param imageSrc - Source URL of image to delete
+ * @param context - SillyTavern context
+ * @param settings - Extension settings
+ * @returns True if image was deleted, false otherwise
+ */
+async function deleteImage(
+  messageId: number,
+  imageSrc: string,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<boolean> {
+  const message = context.chat?.[messageId];
+  if (!message) {
+    logger.error('Message not found:', messageId);
+    toastr.error('Message not found', 'Auto Illustrator');
+    return false;
+  }
+
+  let text = message.mes || '';
+  const originalLength = text.length;
+
+  // Escape special characters in the image src for regex
+  const escapedSrc = imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Find and remove the specific image tag
+  const imgPattern = new RegExp(`\\s*<img\\s+src="${escapedSrc}"[^>]*>`, 'g');
+  text = text.replace(imgPattern, '');
+
+  // Check if anything was removed
+  if (text.length === originalLength) {
+    logger.warn('Image not found in message text');
+    toastr.warning('Image not found', 'Auto Illustrator');
+    return false;
+  }
+
+  // Update message
+  message.mes = text;
+
+  // Emit proper event sequence for DOM update
+  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+  await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+  context.updateMessageBlock(messageId, message);
+
+  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+  // Save chat
+  await context.saveChat();
+
+  toastr.success('Image deleted successfully', 'Auto Illustrator');
+  logger.info('Image deleted successfully');
+
+  // Re-attach click handlers to remaining images
+  setTimeout(() => {
+    addImageClickHandlers(context, settings);
+  }, 100);
+
+  return true;
+}
+
+/**
  * Shows regeneration dialog for an image
  * @param messageId - Message ID
  * @param imageSrc - Source URL of image to regenerate
@@ -638,94 +702,112 @@ async function showRegenerationDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
-  const dialogMessage = 'How would you like to regenerate this image?';
+  const dialogMessage = 'What would you like to do with this image?';
 
   // Show confirmation dialog with mode selection
-  const mode = await new Promise<ManualGenerationMode | null>(resolve => {
-    // Create backdrop
-    const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+  const action = await new Promise<ManualGenerationMode | 'delete' | null>(
+    resolve => {
+      // Create backdrop
+      const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
 
-    const dialog = $('<div>')
-      .attr('id', 'auto_illustrator_regen_dialog')
-      .addClass('auto-illustrator-dialog');
+      const dialog = $('<div>')
+        .attr('id', 'auto_illustrator_regen_dialog')
+        .addClass('auto-illustrator-dialog');
 
-    dialog.append($('<p>').text(dialogMessage));
+      dialog.append($('<p>').text(dialogMessage));
 
-    const modeGroup = $('<div>').addClass('auto-illustrator-mode-group');
+      const modeGroup = $('<div>').addClass('auto-illustrator-mode-group');
 
-    const replaceOption = $('<label>')
-      .addClass('auto-illustrator-mode-option')
-      .append(
-        $('<input>')
-          .attr('type', 'radio')
-          .attr('name', 'regen_mode')
-          .val('replace')
-          .prop('checked', settings.manualGenerationMode === 'replace')
-      )
-      .append(
-        $('<span>').html('<strong>Replace:</strong> Remove and regenerate')
-      );
+      const replaceOption = $('<label>')
+        .addClass('auto-illustrator-mode-option')
+        .append(
+          $('<input>')
+            .attr('type', 'radio')
+            .attr('name', 'regen_mode')
+            .val('replace')
+            .prop('checked', settings.manualGenerationMode === 'replace')
+        )
+        .append(
+          $('<span>').html('<strong>Replace:</strong> Remove and regenerate')
+        );
 
-    const appendOption = $('<label>')
-      .addClass('auto-illustrator-mode-option')
-      .append(
-        $('<input>')
-          .attr('type', 'radio')
-          .attr('name', 'regen_mode')
-          .val('append')
-          .prop('checked', settings.manualGenerationMode === 'append')
-      )
-      .append(
-        $('<span>').html('<strong>Append:</strong> Keep and add new one after')
-      );
+      const appendOption = $('<label>')
+        .addClass('auto-illustrator-mode-option')
+        .append(
+          $('<input>')
+            .attr('type', 'radio')
+            .attr('name', 'regen_mode')
+            .val('append')
+            .prop('checked', settings.manualGenerationMode === 'append')
+        )
+        .append(
+          $('<span>').html(
+            '<strong>Append:</strong> Keep and add new one after'
+          )
+        );
 
-    modeGroup.append(replaceOption).append(appendOption);
-    dialog.append(modeGroup);
+      modeGroup.append(replaceOption).append(appendOption);
+      dialog.append(modeGroup);
 
-    const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+      const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
 
-    const generateBtn = $('<button>')
-      .text('Generate')
-      .addClass('menu_button')
-      .on('click', () => {
-        const selectedMode = dialog
-          .find('input[name="regen_mode"]:checked')
-          .val() as ManualGenerationMode;
-        backdrop.remove();
-        dialog.remove();
-        resolve(selectedMode);
-      });
+      const generateBtn = $('<button>')
+        .text('Generate')
+        .addClass('menu_button')
+        .on('click', () => {
+          const selectedMode = dialog
+            .find('input[name="regen_mode"]:checked')
+            .val() as ManualGenerationMode;
+          backdrop.remove();
+          dialog.remove();
+          resolve(selectedMode);
+        });
 
-    const cancelBtn = $('<button>')
-      .text('Cancel')
-      .addClass('menu_button')
-      .on('click', () => {
+      const deleteBtn = $('<button>')
+        .text('Delete')
+        .addClass('menu_button caution')
+        .on('click', () => {
+          backdrop.remove();
+          dialog.remove();
+          resolve('delete');
+        });
+
+      const cancelBtn = $('<button>')
+        .text('Cancel')
+        .addClass('menu_button')
+        .on('click', () => {
+          backdrop.remove();
+          dialog.remove();
+          resolve(null);
+        });
+
+      buttons.append(generateBtn).append(deleteBtn).append(cancelBtn);
+      dialog.append(buttons);
+
+      // Append backdrop and dialog to body
+      $('body').append(backdrop).append(dialog);
+
+      // Close on backdrop click
+      backdrop.on('click', () => {
         backdrop.remove();
         dialog.remove();
         resolve(null);
       });
+    }
+  );
 
-    buttons.append(generateBtn).append(cancelBtn);
-    dialog.append(buttons);
-
-    // Append backdrop and dialog to body
-    $('body').append(backdrop).append(dialog);
-
-    // Close on backdrop click
-    backdrop.on('click', () => {
-      backdrop.remove();
-      dialog.remove();
-      resolve(null);
-    });
-  });
-
-  if (!mode) {
-    logger.info('Regeneration cancelled by user');
+  if (!action) {
+    logger.info('Action cancelled by user');
     return;
   }
 
-  // Regenerate image
-  await regenerateImage(messageId, imageSrc, mode, context, settings);
+  if (action === 'delete') {
+    // Delete the image
+    await deleteImage(messageId, imageSrc, context, settings);
+  } else {
+    // Regenerate image
+    await regenerateImage(messageId, imageSrc, action, context, settings);
+  }
 }
 
 /**
