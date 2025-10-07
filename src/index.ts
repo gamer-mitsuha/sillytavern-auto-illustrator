@@ -4,7 +4,6 @@
  */
 
 import './style.css';
-import {updateExtensionPrompt} from './prompt_injector';
 import {createMessageHandler} from './message_handler';
 import {pruneGeneratedImages} from './chat_history_pruner';
 import {ImageGenerationQueue} from './streaming_image_queue';
@@ -31,6 +30,9 @@ const logger = createLogger('Main');
 let context: SillyTavernContext;
 let settings: AutoIllustratorSettings;
 let isEditingPreset = false; // Track if user is currently editing a preset
+
+// Generation state
+let currentGenerationType: string | null = null; // Track generation type for filtering
 
 // Streaming state
 let pendingDeferredImages: {images: DeferredImage[]; messageId: number} | null =
@@ -185,9 +187,6 @@ function handleSettingsChange(): void {
 
   saveSettings(settings, context);
 
-  // Update the extension prompt based on new settings
-  updateExtensionPrompt(context, settings);
-
   logger.info('Settings updated:', settings);
 }
 
@@ -198,9 +197,6 @@ function handleResetSettings(): void {
   settings = getDefaultSettings();
   saveSettings(settings, context);
   updateUI();
-
-  // Update the extension prompt with reset settings
-  updateExtensionPrompt(context, settings);
 
   logger.info('Settings reset to defaults');
 }
@@ -225,7 +221,6 @@ function handlePresetChange(): void {
   settings.currentPresetId = selectedId;
   settings.metaPrompt = preset.template;
   saveSettings(settings, context);
-  updateExtensionPrompt(context, settings);
   updateUI();
 
   logger.info('Preset changed:', {id: selectedId, name: preset.name});
@@ -302,7 +297,6 @@ function handlePresetSave(): void {
   settings.customPresets[presetIndex].template = content;
   settings.metaPrompt = content;
   saveSettings(settings, context);
-  updateExtensionPrompt(context, settings);
 
   // Exit edit mode
   const presetEditor = document.getElementById(
@@ -377,7 +371,6 @@ function handlePresetSaveAs(): void {
   }
 
   saveSettings(settings, context);
-  updateExtensionPrompt(context, settings);
 
   // Exit edit mode
   const presetEditor = document.getElementById(
@@ -456,7 +449,6 @@ function handlePresetDelete(): void {
   settings.metaPrompt = defaultPreset.template;
 
   saveSettings(settings, context);
-  updateExtensionPrompt(context, settings);
   updateUI();
 
   toastr.success(`Preset '${preset.name}' deleted`, 'Auto Illustrator');
@@ -564,6 +556,10 @@ async function tryInsertDeferredImages(): Promise<void> {
  * Handles GENERATION_ENDED event
  */
 async function handleGenerationEnded(): Promise<void> {
+  // Clear generation type to prevent stale state
+  currentGenerationType = null;
+  logger.debug('Generation ended, cleared generation type');
+
   if (!streamingMonitor || !queueProcessor || !streamingQueue) {
     return;
   }
@@ -661,18 +657,53 @@ function initialize(): void {
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
-  // Register chat history pruner to remove generated images before sending to LLM
+  // Register GENERATION_STARTED to track generation type
+  const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
+  context.eventSource.on(GENERATION_STARTED, (type: string) => {
+    currentGenerationType = type;
+    logger.debug('Generation started', {type});
+  });
+
+  // Register CHAT_COMPLETION_PROMPT_READY handler for pruning and meta-prompt injection
   const CHAT_COMPLETION_PROMPT_READY =
     context.eventTypes.CHAT_COMPLETION_PROMPT_READY;
   context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, eventData => {
     // Skip if this is a dry run (token counting, not actual generation)
     if (eventData?.dryRun) {
-      logger.info('Skipping pruning for dry run');
+      logger.info('Skipping prompt ready processing for dry run');
       return;
     }
 
-    if (eventData?.chat) {
-      pruneGeneratedImages(eventData.chat);
+    if (!eventData?.chat) {
+      return;
+    }
+
+    // Prune generated images from chat history
+    pruneGeneratedImages(eventData.chat);
+
+    // Inject meta-prompt as last system message (if enabled and appropriate)
+    // Skip for quiet and impersonate generation types
+    if (
+      settings.enabled &&
+      settings.metaPrompt &&
+      currentGenerationType &&
+      !['quiet', 'impersonate'].includes(currentGenerationType)
+    ) {
+      logger.info('Injecting meta-prompt as last system message', {
+        generationType: currentGenerationType,
+        metaPromptLength: settings.metaPrompt.length,
+      });
+
+      eventData.chat.push({
+        role: 'system',
+        content: settings.metaPrompt,
+      });
+    } else {
+      logger.debug('Skipping meta-prompt injection', {
+        enabled: settings.enabled,
+        hasMetaPrompt: !!settings.metaPrompt,
+        generationType: currentGenerationType,
+      });
     }
   });
 
@@ -685,6 +716,7 @@ function initialize(): void {
 
   logger.info('Event handlers registered:', {
     MESSAGE_RECEIVED,
+    GENERATION_STARTED,
     CHAT_COMPLETION_PROMPT_READY,
     STREAM_TOKEN_RECEIVED,
     GENERATION_ENDED,
@@ -755,16 +787,12 @@ function initialize(): void {
   logger.info('Extension initialized successfully');
 
   // Set up extension prompt at the very end after everything is initialized
-  // We need to call this when a chat is loaded, not just at init
+  // Register CHAT_CHANGED handler for any future cleanup if needed
   const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
 
   context.eventSource.on(CHAT_CHANGED, () => {
-    logger.info('CHAT_CHANGED - reapplying extension prompt');
-    updateExtensionPrompt(context, settings);
+    logger.info('CHAT_CHANGED');
   });
-
-  // Also set it now for any already-loaded chat
-  updateExtensionPrompt(context, settings);
 }
 
 // Initialize when extension loads

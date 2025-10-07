@@ -13,10 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper event sequence (MESSAGE_EDITED → updateMessageBlock → MESSAGE_UPDATED) ensures regex "Run on Edit" scripts execute correctly
 - Fixed deferred images being lost when multiple STREAM_TOKEN_RECEIVED events fire for the same message
 - Prevented processor recreation that would clear deferred images array during active streaming
+- Fixed meta-prompt injection by using direct CHAT_COMPLETION_PROMPT_READY event injection instead of setExtensionPrompt
+- Meta-prompt now guaranteed to be the last system message in the chat context
+- Generation type filtering prevents meta-prompt injection for quiet and impersonate generations
+- Robust state tracking using GENERATION_STARTED and GENERATION_ENDED events
 
 ### Added
 - Automatic inline image generation based on LLM-generated prompts
-- Meta-prompt injection using SillyTavern's `setExtensionPrompt` API
+- Meta-prompt injection via CHAT_COMPLETION_PROMPT_READY event with generation type filtering
 - Regex-based image prompt extraction (`<img_prompt="...">` format)
 - Integration with Stable Diffusion slash command (`/sd`)
 - Toastr notifications for image generation feedback
