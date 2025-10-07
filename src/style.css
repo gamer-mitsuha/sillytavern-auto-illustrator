@@ -1,3 +1,18 @@
+/* Clickable AI-generated images */
+.mes_text img[title^='AI generated image'] {
+  cursor: pointer;
+  transition:
+    opacity 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.mes_text img[title^='AI generated image']:hover {
+  opacity: 0.85;
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(155, 89, 182, 0.6);
+}
+
 /* Preset Management Styles */
 .preset-management {
   margin: 1rem 0;
@@ -92,8 +107,9 @@
   z-index: 9999;
 }
 
-/* Manual Generation Dialog */
-#auto_illustrator_manual_gen_dialog {
+/* Manual Generation Dialog & Regeneration Dialog */
+#auto_illustrator_manual_gen_dialog,
+#auto_illustrator_regen_dialog {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -109,7 +125,8 @@
   color: #ffffff;
 }
 
-#auto_illustrator_manual_gen_dialog p {
+#auto_illustrator_manual_gen_dialog p,
+#auto_illustrator_regen_dialog p {
   margin: 0 0 1rem 0;
   line-height: 1.6;
   white-space: pre-line;
