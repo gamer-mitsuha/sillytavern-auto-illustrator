@@ -48,12 +48,21 @@
 - **Edit mode**: Save and Save As functionality for preset management
 - **Read-only protection**: Predefined presets cannot be overwritten
 
+### Manual Image Generation ✅
+- **Message action button**: Appears on messages containing `<img_prompt>` tags
+- **Replace mode**: Remove existing images and regenerate all
+- **Append mode**: Only generate images for prompts without images
+- **Configurable default**: User preference for default generation mode
+- **Visual feedback**: Toast notifications and button state during generation
+- **Smart detection**: Automatically detects which prompts need images
+
 ### Advanced Settings ✅
 - **Streaming toggle**: Enable/disable streaming mode
 - **Poll interval**: Configurable prompt detection frequency (100-1000ms)
 - **Concurrency control**: Limit simultaneous image generations (1-5)
 - **Sequential processing**: Prevents rate limiting with ordered generation
 - **Log levels**: Configurable verbosity (TRACE/DEBUG/INFO/WARN/ERROR/SILENT)
+- **Manual gen mode**: Default mode for manual generation (replace/append)
 
 ## Future Extensions
 

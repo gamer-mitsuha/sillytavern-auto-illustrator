@@ -23,6 +23,7 @@ import {
   isPresetPredefined,
   isPredefinedPresetName,
 } from './meta_prompt_presets';
+import {addManualGenerationButton} from './manual_generation';
 
 const logger = createLogger('Main');
 
@@ -657,6 +658,17 @@ function initialize(): void {
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
+  // Add manual generation button to new messages
+  context.eventSource.on(MESSAGE_RECEIVED, (messageId: number) => {
+    // Use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      const $mes = $(`.mes[mesid="${messageId}"]`);
+      if ($mes.length > 0) {
+        addManualGenerationButton($mes, messageId, context, settings);
+      }
+    }, 100);
+  });
+
   // Register GENERATION_STARTED to track generation type
   const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
   context.eventSource.on(GENERATION_STARTED, (type: string) => {
@@ -792,6 +804,30 @@ function initialize(): void {
 
   context.eventSource.on(CHAT_CHANGED, () => {
     logger.info('CHAT_CHANGED');
+    // Re-add buttons to all messages when chat changes
+    setTimeout(() => addButtonsToExistingMessages(), 100);
+  });
+
+  // Add manual generation buttons to existing messages
+  addButtonsToExistingMessages();
+}
+
+/**
+ * Adds manual generation buttons to all existing messages in the chat
+ */
+function addButtonsToExistingMessages(): void {
+  logger.debug('Adding manual generation buttons to existing messages');
+
+  $('.mes').each((_index: number, element: HTMLElement) => {
+    const $mes = $(element);
+    const mesId = $mes.attr('mesid');
+
+    if (mesId) {
+      const messageId = parseInt(mesId, 10);
+      if (!isNaN(messageId)) {
+        addManualGenerationButton($mes, messageId, context, settings);
+      }
+    }
   });
 }
 

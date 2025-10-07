@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Manual image generation feature for existing `<img_prompt>` tags
+  - New button in message actions menu for messages containing image prompts
+  - Modal dialog with "Replace" and "Append" modes with backdrop overlay
+  - Replace mode: Remove existing images and regenerate new ones
+  - Append mode: Keep existing images and add new ones after them
+  - Configurable default mode in settings
+  - Visual feedback during generation (toastr notifications)
+  - Purple wand icon for easy identification
+  - Backdrop click to cancel dialog
+
 ### Fixed
 - Fixed image rendering after deferred insertion by using `updateMessageBlock()` to trigger DOM re-render
 - Images now appear immediately after streaming completes without requiring manual message edit

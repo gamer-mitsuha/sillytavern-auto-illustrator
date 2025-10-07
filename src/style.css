@@ -65,3 +65,110 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Manual Generation Button */
+.auto_illustrator_manual_gen {
+  color: #9b59b6 !important;
+  cursor: pointer;
+}
+
+.auto_illustrator_manual_gen:hover {
+  color: #bb79d6 !important;
+}
+
+.auto_illustrator_manual_gen:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Manual Generation Dialog Backdrop */
+.auto-illustrator-dialog-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+}
+
+/* Manual Generation Dialog */
+#auto_illustrator_manual_gen_dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--SmartThemeBlurTintColor, #2a2a2a);
+  border: 2px solid var(--SmartThemeBorderColor, #666);
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 500px;
+  width: 90%;
+  z-index: 10000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+}
+
+#auto_illustrator_manual_gen_dialog p {
+  margin: 0 0 1rem 0;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.auto-illustrator-mode-group {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auto-illustrator-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--SmartThemeBorderColor, #666);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.auto-illustrator-mode-option span {
+  color: #ffffff;
+  line-height: 1.5;
+}
+
+.auto-illustrator-mode-option:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.auto-illustrator-mode-option input[type="radio"] {
+  margin-top: 0.2rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.auto-illustrator-mode-option span {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.auto-illustrator-mode-option strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.auto-illustrator-dialog-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.auto-illustrator-dialog-buttons button {
+  min-width: 100px;
+}
