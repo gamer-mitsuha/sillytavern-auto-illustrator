@@ -46,12 +46,12 @@ sillytavern-auto-illustrator/
 │   ├── types.ts                    # Shared TypeScript type definitions
 │   ├── regex.ts                    # Centralized regex patterns for img_prompt tags
 │   ├── logger.ts                   # Structured logging with loglevel (configurable verbosity)
-│   ├── prompt_injector.ts          # Meta-prompt injection via setExtensionPrompt API
 │   ├── message_handler.ts          # MESSAGE_RECEIVED event handler
 │   ├── image_extractor.ts          # Regex-based prompt extraction from text
 │   ├── image_generator.ts          # SD command integration, image insertion
 │   ├── chat_history_pruner.ts      # Removes generated images from LLM context
 │   ├── settings.ts                 # Settings management & UI generation
+│   ├── meta_prompt_presets.ts      # Meta-prompt preset management system
 │   ├── streaming_monitor.ts        # Monitors streaming text for new prompts
 │   ├── streaming_image_queue.ts    # Queue management for detected prompts
 │   ├── queue_processor.ts          # Async image generation processor
@@ -69,7 +69,8 @@ sillytavern-auto-illustrator/
 └── docs/
     ├── DEVELOPMENT.md              # This file
     ├── LOGGING.md                  # Logging system documentation
-    └── design_doc.md               # Architecture documentation
+    ├── design_doc.md               # Architecture documentation
+    └── silly_tavern_dev_tips.md    # SillyTavern extension development guide
 ```
 
 ### Coding Standards

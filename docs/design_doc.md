@@ -9,18 +9,24 @@
 
 ## Implementation details For MVP
 
-- Use SillyTavern's `setExtensionPrompt` API to inject the image generation meta prompts.
-  - The meta-prompt is registered with position=1 (in-chat) and depth=0 (last message).
-  - A filter function controls whether the prompt is injected based on the extension's enabled status.
-  - This approach integrates properly with SillyTavern's prompt management system.
-- Image generation prompt format
-  - The meta prompt should instruct the LLM to output with a special format like `<img_prompt="actual prompt">`.
-- Monitor the `MESSAGE_RECEIVED` event, and extract the image generation prompts from the response.
+- **Meta-prompt injection via CHAT_COMPLETION_PROMPT_READY event**:
+  - Directly injects meta-prompt as the last system message in the chat array
+  - Uses generation type tracking (GENERATION_STARTED/GENERATION_ENDED) to filter quiet and impersonate generations
+  - Guarantees last position regardless of other extensions
+  - Only applies to chat completion APIs (OpenAI, Claude, Google, etc.)
+- **Image generation prompt format**:
+  - The meta prompt instructs the LLM to output with a special format like `<img_prompt="actual prompt">`.
+- **Message monitoring**:
+  - Monitor the `MESSAGE_RECEIVED` event, and extract the image generation prompts from the response.
   - This can be done by regex match that can detect `<img_prompt="actual prompt">`.
-- For each image generation prompt, use the `sd` SlashCommand to generate an image. E.g., `const imageUrl = await SlashCommandParser.commands['sd'].callback({ quiet: 'true' }, prompt);`
+- **Image generation**:
+  - For each image generation prompt, use the `sd` SlashCommand to generate an image. E.g., `const imageUrl = await SlashCommandParser.commands['sd'].callback({ quiet: 'true' }, prompt);`
   - Then replace each image generation prompt with the actual image. This can be done by adding a html image tag like `<img src="${imageUrl}" title="${prompt}" alt="${prompt}">`.
-- Finally emit a `MESSAGE_EDITED` event.
-  - This is to trigger other existing regex patterns (if any) that "Run on Edit". In particular, this would help prevent problems with incorrect rendering for regexes that only "Alter Chat Display".
+- **DOM update sequence**:
+  1. Emit `MESSAGE_EDITED` event (triggers regex "Run on Edit" scripts)
+  2. Call `updateMessageBlock()` to re-render the message DOM
+  3. Emit `MESSAGE_UPDATED` event (notify other extensions)
+  - This sequence ensures proper rendering and regex compatibility.
 
 ## Implemented Features Beyond MVP
 
@@ -36,20 +42,28 @@
 - **Preserves prompts**: Keeps `<img_prompt>` tags so LLM can track what was generated
 - **Context management**: Prevents bloated context from image data
 
+### Meta-Prompt Preset Management ✅
+- **Predefined presets**: Default and NAI 4.5 Full (optimized for NovelAI Diffusion 4.5)
+- **Custom presets**: Create, update, and delete custom meta-prompts
+- **Edit mode**: Save and Save As functionality for preset management
+- **Read-only protection**: Predefined presets cannot be overwritten
+
 ### Advanced Settings ✅
 - **Streaming toggle**: Enable/disable streaming mode
 - **Poll interval**: Configurable prompt detection frequency (100-1000ms)
 - **Concurrency control**: Limit simultaneous image generations (1-5)
 - **Sequential processing**: Prevents rate limiting with ordered generation
+- **Log levels**: Configurable verbosity (TRACE/DEBUG/INFO/WARN/ERROR/SILENT)
 
 ## Future Extensions
 
-- Allow user to choose where to insert the meta prompt
-- Optimize the meta prompt for image generation
+- ~~Allow user to choose where to insert the meta prompt~~ ✅ (Implemented via CHAT_COMPLETION_PROMPT_READY)
+- ~~Optimize the meta prompt for image generation~~ ✅ (Implemented via preset management)
 - Character consistency control
 - Independent generation of "image generation prompts"
-- Default meta prompts for various image generation models
+- ~~Default meta prompts for various image generation models~~ ✅ (NAI 4.5 Full preset added)
 - CSS styling for image generation prompts (invisible but preserved in history)
+- Support for non-chat-completion APIs (text completion, Novel, etc.)
 
 ## References
 - https://docs.sillytavern.app/for-contributors/writing-extensions/
