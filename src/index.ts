@@ -23,7 +23,10 @@ import {
   isPresetPredefined,
   isPredefinedPresetName,
 } from './meta_prompt_presets';
-import {addManualGenerationButton} from './manual_generation';
+import {
+  addManualGenerationButton,
+  addImageClickHandlers,
+} from './manual_generation';
 
 const logger = createLogger('Main');
 
@@ -658,7 +661,7 @@ function initialize(): void {
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
-  // Add manual generation button to new messages
+  // Add manual generation button to new messages and add click handlers to images
   context.eventSource.on(MESSAGE_RECEIVED, (messageId: number) => {
     // Use setTimeout to ensure DOM is updated
     setTimeout(() => {
@@ -666,6 +669,8 @@ function initialize(): void {
       if ($mes.length > 0) {
         addManualGenerationButton($mes, messageId, context, settings);
       }
+      // Add click handlers to all images (including newly added ones)
+      addImageClickHandlers(context, settings);
     }, 100);
   });
 
@@ -805,11 +810,17 @@ function initialize(): void {
   context.eventSource.on(CHAT_CHANGED, () => {
     logger.info('CHAT_CHANGED');
     // Re-add buttons to all messages when chat changes
-    setTimeout(() => addButtonsToExistingMessages(), 100);
+    setTimeout(() => {
+      addButtonsToExistingMessages();
+      // Re-add click handlers to all images
+      addImageClickHandlers(context, settings);
+    }, 100);
   });
 
   // Add manual generation buttons to existing messages
   addButtonsToExistingMessages();
+  // Add click handlers to existing images
+  addImageClickHandlers(context, settings);
 }
 
 /**
