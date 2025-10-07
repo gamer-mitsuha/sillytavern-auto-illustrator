@@ -725,7 +725,7 @@ async function showRegenerationDialog(
             .attr('type', 'radio')
             .attr('name', 'regen_mode')
             .val('replace')
-            .prop('checked', settings.manualGenerationMode === 'replace')
+            .prop('checked', false)
         )
         .append(
           $('<span>').html('<strong>Replace:</strong> Remove and regenerate')
@@ -738,7 +738,7 @@ async function showRegenerationDialog(
             .attr('type', 'radio')
             .attr('name', 'regen_mode')
             .val('append')
-            .prop('checked', settings.manualGenerationMode === 'append')
+            .prop('checked', true)
         )
         .append(
           $('<span>').html(
