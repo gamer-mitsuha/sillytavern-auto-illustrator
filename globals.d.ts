@@ -27,13 +27,13 @@ declare global {
     };
     eventTypes: Record<string, string> & {
       CHAT_COMPLETION_PROMPT_READY: string;
-      GENERATION_STARTED: string;
+      CHAT_CHANGED: string;
       GENERATION_ENDED: string;
+      GENERATION_STARTED: string;
       MESSAGE_EDITED: string;
       MESSAGE_RECEIVED: string;
       MESSAGE_UPDATED: string;
       STREAM_TOKEN_RECEIVED: string;
-      CHAT_CHANGED: string;
     };
     SlashCommandParser: {
       commands: Record<
