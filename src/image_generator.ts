@@ -263,13 +263,19 @@ export async function insertDeferredImages(
     `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
   );
 
-  // Emit MESSAGE_UPDATED to trigger UI re-render
-  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-  context.eventSource.emit(MESSAGE_UPDATED, messageId);
-
-  // Also emit MESSAGE_EDITED to trigger regex extensions
+  // Emit MESSAGE_EDITED first to trigger regex "Run on Edit"
+  // This allows regex scripts to modify message.mes before rendering
   const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-  context.eventSource.emit(MESSAGE_EDITED, messageId);
+  await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+  // Re-render the message block to display images in DOM
+  // This calls messageFormatting() which processes <img> tags into rendered HTML
+  // Same approach used by updateMessageBlock in reasoning.js and translate extension
+  context.updateMessageBlock(messageId, message);
+
+  // Emit MESSAGE_UPDATED to notify other extensions
+  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
 
   // Save the chat to persist the inserted images
   await context.saveChat();
