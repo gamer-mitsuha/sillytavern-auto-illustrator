@@ -5,7 +5,7 @@
 
 import {extractImagePrompts, hasImagePrompts} from './image_extractor';
 import {generateImage} from './image_generator';
-import type {ManualGenerationMode} from './types';
+import type {ManualGenerationMode, ImagePromptMatch} from './types';
 import {createLogger} from './logger';
 import {createImagePromptWithImgRegex} from './regex';
 
@@ -107,7 +107,12 @@ export async function generateImagesForMessage(
 
   // Generate images sequentially
   const startTime = performance.now();
-  let successCount = 0;
+
+  // Step 1: Generate all images first
+  const generatedImages: Array<{
+    prompt: ImagePromptMatch;
+    imageUrl: string;
+  }> = [];
 
   for (let i = 0; i < promptsToGenerate.length; i++) {
     const prompt = promptsToGenerate[i];
@@ -116,38 +121,49 @@ export async function generateImagesForMessage(
     const imageUrl = await generateImage(prompt.prompt, context);
 
     if (imageUrl) {
-      // Insert image after prompt (or after existing images in append mode)
-      const promptTag = `<img_prompt="${prompt.prompt}">`;
-      const tagIndex = text.indexOf(promptTag);
+      generatedImages.push({prompt, imageUrl});
+    }
+  }
 
-      if (tagIndex !== -1) {
-        let insertPos = tagIndex + promptTag.length;
+  // Step 2: Insert images in reverse order to avoid position shifting
+  let successCount = 0;
+  for (let i = generatedImages.length - 1; i >= 0; i--) {
+    const {prompt, imageUrl} = generatedImages[i];
+    const promptTag = `<img_prompt="${prompt.prompt}">`;
+    const tagIndex = text.indexOf(promptTag);
 
-        // In append mode, find the position after the last existing image
-        if (mode === 'append') {
-          const afterPrompt = text.substring(insertPos);
-          // Match all consecutive img tags after the prompt
-          const imgTagRegex = /^\s*<img\s+[^>]*>/g;
-          let match;
-          let lastMatchEnd = 0;
+    if (tagIndex !== -1) {
+      let insertPos = tagIndex + promptTag.length;
 
-          while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
-            lastMatchEnd = match.index + match[0].length;
-            // Update lastIndex to continue searching from where we found the match
-            imgTagRegex.lastIndex = lastMatchEnd;
-          }
+      // In append mode, find the position after the last existing image
+      if (mode === 'append') {
+        const afterPrompt = text.substring(insertPos);
+        // Match all consecutive img tags after the prompt (including whitespace between them)
+        const imgTagRegex = /\s*<img\s+[^>]*>/g;
+        let lastMatchEnd = 0;
+        let match;
 
-          if (lastMatchEnd > 0) {
-            // Found existing images, insert after them
-            insertPos += lastMatchEnd;
+        // Keep matching img tags until we find a non-img-tag or end of string
+        while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+          // Check if this match is contiguous with previous matches (only whitespace between)
+          if (match.index === lastMatchEnd || afterPrompt.substring(lastMatchEnd, match.index).trim() === '') {
+            lastMatchEnd = imgTagRegex.lastIndex;
+          } else {
+            // Found non-whitespace content, stop here
+            break;
           }
         }
 
-        const imageTag = `\n<img src="${imageUrl}" title="AI generated image #${i + 1}" alt="AI generated image #${i + 1}">`;
-        text =
-          text.substring(0, insertPos) + imageTag + text.substring(insertPos);
-        successCount++;
+        if (lastMatchEnd > 0) {
+          // Found existing images, insert after them
+          insertPos += lastMatchEnd;
+        }
       }
+
+      const imageTag = `\n<img src="${imageUrl}" title="AI generated image #${generatedImages.length - i}" alt="AI generated image #${generatedImages.length - i}">`;
+      text =
+        text.substring(0, insertPos) + imageTag + text.substring(insertPos);
+      successCount++;
     }
   }
 
