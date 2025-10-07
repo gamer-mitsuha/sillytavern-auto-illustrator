@@ -25,15 +25,16 @@ GENERATION_STARTED
   ↓
 STREAM_TOKEN_RECEIVED (multiple times during streaming)
   ↓
-CHAT_COMPLETION_PROMPT_READY (only for OpenAI API)
+CHAT_COMPLETION_PROMPT_READY (for chat completion APIs)
   ↓
-MESSAGE_RECEIVED (when generation completes)
+GENERATION_ENDED (when generation completes)
   ↓
-GENERATION_ENDED
+MESSAGE_RECEIVED (after generation has ended)
 ```
 
 **Key Points:**
-- `GENERATION_STARTED` fires for ALL APIs, but `CHAT_COMPLETION_PROMPT_READY` only fires for OpenAI-compatible APIs
+- `GENERATION_STARTED` fires for ALL APIs, but `CHAT_COMPLETION_PROMPT_READY` only fires for chat completion APIs (OpenAI, Claude, Google, etc. - all APIs compatible with OpenAI's chat completion format)
+- `GENERATION_ENDED` fires **before** `MESSAGE_RECEIVED`
 - `GENERATION_STARTED` can fire without `CHAT_COMPLETION_PROMPT_READY` (e.g., if generation is interrupted early)
 - The reverse is never true: `CHAT_COMPLETION_PROMPT_READY` always follows `GENERATION_STARTED`
 
@@ -43,7 +44,7 @@ GENERATION_ENDED
 
 **Signature:**
 ```javascript
-eventSource.emit(event_types.GENERATION_STARTED, type, options, dryRun);
+await eventSource.emit(event_types.GENERATION_STARTED, type, options, dryRun);
 ```
 
 **Parameters:**
@@ -318,7 +319,7 @@ context.eventSource.on(context.eventTypes.CHAT_COMPLETION_PROMPT_READY,
 | Need to inspect chat history | CHAT_COMPLETION_PROMPT_READY |
 | Simple injection at fixed depth | setExtensionPrompt |
 | Injection for all API types | setExtensionPrompt |
-| OpenAI API only | CHAT_COMPLETION_PROMPT_READY |
+| Chat completion APIs only (OpenAI, Claude, etc.) | CHAT_COMPLETION_PROMPT_READY |
 
 ---
 
@@ -330,7 +331,7 @@ context.eventSource.on(context.eventTypes.CHAT_COMPLETION_PROMPT_READY,
 |------|-------------|-----------|
 | `'normal'` | Standard chat message | Regular conversation |
 | `'quiet'` | Background generation | Extension slash commands, hidden prompts |
-| `'impersonate'` | User impersonation mode | User writes as themselves |
+| `'impersonate'` | AI writes message as user | AI pretends to be the user |
 | `'continue'` | Continue previous message | Extend incomplete response |
 | `'regenerate'` | Regenerate last message | Retry last response |
 | `'swipe'` | Swipe to alternate | View alternate responses |
@@ -347,7 +348,7 @@ const shouldSkip =
 
 **Rationale:**
 - **Quiet generations**: Used by extensions for background tasks (e.g., `/trigger`, `/sysgen`). Your extension's meta-prompt would interfere with their specific instructions.
-- **Impersonate mode**: User is writing as themselves, not generating AI responses. No need for AI generation instructions.
+- **Impersonate mode**: AI is writing a message as the user (pretending to be the user). The generated content appears as a user message, not an assistant message.
 - **Dry runs**: Just counting tokens for display, not actual generation.
 
 ### Examples from SillyTavern Extensions
