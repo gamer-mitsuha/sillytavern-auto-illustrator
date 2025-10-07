@@ -3,7 +3,11 @@
  */
 
 import {describe, it, expect} from 'vitest';
-import {hasExistingImage, removeExistingImages} from './manual_generation';
+import {
+  hasExistingImage,
+  removeExistingImages,
+  findPromptForImage,
+} from './manual_generation';
 
 describe('Manual Generation', () => {
   describe('Append mode - finding last image position', () => {
@@ -194,6 +198,91 @@ Some text
         '<img_prompt="test"> \n\t <img src="test.jpg" title="Test" alt="Test">';
       const result = removeExistingImages(text);
       expect(result).toBe('<img_prompt="test">');
+    });
+  });
+
+  describe('findPromptForImage', () => {
+    it('should find prompt for single image', () => {
+      const text = '<img_prompt="test prompt">\n<img src="1.jpg">';
+      const result = findPromptForImage(text, '1.jpg');
+      expect(result).toBe('test prompt');
+    });
+
+    it('should find prompt for second image', () => {
+      const text =
+        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const result = findPromptForImage(text, '2.jpg');
+      expect(result).toBe('test');
+    });
+
+    it('should find correct prompt when multiple prompts exist', () => {
+      const text = `<img_prompt="first">
+<img src="a.jpg">
+<img_prompt="second">
+<img src="b.jpg">`;
+      expect(findPromptForImage(text, 'a.jpg')).toBe('first');
+      expect(findPromptForImage(text, 'b.jpg')).toBe('second');
+    });
+
+    it('should find closest prompt before image', () => {
+      const text = `<img_prompt="prompt1">
+<img src="1.jpg">
+<img_prompt="prompt2">
+<img src="2.jpg">
+<img src="3.jpg">`;
+      expect(findPromptForImage(text, '1.jpg')).toBe('prompt1');
+      expect(findPromptForImage(text, '2.jpg')).toBe('prompt2');
+      expect(findPromptForImage(text, '3.jpg')).toBe('prompt2');
+    });
+
+    it('should return null when image not found', () => {
+      const text = '<img_prompt="test">\n<img src="1.jpg">';
+      const result = findPromptForImage(text, '999.jpg');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no prompt before image', () => {
+      const text = '<img src="1.jpg">\n<img_prompt="test">';
+      const result = findPromptForImage(text, '1.jpg');
+      expect(result).toBeNull();
+    });
+
+    it('should handle images with complex attributes', () => {
+      const text =
+        '<img_prompt="complex">\n<img src="test.jpg" title="AI generated image #1" alt="Test" class="foo">';
+      const result = findPromptForImage(text, 'test.jpg');
+      expect(result).toBe('complex');
+    });
+
+    it('should handle special characters in image src', () => {
+      const text =
+        '<img_prompt="test">\n<img src="path/to/image (1).jpg">';
+      const result = findPromptForImage(text, 'path/to/image (1).jpg');
+      expect(result).toBe('test');
+    });
+
+    it('should handle prompts with special characters', () => {
+      const text =
+        '<img_prompt="test with &quot;quotes&quot; and special chars">\n<img src="1.jpg">';
+      const result = findPromptForImage(text, '1.jpg');
+      expect(result).toBe('test with &quot;quotes&quot; and special chars');
+    });
+
+    it('should handle regenerated images', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">
+<img src="3.jpg" title="AI generated image #1 (Regenerated 2)">`;
+      expect(findPromptForImage(text, '1.jpg')).toBe('test');
+      expect(findPromptForImage(text, '2.jpg')).toBe('test');
+      expect(findPromptForImage(text, '3.jpg')).toBe('test');
+    });
+
+    it('should handle text content between prompt and image', () => {
+      const text =
+        '<img_prompt="test">\nSome text\n<img src="1.jpg">';
+      const result = findPromptForImage(text, '1.jpg');
+      expect(result).toBe('test');
     });
   });
 
@@ -493,6 +582,57 @@ Some text here
       expect(result).toBe(`<img_prompt="first">
 <img_prompt="second">
 <img src="b.jpg">`);
+    });
+
+    it('should delete regenerated image', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">`;
+      const result = deleteImageFromText(text, '2.jpg');
+      expect(result).toBe(`<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">`);
+    });
+
+    it('should delete original image leaving regenerated ones', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">`;
+      const result = deleteImageFromText(text, '1.jpg');
+      expect(result).toBe(`<img_prompt="test">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">`);
+    });
+
+    it('should delete middle regenerated image', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="2.jpg" title="AI generated image #1 (Regenerated 1)">
+<img src="3.jpg" title="AI generated image #1 (Regenerated 2)">`;
+      const result = deleteImageFromText(text, '2.jpg');
+      expect(result).toBe(`<img_prompt="test">
+<img src="1.jpg" title="AI generated image #1">
+<img src="3.jpg" title="AI generated image #1 (Regenerated 2)">`);
+    });
+
+    it('should handle URLs with query parameters', () => {
+      const text =
+        '<img_prompt="test">\n<img src="image.jpg?v=123&token=abc">';
+      const result = deleteImageFromText(text, 'image.jpg?v=123&token=abc');
+      expect(result).toBe('<img_prompt="test">');
+    });
+
+    it('should handle data URLs', () => {
+      const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANS';
+      const text = `<img_prompt="test">\n<img src="${dataUrl}">`;
+      const result = deleteImageFromText(text, dataUrl);
+      expect(result).toBe('<img_prompt="test">');
+    });
+
+    it('should delete all occurrences with same src', () => {
+      const text = `<img_prompt="test">
+<img src="1.jpg">
+<img src="1.jpg">`;
+      const result = deleteImageFromText(text, '1.jpg');
+      expect(result).toBe('<img_prompt="test">');
     });
   });
 });
