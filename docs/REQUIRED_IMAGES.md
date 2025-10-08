@@ -11,10 +11,11 @@ This document lists all the demo images needed for the README files. Create thes
 
 ## Required Images
 
-### 1. `demo-conversation.png`
+### 1. `demo-conversation.png` ✅ COMPLETED
 **Purpose**: Main hero image showing the extension in action
 **Location**: Top of README, after title and description
 **Description**: A screenshot of a SillyTavern conversation with multiple auto-generated images inline
+**Status**: ✅ **COMPLETED** - Image added
 **What to capture**:
 - A conversation window with 2-3 assistant messages
 - Each message containing 1-2 generated images inline
@@ -30,10 +31,11 @@ As they entered, mystical runes glowed along the walls... [IMAGE of glowing rune
 
 ---
 
-### 2. `how-it-works.png`
+### 2. `how-it-works.png` ✅ COMPLETED
 **Purpose**: Visual diagram showing the extension workflow
 **Location**: "How It Works" section
 **Description**: A simple flowchart or diagram showing the 3-step process
+**Status**: ✅ **COMPLETED** - Image added
 **What to create**:
 - Step 1: LLM icon → "Generates invisible prompt"
 - Step 2: Extension icon → "Detects and processes"
@@ -46,30 +48,27 @@ As they entered, mystical runes glowed along the walls... [IMAGE of glowing rune
 
 ---
 
-### 3. `example-before-after.png`
-**Purpose**: Side-by-side comparison showing before/after image generation
+### 3a. `example-before.png` ✅ COMPLETED
+**Purpose**: Show LLM response with visible image prompt tag
 **Location**: "Quick Start" > "Example" section
-**Description**: Split-screen showing the same message before and after image generation
-**What to capture**:
-- **Left side**: Raw LLM response with invisible HTML comment prompt visible in debug mode or shown as placeholder
-- **Right side**: Same message with the generated image inline
-- Add labels "Before" and "After" or "LLM Output" and "Final Result"
-- Highlight the `<!--img-prompt="..."-->` tag on left side
-- Show the actual generated image on right side
-
-**Suggested approach**:
-1. Temporarily modify extension to show prompts before generation
-2. Take screenshot showing prompt
-3. Let image generate
-4. Take screenshot of final result
-5. Combine both screenshots side-by-side
+**Description**: Screenshot showing the LLM-generated response with the `<!--img-prompt="..."-->` tag visible
+**Status**: ✅ **COMPLETED** - Image added
 
 ---
 
-### 4. `settings-panel.png`
+### 3b. `example-after.png` ✅ COMPLETED
+**Purpose**: Show the same message with generated image inline
+**Location**: "Quick Start" > "Example" section
+**Description**: Screenshot showing the final result with the generated image appearing in the conversation
+**Status**: ✅ **COMPLETED** - Image added
+
+---
+
+### 4. `settings-panel.png` ✅ COMPLETED
 **Purpose**: Complete overview of all extension settings
 **Location**: "Configuration" > "Settings Panel" section
 **Description**: Full screenshot of the Auto Illustrator settings panel
+**Status**: ✅ **COMPLETED** - Image added
 **What to capture**:
 - Open Extensions > Auto Illustrator in SillyTavern
 - Ensure all settings are visible:
@@ -88,10 +87,11 @@ As they entered, mystical runes glowed along the walls... [IMAGE of glowing rune
 
 ---
 
-### 5. `preset-management.png`
+### 5. `preset-management.png` ✅ COMPLETED
 **Purpose**: Show the preset management UI in action
 **Location**: "Configuration" > "Meta Prompt Presets" section
 **Description**: Screenshot showing preset selection, preview, and edit controls
+**Status**: ✅ **COMPLETED** - Image added
 **What to capture**:
 - Meta Prompt Preset dropdown expanded or showing current selection
 - Preset preview area with content visible
@@ -160,14 +160,17 @@ These are not currently referenced but would enhance the documentation:
 
 ## Checklist
 
-- [ ] `demo-conversation.png` - Main hero image
-- [ ] `how-it-works.png` - Workflow diagram
-- [ ] `example-before-after.png` - Before/after comparison
-- [ ] `settings-panel.png` - Complete settings overview
-- [ ] `preset-management.png` - Preset management UI
+- [x] `demo-conversation.png` - Main hero image ✅
+- [x] `how-it-works.png` - Workflow diagram ✅
+- [x] `example-before.png` - Before image (LLM response with prompt tag) ✅
+- [x] `example-after.png` - After image (generated image inline) ✅
+- [x] `settings-panel.png` - Complete settings overview ✅
+- [x] `preset-management.png` - Preset management UI ✅
 - [ ] (Optional) `manual-generation-dialog.png`
 - [ ] (Optional) `streaming-in-action.png`
 - [ ] (Optional) `common-style-tags.png`
+
+**Progress**: 6/6 core images completed (100%) 🎉
 
 ## Directory Structure
 
@@ -176,11 +179,12 @@ After creating all images, your directory structure should look like:
 ```
 docs/
 ├── images/
-│   ├── demo-conversation.png
-│   ├── how-it-works.png
-│   ├── example-before-after.png
-│   ├── settings-panel.png
-│   └── preset-management.png
+│   ├── demo-conversation.png  ✅ COMPLETED
+│   ├── how-it-works.png       ✅ COMPLETED
+│   ├── example-before.png     ✅ COMPLETED
+│   ├── example-after.png      ✅ COMPLETED
+│   ├── settings-panel.png     ✅ COMPLETED
+│   └── preset-management.png  ✅ COMPLETED
 ├── REQUIRED_IMAGES.md (this file)
 ├── TROUBLESHOOTING.md
 └── DEVELOPMENT.md

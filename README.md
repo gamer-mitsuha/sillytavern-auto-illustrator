@@ -59,18 +59,15 @@ Automatically generates inline images in your SillyTavern conversations based on
 
 ### Example
 
-![Example: Before and after image generation](docs/images/example-before-after.png)
-*Left: LLM generates invisible prompt | Right: Image appears inline in the conversation*
+**Before - LLM generates invisible prompt:**
 
-When the LLM responds with:
-```
-As the sun set over the ancient forest, the path ahead grew darker...
-```
+![LLM response with visible prompt tag](docs/images/example-before.png)
 
-You'll see an image appear inline:
-```
-As the sun set over the ancient forest, [IMAGE] the path ahead grew darker...
-```
+**After - Image appears inline:**
+
+![Generated image appears in conversation](docs/images/example-after.png)
+
+The `<!--img-prompt="..."-->` tag is invisible in the chat and gets replaced with the actual generated image seamlessly.
 
 ## Configuration
 
