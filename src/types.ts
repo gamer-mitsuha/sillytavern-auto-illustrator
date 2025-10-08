@@ -71,3 +71,8 @@ export interface ImagePromptMatch {
  * Manual generation mode type
  */
 export type ManualGenerationMode = 'replace' | 'append';
+
+/**
+ * Style tag position type
+ */
+export type StyleTagPosition = 'prefix' | 'suffix';

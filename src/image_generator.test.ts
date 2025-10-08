@@ -1,5 +1,12 @@
 import {describe, it, expect, beforeEach, vi} from 'vitest';
-import {generateImage, replacePromptsWithImages} from './image_generator';
+import {
+  generateImage,
+  replacePromptsWithImages,
+  parseCommonTags,
+  deduplicateTags,
+  validateCommonTags,
+  applyCommonTags,
+} from './image_generator';
 import {createMockContext} from './test_helpers';
 
 // Mock toastr globally
@@ -273,6 +280,168 @@ describe('image_generator', () => {
       expect(result).toContain(
         '<img-prompt="character (masterpiece), detailed face">'
       );
+    });
+  });
+
+  describe('parseCommonTags', () => {
+    it('should parse comma-separated tags', () => {
+      const result = parseCommonTags('tag1, tag2, tag3');
+      expect(result).toEqual(['tag1', 'tag2', 'tag3']);
+    });
+
+    it('should trim whitespace from tags', () => {
+      const result = parseCommonTags('  tag1  ,  tag2  ,  tag3  ');
+      expect(result).toEqual(['tag1', 'tag2', 'tag3']);
+    });
+
+    it('should filter out empty tags', () => {
+      const result = parseCommonTags('tag1, , tag2,  , tag3');
+      expect(result).toEqual(['tag1', 'tag2', 'tag3']);
+    });
+
+    it('should return empty array for empty string', () => {
+      expect(parseCommonTags('')).toEqual([]);
+      expect(parseCommonTags('   ')).toEqual([]);
+    });
+
+    it('should handle single tag', () => {
+      const result = parseCommonTags('single-tag');
+      expect(result).toEqual(['single-tag']);
+    });
+  });
+
+  describe('deduplicateTags', () => {
+    it('should remove duplicate tags (case-insensitive)', () => {
+      const result = deduplicateTags([
+        'masterpiece',
+        'Masterpiece',
+        'MASTERPIECE',
+      ]);
+      expect(result).toEqual(['masterpiece']);
+    });
+
+    it('should preserve first occurrence casing', () => {
+      const result = deduplicateTags([
+        'HighQuality',
+        'highquality',
+        'HIGHQUALITY',
+      ]);
+      expect(result).toEqual(['HighQuality']);
+    });
+
+    it('should handle no duplicates', () => {
+      const result = deduplicateTags(['tag1', 'tag2', 'tag3']);
+      expect(result).toEqual(['tag1', 'tag2', 'tag3']);
+    });
+
+    it('should handle empty array', () => {
+      const result = deduplicateTags([]);
+      expect(result).toEqual([]);
+    });
+
+    it('should handle complex deduplication scenario', () => {
+      const result = deduplicateTags([
+        'masterpiece',
+        'high quality',
+        'Masterpiece',
+        'detailed',
+        'HIGH QUALITY',
+        'Detailed',
+      ]);
+      expect(result).toEqual(['masterpiece', 'high quality', 'detailed']);
+    });
+  });
+
+  describe('validateCommonTags', () => {
+    it('should accept valid tag strings', () => {
+      expect(validateCommonTags('tag1, tag2, tag3')).toEqual({valid: true});
+      expect(validateCommonTags('masterpiece, high quality')).toEqual({
+        valid: true,
+      });
+      expect(validateCommonTags('')).toEqual({valid: true});
+    });
+
+    it('should reject tags with invalid characters', () => {
+      const invalidChars = ['<', '>', '{', '}', '[', ']', '\\'];
+      for (const char of invalidChars) {
+        const result = validateCommonTags(`tag1${char}, tag2`);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Invalid characters');
+      }
+    });
+
+    it('should accept tags with parentheses and other special chars', () => {
+      // These are commonly used in image prompts
+      expect(validateCommonTags('tag(masterpiece), tag:quality')).toEqual({
+        valid: true,
+      });
+    });
+  });
+
+  describe('applyCommonTags', () => {
+    it('should add common tags as prefix', () => {
+      const result = applyCommonTags(
+        'character, scene',
+        'masterpiece, quality',
+        'prefix'
+      );
+      expect(result).toBe('masterpiece, quality, character, scene');
+    });
+
+    it('should add common tags as suffix', () => {
+      const result = applyCommonTags(
+        'character, scene',
+        'masterpiece, quality',
+        'suffix'
+      );
+      expect(result).toBe('character, scene, masterpiece, quality');
+    });
+
+    it('should deduplicate tags (case-insensitive)', () => {
+      const result = applyCommonTags(
+        'Masterpiece, character',
+        'masterpiece, quality',
+        'prefix'
+      );
+      expect(result).toBe('masterpiece, quality, character');
+    });
+
+    it('should preserve first occurrence casing during deduplication', () => {
+      const result = applyCommonTags(
+        'HighQuality, character',
+        'masterpiece, highquality',
+        'prefix'
+      );
+      expect(result).toBe('masterpiece, highquality, character');
+    });
+
+    it('should return original prompt if common tags is empty', () => {
+      expect(applyCommonTags('character, scene', '', 'prefix')).toBe(
+        'character, scene'
+      );
+      expect(applyCommonTags('character, scene', '  ', 'suffix')).toBe(
+        'character, scene'
+      );
+    });
+
+    it('should handle complex deduplication with prefix', () => {
+      const result = applyCommonTags(
+        'masterpiece, character, quality',
+        'quality, detailed, Masterpiece',
+        'prefix'
+      );
+      // First occurrence wins, so: quality, detailed, Masterpiece (from common), character
+      expect(result).toBe('quality, detailed, Masterpiece, character');
+    });
+
+    it('should handle complex deduplication with suffix', () => {
+      const result = applyCommonTags(
+        'masterpiece, character, quality',
+        'quality, detailed, Masterpiece',
+        'suffix'
+      );
+      // First occurrence wins, so: masterpiece (from prompt), character, quality (from prompt), detailed
+      expect(result).toBe('masterpiece, character, quality, detailed');
     });
   });
 });

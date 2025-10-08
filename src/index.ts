@@ -113,6 +113,12 @@ function updateUI(): void {
   const promptPatternsTextarea = document.getElementById(
     UI_ELEMENT_IDS.PROMPT_PATTERNS
   ) as HTMLTextAreaElement;
+  const commonStyleTagsTextarea = document.getElementById(
+    UI_ELEMENT_IDS.COMMON_STYLE_TAGS
+  ) as HTMLTextAreaElement;
+  const commonStyleTagsPositionSelect = document.getElementById(
+    UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION
+  ) as HTMLSelectElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -126,6 +132,10 @@ function updateUI(): void {
   if (logLevelSelect) logLevelSelect.value = settings.logLevel;
   if (promptPatternsTextarea)
     promptPatternsTextarea.value = settings.promptDetectionPatterns.join('\n');
+  if (commonStyleTagsTextarea)
+    commonStyleTagsTextarea.value = settings.commonStyleTags;
+  if (commonStyleTagsPositionSelect)
+    commonStyleTagsPositionSelect.value = settings.commonStyleTagsPosition;
 
   // Update preset dropdown with custom presets
   if (presetSelect) {
@@ -246,6 +256,12 @@ function handleSettingsChange(): void {
   const promptPatternsTextarea = document.getElementById(
     UI_ELEMENT_IDS.PROMPT_PATTERNS
   ) as HTMLTextAreaElement;
+  const commonStyleTagsTextarea = document.getElementById(
+    UI_ELEMENT_IDS.COMMON_STYLE_TAGS
+  ) as HTMLTextAreaElement;
+  const commonStyleTagsPositionSelect = document.getElementById(
+    UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION
+  ) as HTMLSelectElement;
 
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
@@ -266,6 +282,11 @@ function handleSettingsChange(): void {
         .map(p => p.trim())
         .filter(p => p.length > 0)
     : settings.promptDetectionPatterns;
+  settings.commonStyleTags =
+    commonStyleTagsTextarea?.value ?? settings.commonStyleTags;
+  settings.commonStyleTagsPosition =
+    (commonStyleTagsPositionSelect?.value as 'prefix' | 'suffix') ??
+    settings.commonStyleTagsPosition;
 
   // Apply log level
   setLogLevel(settings.logLevel);
@@ -627,6 +648,7 @@ function handleFirstStreamToken(): void {
   queueProcessor = new QueueProcessor(
     streamingQueue,
     context,
+    settings,
     settings.maxConcurrentGenerations
   );
 
@@ -937,6 +959,12 @@ function initialize(): void {
     const promptPatternsResetButton = document.getElementById(
       UI_ELEMENT_IDS.PROMPT_PATTERNS_RESET
     );
+    const commonStyleTagsTextarea = document.getElementById(
+      UI_ELEMENT_IDS.COMMON_STYLE_TAGS
+    );
+    const commonStyleTagsPositionSelect = document.getElementById(
+      UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION
+    );
     const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
@@ -957,6 +985,11 @@ function initialize(): void {
     promptPatternsResetButton?.addEventListener(
       'click',
       handlePromptPatternsReset
+    );
+    commonStyleTagsTextarea?.addEventListener('change', handleSettingsChange);
+    commonStyleTagsPositionSelect?.addEventListener(
+      'change',
+      handleSettingsChange
     );
     resetButton?.addEventListener('click', handleResetSettings);
 

@@ -92,11 +92,15 @@ function insertImageAfterPrompt(
  * Generates an image using the SD slash command
  * @param prompt - Image generation prompt
  * @param context - SillyTavern context
+ * @param commonTags - Optional common style tags to apply
+ * @param tagsPosition - Position for common tags ('prefix' or 'suffix')
  * @returns URL of generated image or null on failure
  */
 export async function generateImage(
   prompt: string,
-  context: SillyTavernContext
+  context: SillyTavernContext,
+  commonTags?: string,
+  tagsPosition?: 'prefix' | 'suffix'
 ): Promise<string | null> {
   // If limiter not initialized, create with default value of 1
   if (!concurrencyLimiter) {
@@ -106,7 +110,17 @@ export async function generateImage(
 
   // Wrap the actual generation in the limiter
   return concurrencyLimiter.run(async () => {
-    logger.info('Generating image for prompt:', prompt);
+    // Apply common tags if provided
+    const enhancedPrompt =
+      commonTags && tagsPosition
+        ? applyCommonTags(prompt, commonTags, tagsPosition)
+        : prompt;
+
+    logger.info('Generating image for prompt:', enhancedPrompt);
+    if (commonTags && enhancedPrompt !== prompt) {
+      logger.debug(`Original prompt: "${prompt}"`);
+      logger.debug(`Enhanced with common tags: "${enhancedPrompt}"`);
+    }
 
     const startTime = performance.now();
 
@@ -122,7 +136,10 @@ export async function generateImage(
       }
 
       logger.info('Calling SD command...');
-      const imageUrl = await sdCommand.callback({quiet: 'true'}, prompt);
+      const imageUrl = await sdCommand.callback(
+        {quiet: 'true'},
+        enhancedPrompt
+      );
 
       const duration = performance.now() - startTime;
       logger.info(
@@ -142,16 +159,113 @@ export async function generateImage(
 }
 
 /**
+ * Parses a comma-separated string of tags into an array
+ * @param tagsString - Comma-separated tags string
+ * @returns Array of trimmed tag strings
+ */
+export function parseCommonTags(tagsString: string): string[] {
+  if (!tagsString || tagsString.trim() === '') {
+    return [];
+  }
+
+  return tagsString
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0);
+}
+
+/**
+ * Deduplicates tags in a case-insensitive manner
+ * Preserves the original case of the first occurrence
+ * @param tags - Array of tag strings
+ * @returns Deduplicated array of tags
+ */
+export function deduplicateTags(tags: string[]): string[] {
+  const seen = new Map<string, string>();
+
+  for (const tag of tags) {
+    const lowerTag = tag.toLowerCase();
+    if (!seen.has(lowerTag)) {
+      seen.set(lowerTag, tag);
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+/**
+ * Validates common tags input
+ * @param tags - Comma-separated tags string
+ * @returns Validation result with error message if invalid
+ */
+export function validateCommonTags(tags: string): {
+  valid: boolean;
+  error?: string;
+} {
+  if (!tags || tags.trim() === '') {
+    return {valid: true}; // Empty is valid
+  }
+
+  // Check for invalid characters (no special HTML/JS chars)
+  const invalidChars = /[<>{}[\]\\]/;
+  if (invalidChars.test(tags)) {
+    return {
+      valid: false,
+      error: 'Invalid characters detected. Avoid using < > { } [ ] \\',
+    };
+  }
+
+  return {valid: true};
+}
+
+/**
+ * Applies common style tags to a prompt based on position setting
+ * Deduplicates tags to avoid repetition
+ * @param prompt - Original image generation prompt
+ * @param commonTags - Comma-separated common tags
+ * @param position - Where to add tags ('prefix' or 'suffix')
+ * @returns Enhanced prompt with common tags applied
+ */
+export function applyCommonTags(
+  prompt: string,
+  commonTags: string,
+  position: 'prefix' | 'suffix'
+): string {
+  // If no common tags, return original prompt
+  if (!commonTags || commonTags.trim() === '') {
+    return prompt;
+  }
+
+  // Parse both prompt and common tags
+  const promptTags = parseCommonTags(prompt);
+  const styleTags = parseCommonTags(commonTags);
+
+  // Combine based on position
+  const combined =
+    position === 'prefix'
+      ? [...styleTags, ...promptTags]
+      : [...promptTags, ...styleTags];
+
+  // Deduplicate and join
+  const deduplicated = deduplicateTags(combined);
+  return deduplicated.join(', ');
+}
+
+/**
  * Replaces all image prompts in text with actual generated images
  * @param text - Text containing image prompts
  * @param context - SillyTavern context
  * @param patterns - Optional array of regex pattern strings to use for detection
+ * @param commonTags - Optional common style tags to apply
+ * @param tagsPosition - Position for common tags ('prefix' or 'suffix')
  * @returns Text with prompts replaced by image tags
  */
 export async function replacePromptsWithImages(
   text: string,
   context: SillyTavernContext,
-  patterns?: string[]
+  patterns?: string[],
+  commonTags?: string,
+  tagsPosition?: 'prefix' | 'suffix'
 ): Promise<string> {
   const matches = extractImagePrompts(text, patterns);
 
@@ -174,7 +288,12 @@ export async function replacePromptsWithImages(
   const batchStartTime = performance.now();
   const imageUrls: (string | null)[] = [];
   for (const match of matches) {
-    const imageUrl = await generateImage(match.prompt, context);
+    const imageUrl = await generateImage(
+      match.prompt,
+      context,
+      commonTags,
+      tagsPosition
+    );
     imageUrls.push(imageUrl);
   }
 

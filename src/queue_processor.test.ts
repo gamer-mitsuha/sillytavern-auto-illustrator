@@ -8,11 +8,13 @@ import {describe, it, expect, beforeEach, vi} from 'vitest';
 import {QueueProcessor} from './queue_processor';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {createMockContext} from './test_helpers';
+import {getDefaultSettings} from './settings';
 
 describe('QueueProcessor', () => {
   let processor: QueueProcessor;
   let queue: ImageGenerationQueue;
   let mockContext: SillyTavernContext;
+  let mockSettings: AutoIllustratorSettings;
 
   beforeEach(() => {
     queue = new ImageGenerationQueue();
@@ -25,12 +27,18 @@ describe('QueueProcessor', () => {
         },
       },
     });
-    processor = new QueueProcessor(queue, mockContext, 1);
+    mockSettings = getDefaultSettings();
+    processor = new QueueProcessor(queue, mockContext, mockSettings, 1);
   });
 
   describe('initialization and lifecycle', () => {
     it('should create processor with correct max concurrent', () => {
-      const customProcessor = new QueueProcessor(queue, mockContext, 3);
+      const customProcessor = new QueueProcessor(
+        queue,
+        mockContext,
+        mockSettings,
+        3
+      );
       expect(customProcessor.getStatus().maxConcurrent).toBe(3);
     });
 
@@ -149,9 +157,24 @@ describe('QueueProcessor', () => {
 
   describe('edge cases', () => {
     it('should handle max concurrent of different values', () => {
-      const processor1 = new QueueProcessor(queue, mockContext, 1);
-      const processor2 = new QueueProcessor(queue, mockContext, 3);
-      const processor3 = new QueueProcessor(queue, mockContext, 5);
+      const processor1 = new QueueProcessor(
+        queue,
+        mockContext,
+        mockSettings,
+        1
+      );
+      const processor2 = new QueueProcessor(
+        queue,
+        mockContext,
+        mockSettings,
+        3
+      );
+      const processor3 = new QueueProcessor(
+        queue,
+        mockContext,
+        mockSettings,
+        5
+      );
 
       expect(processor1.getStatus().maxConcurrent).toBe(1);
       expect(processor2.getStatus().maxConcurrent).toBe(3);

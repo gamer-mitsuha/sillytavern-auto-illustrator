@@ -174,6 +174,20 @@ export function createSettingsUI(): string {
             </div>
           </label>
 
+          <label for="${UI_ELEMENT_IDS.COMMON_STYLE_TAGS}">
+            <span>${t('settings.commonStyleTags')}</span>
+            <small>${t('settings.commonStyleTagsDesc')}</small>
+            <textarea id="${UI_ELEMENT_IDS.COMMON_STYLE_TAGS}" class="text_pole textarea_compact" rows="3" placeholder="${t('settings.commonStyleTagsPlaceholder')}"></textarea>
+          </label>
+
+          <label for="${UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION}">
+            <span>${t('settings.commonStyleTagsPosition')}</span>
+            <select id="${UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION}" class="text_pole">
+              <option value="prefix">${t('settings.commonStyleTagsPrefix')}</option>
+              <option value="suffix">${t('settings.commonStyleTagsSuffix')}</option>
+            </select>
+          </label>
+
           <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
             <span>${t('settings.logLevel')}</span>
             <small>${t('settings.logLevelDesc')}</small>
