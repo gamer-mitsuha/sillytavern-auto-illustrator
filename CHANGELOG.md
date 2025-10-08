@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable prompt detection patterns in settings UI (one regex pattern per line)
 - Support for HTML comment format: `<!--img-prompt="..."--->` (invisible, passes through DOMPurify)
 - Backward compatibility with old `<img_prompt>` (underscore) tags from existing chats
+- Real-time validation indicator showing if prompt detection patterns can find prompts in the current meta prompt template
+  - Visual feedback with green checkmark for valid patterns
+  - Warning indicator with helpful hints when patterns don't match meta prompt format
+  - Updates automatically when changing presets or modifying patterns
 
 ### Changed
 - **BREAKING**: Changed default output format to HTML comment format `<!--img-prompt="..."-->` to fix invisible spacing issue

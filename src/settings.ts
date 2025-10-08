@@ -137,6 +137,10 @@ export function createSettingsUI(): string {
               <label>${t('settings.presetContentPreview')}</label>
               <pre id="${UI_ELEMENT_IDS.PRESET_PREVIEW}" class="preset-preview-text"></pre>
             </div>
+
+            <div id="${UI_ELEMENT_IDS.PATTERN_VALIDATION_STATUS}" class="pattern-validation-status">
+              <!-- Validation status will be populated by JavaScript -->
+            </div>
           </div>
 
           <hr>

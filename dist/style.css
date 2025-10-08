@@ -81,6 +81,43 @@
   cursor: not-allowed;
 }
 
+/* Pattern Validation Status */
+.pattern-validation-status {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.pattern-validation-status.validation-success {
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #81c784;
+}
+
+.pattern-validation-status.validation-warning {
+  background-color: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  color: #ffb74d;
+}
+
+.pattern-validation-status .validation-icon {
+  margin-right: 0.5rem;
+  font-weight: bold;
+}
+
+.pattern-validation-status .validation-message {
+  display: block;
+}
+
+.pattern-validation-status .validation-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
 /* Manual Generation Button */
 .auto_illustrator_manual_gen {
   color: #9b59b6 !important;

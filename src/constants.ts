@@ -119,5 +119,6 @@ export const UI_ELEMENT_IDS = {
   MANUAL_GEN_MODE: 'auto_illustrator_manual_gen_mode',
   PROMPT_PATTERNS: 'auto_illustrator_prompt_patterns',
   PROMPT_PATTERNS_RESET: 'auto_illustrator_prompt_patterns_reset',
+  PATTERN_VALIDATION_STATUS: 'auto_illustrator_pattern_validation_status',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;
