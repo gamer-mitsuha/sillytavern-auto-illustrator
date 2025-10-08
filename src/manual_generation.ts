@@ -8,6 +8,7 @@ import {generateImage} from './image_generator';
 import type {ManualGenerationMode, ImagePromptMatch} from './types';
 import {createLogger} from './logger';
 import {createImagePromptWithImgRegex} from './regex';
+import {t, tCount} from './i18n';
 
 const logger = createLogger('ManualGen');
 
@@ -69,7 +70,7 @@ export async function generateImagesForMessage(
   const message = context.chat?.[messageId];
   if (!message) {
     logger.warn('Message not found:', messageId);
-    toastr.error('Message not found', 'Auto Illustrator');
+    toastr.error(t('toast.messageNotFound'), t('extensionName'));
     return 0;
   }
 
@@ -79,7 +80,7 @@ export async function generateImagesForMessage(
   const prompts = extractImagePrompts(text);
   if (prompts.length === 0) {
     logger.info('No prompts found in message');
-    toastr.info('No image prompts found in message', 'Auto Illustrator');
+    toastr.info(t('toast.noPromptsFound'), t('extensionName'));
     return 0;
   }
 
@@ -101,8 +102,8 @@ export async function generateImagesForMessage(
 
   // Show start notification
   toastr.info(
-    `Generating ${promptsToGenerate.length} image${promptsToGenerate.length > 1 ? 's' : ''}...`,
-    'Auto Illustrator'
+    tCount(promptsToGenerate.length, 'toast.generatingImages'),
+    t('extensionName')
   );
 
   // Generate images sequentially
@@ -199,16 +200,19 @@ export async function generateImagesForMessage(
   // Show completion notification
   if (successCount === promptsToGenerate.length) {
     toastr.success(
-      `Successfully generated ${successCount} image${successCount > 1 ? 's' : ''}`,
-      'Auto Illustrator'
+      tCount(successCount, 'toast.successGenerated'),
+      t('extensionName')
     );
   } else if (successCount > 0) {
     toastr.warning(
-      `Generated ${successCount} of ${promptsToGenerate.length} images`,
-      'Auto Illustrator'
+      t('toast.partialGenerated', {
+        success: successCount,
+        total: promptsToGenerate.length,
+      }),
+      t('extensionName')
     );
   } else {
-    toastr.error('Failed to generate images', 'Auto Illustrator');
+    toastr.error(t('toast.failedToGenerate'), t('extensionName'));
   }
 
   return successCount;
@@ -233,13 +237,15 @@ export async function showGenerationDialog(
 
   const prompts = extractImagePrompts(message.mes);
   if (prompts.length === 0) {
-    toastr.info('No image prompts found in message', 'Auto Illustrator');
+    toastr.info(t('toast.noPromptsFound'), t('extensionName'));
     return;
   }
 
   // Build dialog message
-  let dialogMessage = `Found ${prompts.length} image prompt${prompts.length > 1 ? 's' : ''} in this message.`;
-  dialogMessage += '\n\nHow would you like to generate images?';
+  const dialogMessage =
+    tCount(prompts.length, 'dialog.foundPrompts') +
+    '\n\n' +
+    t('dialog.howToGenerate');
 
   // Show confirmation dialog with mode selection
   const mode = await new Promise<ManualGenerationMode | null>(resolve => {
@@ -265,7 +271,7 @@ export async function showGenerationDialog(
       )
       .append(
         $('<span>').html(
-          '<strong>Replace:</strong> Remove existing images and regenerate new ones'
+          `<strong>${t('dialog.replace')}</strong> ${t('dialog.replaceDesc')}`
         )
       );
 
@@ -280,7 +286,7 @@ export async function showGenerationDialog(
       )
       .append(
         $('<span>').html(
-          '<strong>Append:</strong> Keep existing images and add new ones after them'
+          `<strong>${t('dialog.append')}</strong> ${t('dialog.appendDesc')}`
         )
       );
 
@@ -290,7 +296,7 @@ export async function showGenerationDialog(
     const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
 
     const generateBtn = $('<button>')
-      .text('Generate')
+      .text(t('dialog.generate'))
       .addClass('menu_button')
       .on('click', () => {
         const selectedMode = dialog
@@ -302,7 +308,7 @@ export async function showGenerationDialog(
       });
 
     const cancelBtn = $('<button>')
-      .text('Cancel')
+      .text(t('dialog.cancel'))
       .addClass('menu_button')
       .on('click', () => {
         backdrop.remove();
@@ -490,25 +496,25 @@ export async function regenerateImage(
   let message = context.chat?.[messageId];
   if (!message) {
     logger.error('Message not found:', messageId);
-    toastr.error('Message not found', 'Auto Illustrator');
+    toastr.error(t('toast.messageNotFound'), t('extensionName'));
     return 0;
   }
 
   // Find the prompt for this image (using current message state)
   const promptText = findPromptForImage(message.mes || '', imageSrc);
   if (!promptText) {
-    toastr.error('Could not find prompt for this image', 'Auto Illustrator');
+    toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
     return 0;
   }
 
   logger.info(`Regenerating image for prompt: "${promptText}" (mode: ${mode})`);
 
   // Generate new image (this respects concurrency limit and may wait in queue)
-  toastr.info('Generating new image...', 'Auto Illustrator');
+  toastr.info(t('toast.generatingNewImage'), t('extensionName'));
   const imageUrl = await generateImage(promptText, context);
 
   if (!imageUrl) {
-    toastr.error('Failed to generate image', 'Auto Illustrator');
+    toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
     return 0;
   }
 
@@ -517,7 +523,7 @@ export async function regenerateImage(
   message = context.chat?.[messageId];
   if (!message) {
     logger.error('Message not found after generation:', messageId);
-    toastr.error('Message disappeared during generation', 'Auto Illustrator');
+    toastr.error(t('toast.messageDisappeared'), t('extensionName'));
     return 0;
   }
 
@@ -527,7 +533,7 @@ export async function regenerateImage(
   const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
   if (!imageIndex) {
     logger.error('Could not determine image index for regeneration');
-    toastr.error('Failed to determine image index', 'Auto Illustrator');
+    toastr.error(t('toast.failedToDetermineIndex'), t('extensionName'));
     return 0;
   }
 
@@ -537,7 +543,7 @@ export async function regenerateImage(
 
   if (promptIndex === -1) {
     logger.error('Prompt tag not found in text');
-    toastr.error('Failed to find prompt tag', 'Auto Illustrator');
+    toastr.error(t('toast.failedToFindPromptTag'), t('extensionName'));
     return 0;
   }
 
@@ -614,7 +620,7 @@ export async function regenerateImage(
   // Save chat
   await context.saveChat();
 
-  toastr.success('Image regenerated successfully', 'Auto Illustrator');
+  toastr.success(t('toast.imageRegenerated'), t('extensionName'));
   logger.info('Image regenerated successfully');
 
   // Re-attach click handlers to all images (including the new one)
@@ -642,7 +648,7 @@ async function deleteImage(
   const message = context.chat?.[messageId];
   if (!message) {
     logger.error('Message not found:', messageId);
-    toastr.error('Message not found', 'Auto Illustrator');
+    toastr.error(t('toast.messageNotFound'), t('extensionName'));
     return false;
   }
 
@@ -659,7 +665,7 @@ async function deleteImage(
   // Check if anything was removed
   if (text.length === originalLength) {
     logger.warn('Image not found in message text');
-    toastr.warning('Image not found', 'Auto Illustrator');
+    toastr.warning(t('toast.imageNotFound'), t('extensionName'));
     return false;
   }
 
@@ -678,7 +684,7 @@ async function deleteImage(
   // Save chat
   await context.saveChat();
 
-  toastr.success('Image deleted successfully', 'Auto Illustrator');
+  toastr.success(t('toast.imageDeleted'), t('extensionName'));
   logger.info('Image deleted successfully');
 
   // Re-attach click handlers to remaining images
@@ -702,7 +708,7 @@ async function showRegenerationDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
-  const dialogMessage = 'What would you like to do with this image?';
+  const dialogMessage = t('dialog.whatToDo');
 
   // Show confirmation dialog with mode selection
   const action = await new Promise<ManualGenerationMode | 'delete' | null>(
@@ -728,7 +734,9 @@ async function showRegenerationDialog(
             .prop('checked', false)
         )
         .append(
-          $('<span>').html('<strong>Replace:</strong> Remove and regenerate')
+          $('<span>').html(
+            `<strong>${t('dialog.replace')}</strong> ${t('dialog.replaceRegen')}`
+          )
         );
 
       const appendOption = $('<label>')
@@ -742,7 +750,7 @@ async function showRegenerationDialog(
         )
         .append(
           $('<span>').html(
-            '<strong>Append:</strong> Keep and add new one after'
+            `<strong>${t('dialog.append')}</strong> ${t('dialog.appendRegen')}`
           )
         );
 
@@ -752,7 +760,7 @@ async function showRegenerationDialog(
       const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
 
       const generateBtn = $('<button>')
-        .text('Generate')
+        .text(t('dialog.generate'))
         .addClass('menu_button')
         .on('click', () => {
           const selectedMode = dialog
@@ -764,7 +772,7 @@ async function showRegenerationDialog(
         });
 
       const deleteBtn = $('<button>')
-        .text('Delete')
+        .text(t('dialog.delete'))
         .addClass('menu_button caution')
         .on('click', () => {
           backdrop.remove();
@@ -773,7 +781,7 @@ async function showRegenerationDialog(
         });
 
       const cancelBtn = $('<button>')
-        .text('Cancel')
+        .text(t('dialog.cancel'))
         .addClass('menu_button')
         .on('click', () => {
           backdrop.remove();
@@ -897,8 +905,7 @@ export function addManualGenerationButton(
     .addClass(
       'mes_button auto_illustrator_manual_gen fa-solid fa-wand-magic-sparkles'
     )
-    .attr('title', 'Generate images from prompts')
-    .attr('data-i18n', '[title]Generate images from prompts')
+    .attr('title', t('button.manualGenerate'))
     .on('click', async () => {
       // Disable button during generation
       button.prop('disabled', true);
