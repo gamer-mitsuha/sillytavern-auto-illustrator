@@ -12,17 +12,6 @@
 export const EXTENSION_NAME = 'auto_illustrator';
 
 /**
- * Word interval configuration
- * Controls approximately how many words should appear between image prompts
- */
-export const WORD_INTERVAL = {
-  DEFAULT: 250,
-  MIN: 50,
-  MAX: 1000,
-  STEP: 50,
-} as const;
-
-/**
  * Streaming poll interval configuration (milliseconds)
  * Controls how frequently the extension checks for new prompts during streaming
  */
@@ -86,7 +75,6 @@ export const MANUAL_GENERATION_MODE = {
 export const DEFAULT_SETTINGS = {
   enabled: true,
   streamingEnabled: true,
-  wordInterval: WORD_INTERVAL.DEFAULT,
   streamingPollInterval: STREAMING_POLL_INTERVAL.DEFAULT,
   maxConcurrentGenerations: MAX_CONCURRENT_GENERATIONS.DEFAULT,
   logLevel: DEFAULT_LOG_LEVEL,
@@ -100,7 +88,6 @@ export const DEFAULT_SETTINGS = {
  */
 export const UI_ELEMENT_IDS = {
   ENABLED: 'auto_illustrator_enabled',
-  WORD_INTERVAL: 'auto_illustrator_word_interval',
   META_PROMPT: 'auto_illustrator_meta_prompt',
   META_PROMPT_PRESET_SELECT: 'auto_illustrator_preset_select',
   META_PROMPT_PRESET_EDIT: 'auto_illustrator_preset_edit',

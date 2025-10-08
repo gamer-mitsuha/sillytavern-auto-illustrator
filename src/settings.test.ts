@@ -13,7 +13,6 @@ describe('settings', () => {
       const defaults = getDefaultSettings();
 
       expect(defaults.enabled).toBe(true);
-      expect(defaults.wordInterval).toBe(250);
       expect(defaults.metaPrompt).toBeTruthy();
       expect(typeof defaults.metaPrompt).toBe('string');
       expect(defaults.currentPresetId).toBe('default');
@@ -30,7 +29,6 @@ describe('settings', () => {
     it('should load existing settings from context', () => {
       const existingSettings: AutoIllustratorSettings = {
         enabled: false,
-        wordInterval: 500,
         metaPrompt: 'custom prompt',
         currentPresetId: 'custom-123',
         customPresets: [],
@@ -38,6 +36,7 @@ describe('settings', () => {
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
         logLevel: 'debug',
+        manualGenerationMode: 'append',
       };
 
       const mockContext = createMockContext({
@@ -49,7 +48,6 @@ describe('settings', () => {
       const loaded = loadSettings(mockContext);
 
       expect(loaded.enabled).toEqual(existingSettings.enabled);
-      expect(loaded.wordInterval).toEqual(existingSettings.wordInterval);
       expect(loaded.currentPresetId).toEqual(existingSettings.currentPresetId);
       expect(loaded.customPresets).toEqual(existingSettings.customPresets);
     });
@@ -62,7 +60,7 @@ describe('settings', () => {
       const loaded = loadSettings(mockContext);
 
       expect(loaded.enabled).toBe(true);
-      expect(loaded.wordInterval).toBe(250);
+      expect(loaded.metaPrompt).toBeTruthy();
     });
 
     it('should merge partial settings with defaults', () => {
@@ -79,8 +77,8 @@ describe('settings', () => {
       const loaded = loadSettings(mockContext);
 
       expect(loaded.enabled).toBe(false);
-      expect(loaded.wordInterval).toBe(250); // Should use default
       expect(loaded.metaPrompt).toBeTruthy(); // Should use default
+      expect(loaded.streamingEnabled).toBe(true); // Should use default
     });
   });
 
@@ -94,7 +92,6 @@ describe('settings', () => {
 
       const settings: AutoIllustratorSettings = {
         enabled: true,
-        wordInterval: 300,
         metaPrompt: 'test prompt',
         currentPresetId: 'default',
         customPresets: [],
@@ -102,6 +99,7 @@ describe('settings', () => {
         streamingPollInterval: 300,
         maxConcurrentGenerations: 1,
         logLevel: 'info',
+        manualGenerationMode: 'replace',
       };
 
       saveSettings(settings, mockContext);
@@ -116,7 +114,6 @@ describe('settings', () => {
         extensionSettings: {
           [EXTENSION_NAME]: {
             enabled: true,
-            wordInterval: 250,
             metaPrompt: 'old',
           },
         },
@@ -125,7 +122,6 @@ describe('settings', () => {
 
       const newSettings: AutoIllustratorSettings = {
         enabled: false,
-        wordInterval: 400,
         metaPrompt: 'new',
         currentPresetId: 'custom-456',
         customPresets: [],
@@ -133,6 +129,7 @@ describe('settings', () => {
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
         logLevel: 'warn',
+        manualGenerationMode: 'append',
       };
 
       saveSettings(newSettings, mockContext);

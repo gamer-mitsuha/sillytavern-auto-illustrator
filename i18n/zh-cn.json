@@ -2,7 +2,6 @@
   "extensionName": "自动插画",
   "settings.enable": "启用自动插画",
   "settings.resetDefaults": "重置为默认值",
-  "settings.wordInterval": "词语间隔（图片间的大约词数）",
   "settings.metaPromptPreset": "元提示预设",
   "settings.predefinedPresets": "预定义预设",
   "settings.customPresets": "自定义预设",

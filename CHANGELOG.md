@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- Word interval setting (non-functional - interval is part of meta prompt presets)
+
 ### Fixed
 - Manual generation button tooltip now properly supports internationalization (zh-CN translation)
 

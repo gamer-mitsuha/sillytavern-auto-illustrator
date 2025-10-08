@@ -59,9 +59,6 @@ function updateUI(): void {
   const enabledCheckbox = document.getElementById(
     UI_ELEMENT_IDS.ENABLED
   ) as HTMLInputElement;
-  const wordIntervalInput = document.getElementById(
-    UI_ELEMENT_IDS.WORD_INTERVAL
-  ) as HTMLInputElement;
   const metaPromptTextarea = document.getElementById(
     UI_ELEMENT_IDS.META_PROMPT
   ) as HTMLTextAreaElement;
@@ -95,8 +92,6 @@ function updateUI(): void {
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
-  if (wordIntervalInput)
-    wordIntervalInput.value = settings.wordInterval.toString();
   if (streamingEnabledCheckbox)
     streamingEnabledCheckbox.checked = settings.streamingEnabled;
   if (streamingPollIntervalInput)
@@ -155,9 +150,6 @@ function handleSettingsChange(): void {
   const enabledCheckbox = document.getElementById(
     UI_ELEMENT_IDS.ENABLED
   ) as HTMLInputElement;
-  const wordIntervalInput = document.getElementById(
-    UI_ELEMENT_IDS.WORD_INTERVAL
-  ) as HTMLInputElement;
   const metaPromptTextarea = document.getElementById(
     UI_ELEMENT_IDS.META_PROMPT
   ) as HTMLTextAreaElement;
@@ -175,9 +167,6 @@ function handleSettingsChange(): void {
   ) as HTMLSelectElement;
 
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
-  settings.wordInterval = wordIntervalInput
-    ? parseInt(wordIntervalInput.value)
-    : settings.wordInterval;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
   settings.streamingEnabled =
     streamingEnabledCheckbox?.checked ?? settings.streamingEnabled;
@@ -777,9 +766,6 @@ function initialize(): void {
 
     // Attach event listeners
     const enabledCheckbox = document.getElementById(UI_ELEMENT_IDS.ENABLED);
-    const wordIntervalInput = document.getElementById(
-      UI_ELEMENT_IDS.WORD_INTERVAL
-    );
     const presetSelect = document.getElementById(
       UI_ELEMENT_IDS.META_PROMPT_PRESET_SELECT
     );
@@ -811,7 +797,6 @@ function initialize(): void {
     const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
-    wordIntervalInput?.addEventListener('change', handleSettingsChange);
     presetSelect?.addEventListener('change', handlePresetChange);
     presetEditButton?.addEventListener('click', handlePresetEdit);
     presetSaveButton?.addEventListener('click', handlePresetSave);
