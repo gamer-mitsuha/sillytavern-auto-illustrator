@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Manual generation button tooltip now properly supports internationalization (zh-CN translation)
+
 ### Added
+- Simplified Chinese (zh-cn) internationalization support
+  - Full translation coverage for settings UI, dialogs, and notifications
+  - Dynamic translation for count-based messages
+  - Automatic language detection via SillyTavern i18n system
 - Manual image generation feature for existing `<img_prompt>` tags
   - New button in message actions menu for messages containing image prompts
   - Modal dialog with "Replace" and "Append" modes with backdrop overlay

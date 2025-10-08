@@ -2,12 +2,14 @@
  * Unit tests for Manual Generation Module
  */
 
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, beforeEach, vi} from 'vitest';
 import {
   hasExistingImage,
   removeExistingImages,
   findPromptForImage,
+  addManualGenerationButton,
 } from './manual_generation';
+import {initializeI18n, t} from './i18n';
 
 describe('Manual Generation', () => {
   describe('Append mode - finding last image position', () => {
@@ -627,6 +629,91 @@ Some text here
 <img src="1.jpg">`;
       const result = deleteImageFromText(text, '1.jpg');
       expect(result).toBe('<img_prompt="test">');
+    });
+  });
+
+  describe('addManualGenerationButton', () => {
+    let mockContext: any;
+    let mockSettings: any;
+    let mockMessageElement: any;
+
+    beforeEach(() => {
+      // Initialize i18n with a mock translate function
+      mockContext = {
+        translate: (key: string) => {
+          const translations: Record<string, string> = {
+            'button.manualGenerate': '从提示生成图像',
+          };
+          return translations[key] || key;
+        },
+        chat: [
+          {
+            is_user: false,
+            mes: '<img_prompt="test prompt">',
+          },
+        ],
+      };
+
+      initializeI18n(mockContext);
+
+      mockSettings = {};
+
+      // Mock jQuery element
+      mockMessageElement = {
+        find: vi.fn().mockReturnValue({
+          length: 0,
+          append: vi.fn(),
+        }),
+      };
+
+      // Set up global jQuery mock
+      (global as any).$ = vi.fn((selector: string) => {
+        if (typeof selector === 'string') {
+          return mockMessageElement;
+        }
+        // For creating new elements
+        return {
+          addClass: vi.fn().mockReturnThis(),
+          attr: vi.fn().mockReturnThis(),
+          on: vi.fn().mockReturnThis(),
+          prop: vi.fn().mockReturnThis(),
+          css: vi.fn().mockReturnThis(),
+        };
+      });
+    });
+
+    it('should create button with translated tooltip', () => {
+      const mockButton = {
+        addClass: vi.fn().mockReturnThis(),
+        attr: vi.fn().mockReturnThis(),
+        on: vi.fn().mockReturnThis(),
+      };
+
+      (global as any).$ = vi.fn((selector: any) => {
+        if (selector === mockMessageElement) {
+          return mockMessageElement;
+        }
+        if (typeof selector === 'string' && selector.startsWith('<div>')) {
+          return mockButton;
+        }
+        return mockMessageElement;
+      });
+
+      addManualGenerationButton(
+        mockMessageElement,
+        0,
+        mockContext,
+        mockSettings
+      );
+
+      // Verify button was created with correct tooltip
+      expect(mockButton.attr).toHaveBeenCalledWith('title', '从提示生成图像');
+    });
+
+    it('should use t() function for tooltip translation', () => {
+      // Verify that t() returns the translated text
+      const translated = t('button.manualGenerate');
+      expect(translated).toBe('从提示生成图像');
     });
   });
 });
