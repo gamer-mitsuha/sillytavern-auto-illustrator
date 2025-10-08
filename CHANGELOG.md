@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Common style tags feature: Add comma-separated tags to all image prompts with configurable prefix/suffix position and automatic deduplication
+- User-facing setting to control default mode for manual generation and regeneration dialogs (Append vs Replace)
 
 ## [1.0.0] - 2025-10-09
 

@@ -188,6 +188,15 @@ export function createSettingsUI(): string {
             </select>
           </label>
 
+          <label for="${UI_ELEMENT_IDS.MANUAL_GEN_MODE}">
+            <span>${t('settings.manualGenerationMode')}</span>
+            <small>${t('settings.manualGenerationModeDesc')}</small>
+            <select id="${UI_ELEMENT_IDS.MANUAL_GEN_MODE}" class="text_pole">
+              <option value="append">${t('settings.manualGenerationModeAppend')}</option>
+              <option value="replace">${t('settings.manualGenerationModeReplace')}</option>
+            </select>
+          </label>
+
           <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
             <span>${t('settings.logLevel')}</span>
             <small>${t('settings.logLevelDesc')}</small>
