@@ -119,6 +119,9 @@ function updateUI(): void {
   const commonStyleTagsPositionSelect = document.getElementById(
     UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION
   ) as HTMLSelectElement;
+  const manualGenModeSelect = document.getElementById(
+    UI_ELEMENT_IDS.MANUAL_GEN_MODE
+  ) as HTMLSelectElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -136,6 +139,8 @@ function updateUI(): void {
     commonStyleTagsTextarea.value = settings.commonStyleTags;
   if (commonStyleTagsPositionSelect)
     commonStyleTagsPositionSelect.value = settings.commonStyleTagsPosition;
+  if (manualGenModeSelect)
+    manualGenModeSelect.value = settings.manualGenerationMode;
 
   // Update preset dropdown with custom presets
   if (presetSelect) {
@@ -262,6 +267,9 @@ function handleSettingsChange(): void {
   const commonStyleTagsPositionSelect = document.getElementById(
     UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION
   ) as HTMLSelectElement;
+  const manualGenModeSelect = document.getElementById(
+    UI_ELEMENT_IDS.MANUAL_GEN_MODE
+  ) as HTMLSelectElement;
 
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
@@ -287,6 +295,9 @@ function handleSettingsChange(): void {
   settings.commonStyleTagsPosition =
     (commonStyleTagsPositionSelect?.value as 'prefix' | 'suffix') ??
     settings.commonStyleTagsPosition;
+  settings.manualGenerationMode =
+    (manualGenModeSelect?.value as 'replace' | 'append') ??
+    settings.manualGenerationMode;
 
   // Apply log level
   setLogLevel(settings.logLevel);
@@ -965,6 +976,9 @@ function initialize(): void {
     const commonStyleTagsPositionSelect = document.getElementById(
       UI_ELEMENT_IDS.COMMON_STYLE_TAGS_POSITION
     );
+    const manualGenModeSelect = document.getElementById(
+      UI_ELEMENT_IDS.MANUAL_GEN_MODE
+    );
     const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
@@ -991,6 +1005,7 @@ function initialize(): void {
       'change',
       handleSettingsChange
     );
+    manualGenModeSelect?.addEventListener('change', handleSettingsChange);
     resetButton?.addEventListener('click', handleResetSettings);
 
     // Update UI with loaded settings
