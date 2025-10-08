@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix mobile behavior where clicking an image when dialog is open creates duplicate dialogs instead of closing existing dialog
 
 ### Documentation
+- English (en-us) internationalization support
+  - Explicit English translation file for professional i18n setup
+  - Provides clear reference for translators adding new languages
+  - Matches structure of other language files
 - Simplified Chinese (zh-cn) internationalization support
   - Full translation coverage for settings UI, dialogs, and notifications
   - Added translations for Prompt Detection Patterns settings
