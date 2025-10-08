@@ -65,7 +65,7 @@ export const PRESET_IDS = {
 export const MANUAL_GENERATION_MODE = {
   REPLACE: 'replace',
   APPEND: 'append',
-  DEFAULT: 'replace',
+  DEFAULT: 'append',
 } as const;
 
 /**
