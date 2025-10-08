@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Simplified Chinese (zh-CN) README translation (README_CN.md)
+
+### Changed
+- Updated documentation to reflect removal of word interval setting
+- Clarified that image generation frequency is controlled via meta prompt presets
+
 ### Removed
 - Word interval setting (non-functional - interval is part of meta prompt presets)
 
 ### Fixed
 - Manual generation button tooltip now properly supports internationalization (zh-CN translation)
 
-### Added
+### Documentation
 - Simplified Chinese (zh-cn) internationalization support
   - Full translation coverage for settings UI, dialogs, and notifications
   - Dynamic translation for count-based messages

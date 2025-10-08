@@ -1,5 +1,7 @@
 # SillyTavern Auto Illustrator
 
+English | [简体中文](README_CN.md)
+
 Automatically generates inline images in your SillyTavern conversations based on story context. The extension uses LLM-generated image prompts to create immersive visual storytelling experiences.
 
 ## Features
@@ -7,14 +9,15 @@ Automatically generates inline images in your SillyTavern conversations based on
 - 🎨 **Automatic Image Generation**: LLM generates image prompts based on story context
 - 🔄 **Seamless Integration**: Images appear inline within assistant messages
 - ⚡ **Streaming Support**: Generates images during streaming responses with coordinated insertion
-- ⚙️ **Customizable Settings**: Control generation frequency, concurrency, and meta-prompt template
-- 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
 - 🎯 **Preset Management**: Switch between predefined and custom meta-prompt presets
   - Two predefined presets: Default and NAI 4.5 Full
   - Create, edit, and delete custom presets
   - Preview preset content before editing
+  - Customize image generation frequency via preset templates
+- 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
 - 💾 **Persistent Images**: Generated images are automatically saved to chat history
 - 🧹 **Smart Chat Pruning**: Removes generated images from LLM context (not from UI)
+- 🌍 **Internationalization**: Full i18n support (currently supports English and Simplified Chinese)
 - 📊 **Configurable Logging**: Control logging verbosity from SILENT to DEBUG
 - 🔧 **Centralized Configuration**: All settings and validation in one place
 
@@ -52,8 +55,7 @@ https://github.com/gamer-mitsuha/sillytavern-auto-illustrator
 1. **Enable the Extension**: Go to **Extensions** > **Auto Illustrator** and check "Enable Auto Illustrator"
 
 2. **Configure Settings**:
-   - **Word Interval**: Approximate number of words between image generation opportunities (default: 250, range: 50-1000)
-   - **Meta Prompt Template**: Instructions sent to the LLM for generating image prompts
+   - **Meta Prompt Preset**: Choose from predefined presets or create custom ones (controls image generation frequency and style)
    - **Enable Streaming**: Enable image generation during streaming responses (recommended)
    - **Streaming Poll Interval**: How often to check for new prompts during streaming (default: 300ms, range: 100-1000ms)
    - **Max Concurrent Generations**: Maximum number of images to generate simultaneously (default: 1, range: 1-5)
@@ -80,8 +82,7 @@ As the sun set over the ancient forest, [IMAGE] the path ahead grew darker. She 
 Access settings via **Extensions** > **Auto Illustrator**
 
 - **Enable Auto Illustrator**: Toggle extension on/off
-- **Word Interval**: Controls how frequently images are generated (50-1000 words, step: 50)
-- **Meta Prompt Template**: Customize the instructions sent to the LLM
+- **Meta Prompt Preset**: Select from predefined or custom presets that control image generation behavior
 - **Enable Streaming**: Enable real-time image generation during streaming (recommended)
 - **Streaming Poll Interval**: Milliseconds between prompt detection checks (100-1000ms, step: 50)
 - **Max Concurrent Generations**: Number of images to generate simultaneously (1-5, step: 1)
@@ -118,15 +119,15 @@ The extension includes a preset management system for organizing and switching b
 - Custom presets are stored in your SillyTavern settings
 - Preset selection persists across sessions
 
-### Meta Prompt Template
+### Meta Prompt Templates
 
-The default meta-prompt instructs the LLM to:
-- Generate image prompts every ~250 words
-- Use the format `<img_prompt="detailed description">`
-- Keep prompts under 75 words
-- Generate prompts only when appropriate to the story
+Meta prompt presets control how the LLM generates image prompts. Each preset includes:
+- **Image generation frequency**: How often images should appear (e.g., every ~250 words)
+- **Prompt format**: Instructions for using `<img_prompt="detailed description">` format
+- **Style guidelines**: Specific instructions for different image generation models
+- **Content rules**: Guidelines for visual elements, character consistency, NSFW handling, etc.
 
-You can customize this template via presets or by editing and saving custom variants.
+To adjust image generation frequency, create a custom preset and modify the word count in the template (e.g., change "Every 250 words" to "Every 500 words").
 
 
 ## Troubleshooting
@@ -148,8 +149,8 @@ This issue has been fixed. Generated images are now automatically saved to chat 
 
 ### LLM Not Generating Prompts
 
-1. **Check Meta-Prompt**: Ensure meta-prompt template is properly configured
-2. **Word Interval**: Try adjusting the word interval setting
+1. **Check Meta-Prompt**: Ensure a meta-prompt preset is selected
+2. **Adjust Frequency**: Create a custom preset and modify the word interval in the template (e.g., change from 250 to 150 words for more frequent images)
 3. **LLM Context**: Ensure LLM has sufficient context window for meta-prompt
 4. **Test Manually**: Ask the LLM to include `<img_prompt="test">` in response
 
