@@ -11,6 +11,9 @@ Automatically generates inline images in your SillyTavern conversations based on
 - 🎨 **Automatic Image Generation**: LLM generates image prompts based on story context
 - 🔄 **Seamless Integration**: Images appear inline within assistant messages
 - ⚡ **Streaming Support**: Generates images during streaming responses with coordinated insertion
+- 🔁 **Manual Generation & Regeneration**: Generate or regenerate images for any message on demand
+  - Append mode: Keep existing images and add new ones
+  - Replace mode: Remove existing images and regenerate from scratch
 - 🎯 **Preset Management**: Switch between predefined and custom meta-prompt presets
   - Two predefined presets: Default and NAI 4.5 Full
   - Create, edit, and delete custom presets
