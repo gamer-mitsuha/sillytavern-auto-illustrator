@@ -111,18 +111,20 @@
 #auto_illustrator_manual_gen_dialog,
 #auto_illustrator_regen_dialog {
   position: fixed;
-  top: 50%;
+  top: 5vh;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   background: var(--SmartThemeBlurTintColor, #2a2a2a);
   border: 2px solid var(--SmartThemeBorderColor, #666);
   border-radius: 8px;
   padding: 1.5rem;
   max-width: 500px;
+  max-height: 95vh;
   width: 90%;
   z-index: 10000;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
   color: #ffffff;
+  overflow-y: auto;
 }
 
 #auto_illustrator_manual_gen_dialog p,
