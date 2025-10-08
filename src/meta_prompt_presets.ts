@@ -23,14 +23,13 @@ export const PRESET_IDS = {
 
 /**
  * Gets the default meta prompt template
- * @param wordInterval - Number of words between image generation prompts
  * @returns The default meta prompt string
  */
-function getDefaultTemplate(wordInterval: number): string {
+function getDefaultTemplate(): string {
   return `
 IMPORTANT INSTRUCTION: As you generate your response, you MUST include image generation prompts inline with your narrative.
 
-Every ${wordInterval} words (approximately), insert an image generation prompt using this EXACT format:
+Every 250 words (approximately), insert an image generation prompt using this EXACT format:
 <img_prompt="detailed description of the scene, character, or setting to visualize">
 
 Rules for image prompts:
@@ -93,7 +92,7 @@ const PREDEFINED_PRESETS: MetaPromptPreset[] = [
   {
     id: PRESET_IDS.DEFAULT,
     name: 'Default',
-    template: getDefaultTemplate(250),
+    template: getDefaultTemplate(),
     predefined: true,
   },
   {
@@ -172,9 +171,8 @@ export function isPredefinedPresetName(name: string): boolean {
 
 /**
  * Gets the default meta prompt template (for backwards compatibility)
- * @param wordInterval - Number of words between image generation prompts
  * @returns The default meta prompt string
  */
-export function getDefaultMetaPrompt(wordInterval: number): string {
-  return getDefaultTemplate(wordInterval);
+export function getDefaultMetaPrompt(): string {
+  return getDefaultTemplate();
 }

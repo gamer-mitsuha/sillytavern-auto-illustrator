@@ -7,7 +7,6 @@ import {getDefaultMetaPrompt, getPresetById} from './meta_prompt_presets';
 import {
   EXTENSION_NAME,
   DEFAULT_SETTINGS,
-  WORD_INTERVAL,
   STREAMING_POLL_INTERVAL,
   MAX_CONCURRENT_GENERATIONS,
   UI_ELEMENT_IDS,
@@ -23,7 +22,7 @@ export {EXTENSION_NAME};
 export function getDefaultSettings(): AutoIllustratorSettings {
   return {
     ...DEFAULT_SETTINGS,
-    metaPrompt: getDefaultMetaPrompt(WORD_INTERVAL.DEFAULT),
+    metaPrompt: getDefaultMetaPrompt(),
   };
 }
 
@@ -94,11 +93,6 @@ export function createSettingsUI(): string {
               <span>${t('settings.resetDefaults')}</span>
             </div>
           </div>
-
-          <label for="${UI_ELEMENT_IDS.WORD_INTERVAL}">
-            <span>${t('settings.wordInterval')}</span>
-            <input id="${UI_ELEMENT_IDS.WORD_INTERVAL}" class="text_pole" type="number" min="${WORD_INTERVAL.MIN}" max="${WORD_INTERVAL.MAX}" step="${WORD_INTERVAL.STEP}" />
-          </label>
 
           <div class="preset-management">
             <label>${t('settings.metaPromptPreset')}</label>

@@ -156,20 +156,15 @@ describe('meta_prompt_presets', () => {
   });
 
   describe('getDefaultMetaPrompt', () => {
-    it('should return meta prompt with word interval', () => {
-      const prompt = getDefaultMetaPrompt(250);
+    it('should return default meta prompt', () => {
+      const prompt = getDefaultMetaPrompt();
       expect(prompt).toContain('250');
       expect(prompt).toContain('<img_prompt="');
       expect(prompt).toContain('">');
     });
 
-    it('should handle different word intervals', () => {
-      const prompt = getDefaultMetaPrompt(500);
-      expect(prompt).toContain('500');
-    });
-
     it('should contain expected formatting rules', () => {
-      const prompt = getDefaultMetaPrompt(250);
+      const prompt = getDefaultMetaPrompt();
       expect(prompt).toContain('IMPORTANT INSTRUCTION');
       expect(prompt).toContain('image generation prompts');
       expect(prompt).toContain('Rules for image prompts');

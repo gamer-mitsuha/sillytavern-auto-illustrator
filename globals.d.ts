@@ -100,7 +100,6 @@ declare global {
 
   interface AutoIllustratorSettings {
     enabled: boolean;
-    wordInterval: number;
     metaPrompt: string;
     currentPresetId: string;
     customPresets: MetaPromptPreset[];
