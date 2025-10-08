@@ -5,7 +5,6 @@
 基于故事上下文，在 SillyTavern 对话中自动生成内联图像。本扩展使用 LLM 生成的图像提示词来创建沉浸式的视觉叙事体验。
 
 ![演示：对话中自动生成的图像](docs/images/demo-conversation.png)
-*示例：当 LLM 叙述故事时，图像自动内联显示*
 
 ## 功能特性
 
@@ -27,7 +26,6 @@
 ## 工作原理
 
 ![工作原理图](docs/images/how-it-works.png)
-*扩展工作流程：LLM 生成提示 → 扩展检测 → 图像内联显示*
 
 1. **自动生成提示**：当您聊天时，LLM 会在适当的故事时刻在其响应中自动生成不可见的图像提示
 2. **创建图像**：扩展检测这些提示并使用 Stable Diffusion 生成图像
@@ -59,22 +57,19 @@
 
 ### 示例
 
-**之前 - LLM 生成不可见提示：**
+**之前：**
 
 ![LLM 响应中的可见提示标签](docs/images/example-before.png)
 
-**之后 - 图像内联显示：**
+**之后：**
 
 ![生成的图像出现在对话中](docs/images/example-after.png)
-
-`<!--img-prompt="..."-->` 标签在聊天中不可见，并被实际生成的图像无缝替换。
 
 ## 配置
 
 ### 设置面板
 
 ![设置面板概览](docs/images/settings-panel.png)
-*自动插画设置面板及所有可用选项*
 
 通过 **Extensions** > **Auto Illustrator** 访问设置
 
@@ -100,7 +95,6 @@
 ### 元提示预设
 
 ![预设管理界面](docs/images/preset-management.png)
-*预设管理界面，显示预定义和自定义预设*
 
 扩展包含一个预设管理系统，用于组织和切换不同的元提示模板：
 

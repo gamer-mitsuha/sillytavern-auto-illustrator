@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Simplified README documentation by removing redundant image captions now that demo images are in place
+- Removed REQUIRED_IMAGES.md planning document as all images are completed
+
 ## [1.0.0] - 2025-10-09
 
 Initial release of SillyTavern Auto Illustrator extension.

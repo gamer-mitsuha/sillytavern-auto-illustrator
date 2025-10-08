@@ -5,7 +5,6 @@ English | [简体中文](README_CN.md)
 Automatically generates inline images in your SillyTavern conversations based on story context. The extension uses LLM-generated image prompts to create immersive visual storytelling experiences.
 
 ![Demo: Auto-generated images in conversation](docs/images/demo-conversation.png)
-*Example: Images automatically appear inline as the LLM narrates the story*
 
 ## Features
 
@@ -27,7 +26,6 @@ Automatically generates inline images in your SillyTavern conversations based on
 ## How It Works
 
 ![How it works diagram](docs/images/how-it-works.png)
-*The extension workflow: LLM generates prompts → Extension detects → Images appear inline*
 
 1. **Automatic Prompt Generation**: When you chat, the LLM automatically generates invisible image prompts in its responses at appropriate story moments
 2. **Image Creation**: The extension detects these prompts and generates images using Stable Diffusion
@@ -59,22 +57,19 @@ Automatically generates inline images in your SillyTavern conversations based on
 
 ### Example
 
-**Before - LLM generates invisible prompt:**
+**Before:**
 
 ![LLM response with visible prompt tag](docs/images/example-before.png)
 
-**After - Image appears inline:**
+**After:**
 
 ![Generated image appears in conversation](docs/images/example-after.png)
-
-The `<!--img-prompt="..."-->` tag is invisible in the chat and gets replaced with the actual generated image seamlessly.
 
 ## Configuration
 
 ### Settings Panel
 
 ![Settings panel overview](docs/images/settings-panel.png)
-*The Auto Illustrator settings panel with all available options*
 
 Access settings via **Extensions** > **Auto Illustrator**
 
@@ -100,7 +95,6 @@ Access settings via **Extensions** > **Auto Illustrator**
 ### Meta Prompt Presets
 
 ![Preset management UI](docs/images/preset-management.png)
-*Preset management interface showing predefined and custom presets*
 
 The extension includes a preset management system for organizing and switching between different meta prompt templates:
 
