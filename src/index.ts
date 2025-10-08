@@ -33,6 +33,7 @@ import {
   updateMaxConcurrent,
 } from './image_generator';
 import {initializeI18n, t} from './i18n';
+import {extractImagePromptsMultiPattern} from './regex';
 
 const logger = createLogger('Main');
 
@@ -166,6 +167,58 @@ function updateUI(): void {
   if (presetEditor) presetEditor.style.display = 'none';
   if (presetViewer) presetViewer.style.display = 'block';
   isEditingPreset = false;
+
+  // Update validation status
+  updateValidationStatus();
+}
+
+/**
+ * Validates whether the current prompt detection patterns can find prompts in the meta prompt
+ * @returns True if patterns can detect prompts, false otherwise
+ */
+function validatePromptPatterns(): boolean {
+  const metaPrompt = settings.metaPrompt;
+  const patterns = settings.promptDetectionPatterns;
+
+  if (!metaPrompt || !patterns || patterns.length === 0) {
+    return false;
+  }
+
+  try {
+    const matches = extractImagePromptsMultiPattern(metaPrompt, patterns);
+    return matches.length > 0;
+  } catch (error) {
+    logger.warn('Error validating prompt patterns:', error);
+    return false;
+  }
+}
+
+/**
+ * Updates the validation status UI element
+ */
+function updateValidationStatus(): void {
+  const validationElement = document.getElementById(
+    UI_ELEMENT_IDS.PATTERN_VALIDATION_STATUS
+  );
+  if (!validationElement) return;
+
+  const isValid = validatePromptPatterns();
+
+  // Clear existing classes
+  validationElement.className = 'pattern-validation-status';
+
+  if (isValid) {
+    validationElement.classList.add('validation-success');
+    validationElement.innerHTML = `
+      <span class="validation-message">${t('settings.validationSuccess')}</span>
+    `;
+  } else {
+    validationElement.classList.add('validation-warning');
+    validationElement.innerHTML = `
+      <span class="validation-message">${t('settings.validationWarning')}</span>
+      <span class="validation-hint">${t('settings.validationHint')}</span>
+    `;
+  }
 }
 
 /**
@@ -221,6 +274,9 @@ function handleSettingsChange(): void {
   updateMaxConcurrent(settings.maxConcurrentGenerations);
 
   saveSettings(settings, context);
+
+  // Update validation status after settings change
+  updateValidationStatus();
 
   logger.info('Settings updated:', settings);
 }
