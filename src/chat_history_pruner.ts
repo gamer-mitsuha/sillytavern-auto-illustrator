@@ -4,13 +4,14 @@
  */
 
 import {createLogger} from './logger';
-import {createImagePromptWithImgRegex, IMAGE_PROMPT_TAG_PATTERN} from './regex';
+import {extractImagePrompts} from './image_extractor';
+import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
 
 const logger = createLogger('Pruner');
 
 /**
  * Prunes generated images from chat history
- * Only removes <img> tags that immediately follow <img_prompt> tags in assistant messages
+ * Only removes <img> tags that immediately follow prompt tags in assistant messages
  * Preserves user-uploaded images and all user messages unchanged
  *
  * IMPORTANT: This function modifies the chat array messages in-place by updating their content.
@@ -18,10 +19,12 @@ const logger = createLogger('Pruner');
  * a chat array that is safe to modify before sending to the LLM.
  *
  * @param chat - Array of chat messages to process (messages will be modified in-place)
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns Modified chat array (same reference as input)
  */
 export function pruneGeneratedImages(
-  chat: Array<{role: string; content: string}>
+  chat: Array<{role: string; content: string}>,
+  patterns: string[] = DEFAULT_PROMPT_DETECTION_PATTERNS
 ): Array<{role: string; content: string}> {
   logger.info('Pruning generated images from chat history');
 
@@ -31,19 +34,39 @@ export function pruneGeneratedImages(
       continue;
     }
 
-    // Look for pattern: <img_prompt="...">OPTIONAL_WHITESPACE<img ...>
-    // This regex finds any img tag that immediately follows an img_prompt tag
-    // It matches regardless of img tag attributes (src, title, alt, etc.)
-    const pattern = createImagePromptWithImgRegex();
+    // Extract all prompts with their positions
+    const prompts = extractImagePrompts(message.content, patterns);
 
-    const originalContent = message.content;
-    message.content = message.content.replace(pattern, match => {
-      // Extract just the img_prompt part
-      const promptMatch = match.match(IMAGE_PROMPT_TAG_PATTERN);
-      return promptMatch ? promptMatch[0] : match;
-    });
+    // Process in reverse order to preserve indices
+    let result = message.content;
+    for (let i = prompts.length - 1; i >= 0; i--) {
+      const prompt = prompts[i];
+      const afterPrompt = result.substring(prompt.endIndex);
 
-    if (originalContent !== message.content) {
+      // Find all consecutive images after this prompt
+      const imgTagRegex = /^\s*<img\s+[^>]*>/g;
+      let match;
+      let totalLength = 0;
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (match.index === totalLength) {
+          totalLength += match[0].length;
+          imgTagRegex.lastIndex = totalLength;
+        } else {
+          break;
+        }
+      }
+
+      // Remove the images (but keep the prompt tag)
+      if (totalLength > 0) {
+        result =
+          result.substring(0, prompt.endIndex) +
+          result.substring(prompt.endIndex + totalLength);
+      }
+    }
+
+    if (message.content !== result) {
+      message.content = result;
       logger.info('Pruned generated images from assistant message');
     }
   }

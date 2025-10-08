@@ -50,26 +50,25 @@ function createImageTag(imageUrl: string, index: number): string {
 /**
  * Inserts an image tag after a prompt tag in text
  * @param text - Text containing the prompt tag
- * @param promptText - The prompt text to search for
+ * @param fullMatch - The full matched tag string (e.g., '<!--img-prompt="..."-->')
  * @param imageUrl - URL of the image to insert
  * @param index - Index of the image
  * @returns Updated text and success status
  */
 function insertImageAfterPrompt(
   text: string,
-  promptText: string,
+  fullMatch: string,
   imageUrl: string,
   index: number
 ): {text: string; success: boolean} {
-  const expectedTag = `<img_prompt="${promptText}">`;
-  const tagIndex = text.indexOf(expectedTag);
+  const tagIndex = text.indexOf(fullMatch);
 
   if (tagIndex === -1) {
-    logger.warn('Could not find prompt tag in text:', expectedTag);
+    logger.warn('Could not find prompt tag in text:', fullMatch);
     return {text, success: false};
   }
 
-  const actualEndIndex = tagIndex + expectedTag.length;
+  const actualEndIndex = tagIndex + fullMatch.length;
 
   // Check if image already inserted (to prevent duplicates)
   const afterPrompt = text.substring(actualEndIndex, actualEndIndex + 200);
@@ -146,13 +145,15 @@ export async function generateImage(
  * Replaces all image prompts in text with actual generated images
  * @param text - Text containing image prompts
  * @param context - SillyTavern context
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns Text with prompts replaced by image tags
  */
 export async function replacePromptsWithImages(
   text: string,
-  context: SillyTavernContext
+  context: SillyTavernContext,
+  patterns?: string[]
 ): Promise<string> {
-  const matches = extractImagePrompts(text);
+  const matches = extractImagePrompts(text, patterns);
 
   logger.info('Found', matches.length, 'image prompts to process');
 
@@ -208,7 +209,7 @@ export async function replacePromptsWithImages(
       // Use helper to insert image after prompt
       const insertion = insertImageAfterPrompt(
         result,
-        match.prompt,
+        match.fullMatch,
         imageUrl,
         i
       );
@@ -278,7 +279,7 @@ export async function insertDeferredImages(
     // Use helper to insert image
     const insertion = insertImageAfterPrompt(
       finalText,
-      prompt.prompt,
+      prompt.fullMatch,
       imageUrl,
       i
     );

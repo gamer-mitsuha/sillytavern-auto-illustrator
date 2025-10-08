@@ -14,14 +14,16 @@ const logger = createLogger('MessageHandler');
  * @param message - Message text
  * @param messageId - Index of the message in chat array
  * @param context - SillyTavern context
+ * @param patterns - Optional array of regex pattern strings to use for detection
  */
 export async function processMessageImages(
   message: string,
   messageId: number,
-  context: SillyTavernContext
+  context: SillyTavernContext,
+  patterns?: string[]
 ): Promise<void> {
   // Check if message has image prompts
-  if (!hasImagePrompts(message)) {
+  if (!hasImagePrompts(message, patterns)) {
     return;
   }
 
@@ -29,7 +31,11 @@ export async function processMessageImages(
 
   try {
     // Generate images and replace prompts
-    const processedMessage = await replacePromptsWithImages(message, context);
+    const processedMessage = await replacePromptsWithImages(
+      message,
+      context,
+      patterns
+    );
 
     // Update the message in the chat array
     if (context.chat && context.chat[messageId]) {
@@ -106,14 +112,19 @@ export function createMessageHandler(
     logger.info('Message text preview:', message.mes.substring(0, 200));
 
     // Check if message has image prompts
-    if (!hasImagePrompts(message.mes)) {
+    if (!hasImagePrompts(message.mes, settings.promptDetectionPatterns)) {
       logger.info('No image prompts found in message');
       return;
     }
 
     logger.info('Image prompts detected, processing...');
 
-    await processMessageImages(message.mes, messageId, context);
+    await processMessageImages(
+      message.mes,
+      messageId,
+      context,
+      settings.promptDetectionPatterns
+    );
 
     // Emit MESSAGE_EDITED event to trigger UI updates and regex processing
     logger.info('Emitting MESSAGE_EDITED event');

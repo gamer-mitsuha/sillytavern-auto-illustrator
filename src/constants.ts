@@ -69,6 +69,19 @@ export const MANUAL_GENERATION_MODE = {
 } as const;
 
 /**
+ * Default prompt detection patterns
+ * Supports multiple tag formats for backward compatibility:
+ * - HTML comment format (new, invisible, passes through DOMPurify)
+ * - Hyphenated custom element (current format)
+ * - Underscore format (legacy, from old chats)
+ */
+export const DEFAULT_PROMPT_DETECTION_PATTERNS = [
+  '<!--img-prompt="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*-->',
+  '<img-prompt="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*>',
+  '<img_prompt="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*>',
+];
+
+/**
  * Default settings for the extension
  * These values are used when no saved settings exist or when resetting
  */
@@ -81,6 +94,7 @@ export const DEFAULT_SETTINGS = {
   currentPresetId: PRESET_IDS.DEFAULT,
   customPresets: [] as MetaPromptPreset[],
   manualGenerationMode: MANUAL_GENERATION_MODE.DEFAULT,
+  promptDetectionPatterns: DEFAULT_PROMPT_DETECTION_PATTERNS,
 };
 
 /**
@@ -103,5 +117,7 @@ export const UI_ELEMENT_IDS = {
   MAX_CONCURRENT: 'auto_illustrator_max_concurrent',
   LOG_LEVEL: 'auto_illustrator_log_level',
   MANUAL_GEN_MODE: 'auto_illustrator_manual_gen_mode',
+  PROMPT_PATTERNS: 'auto_illustrator_prompt_patterns',
+  PROMPT_PATTERNS_RESET: 'auto_illustrator_prompt_patterns_reset',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;

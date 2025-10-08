@@ -31,7 +31,7 @@ Automatically generates inline images in your SillyTavern conversations based on
 
 ### Streaming Mode
 1. **Prompt Injection**: Same as non-streaming mode
-2. **Real-time Detection**: As the LLM streams text, the extension monitors the message and detects `<img_prompt>` tags as they appear
+2. **Real-time Detection**: As the LLM streams text, the extension monitors the message and detects `<img-prompt>` tags as they appear
 3. **Background Generation**: Images are generated in the background while streaming continues (deferred insertion mode)
 4. **Coordinated Insertion**: After BOTH streaming completes (MESSAGE_RECEIVED fires) AND all images are generated, all images are inserted atomically in one operation
 5. **UI Update**: `MESSAGE_UPDATED` and `MESSAGE_EDITED` events trigger rendering and post-processing

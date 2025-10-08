@@ -108,6 +108,7 @@ declare global {
     maxConcurrentGenerations: number;
     logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
     manualGenerationMode: 'replace' | 'append';
+    promptDetectionPatterns: string[];
   }
 
   interface ImagePromptMatch {

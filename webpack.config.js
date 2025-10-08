@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import TerserPlugin from 'terser-webpack-plugin';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
 
 const __dirname = import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +36,16 @@ export default {
             },
         ],
     },
+    plugins: [
+        new CopyWebpackPlugin({
+            patterns: [
+                {
+                    from: path.join(__dirname, 'src/style.css'),
+                    to: path.join(__dirname, 'dist/style.css'),
+                },
+            ],
+        }),
+    ],
     optimization: {
         minimizer: [
             new TerserPlugin({

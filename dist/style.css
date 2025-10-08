@@ -1,0 +1,193 @@
+/* Clickable AI-generated images */
+.mes_text img[title^='AI generated image'] {
+  cursor: pointer;
+  transition:
+    opacity 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.mes_text img[title^='AI generated image']:hover {
+  opacity: 0.85;
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(155, 89, 182, 0.6);
+}
+
+/* Preset Management Styles */
+.preset-management {
+  margin: 1rem 0;
+}
+
+.preset-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.preset-toolbar .flex_fill {
+  flex: 1;
+}
+
+.preset-toolbar button {
+  flex-shrink: 0;
+}
+
+.preset-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preset-content-preview {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.preset-content-preview label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.preset-preview-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.preset-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.preset-edit-actions button {
+  flex: 1;
+}
+
+.preset-edit-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Manual Generation Button */
+.auto_illustrator_manual_gen {
+  color: #9b59b6 !important;
+  cursor: pointer;
+}
+
+.auto_illustrator_manual_gen:hover {
+  color: #bb79d6 !important;
+}
+
+.auto_illustrator_manual_gen:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Manual Generation Dialog Backdrop */
+.auto-illustrator-dialog-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+}
+
+/* Manual Generation Dialog & Regeneration Dialog */
+#auto_illustrator_manual_gen_dialog,
+#auto_illustrator_regen_dialog {
+  position: fixed;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--SmartThemeBlurTintColor, #2a2a2a);
+  border: 2px solid var(--SmartThemeBorderColor, #666);
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 500px;
+  max-height: 95vh;
+  width: 90%;
+  z-index: 10000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+  overflow-y: auto;
+}
+
+#auto_illustrator_manual_gen_dialog p,
+#auto_illustrator_regen_dialog p {
+  margin: 0 0 1rem 0;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.auto-illustrator-mode-group {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auto-illustrator-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--SmartThemeBorderColor, #666);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.auto-illustrator-mode-option span {
+  color: #ffffff;
+  line-height: 1.5;
+}
+
+.auto-illustrator-mode-option:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.auto-illustrator-mode-option input[type="radio"] {
+  margin-top: 0.2rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.auto-illustrator-mode-option span {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.auto-illustrator-mode-option strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.auto-illustrator-dialog-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.auto-illustrator-dialog-buttons button {
+  min-width: 100px;
+}

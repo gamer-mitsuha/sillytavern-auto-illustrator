@@ -4,7 +4,7 @@
     "requires": [],
     "optional": [],
     "js": "dist/index.js",
-    "css": "",
+    "css": "dist/style.css",
     "author": "GamerMitsuha",
     "version": "0.1.0",
     "homePage": "https://github.com/gamer-mitsuha/sillytavern-auto-illustrator",

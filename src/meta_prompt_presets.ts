@@ -30,10 +30,10 @@ function getDefaultTemplate(): string {
 IMPORTANT INSTRUCTION: As you generate your response, you MUST include image generation prompts inline with your narrative.
 
 Every 250 words (approximately), insert an image generation prompt using this EXACT format:
-<img_prompt="detailed description of the scene, character, or setting to visualize">
+<!--img-prompt="detailed description of the scene, character, or setting to visualize"-->
 
 Rules for image prompts:
-1. Use the exact format: <img_prompt="your description here">
+1. Use the exact format: <!--img-prompt="your description here"-->
 2. The description should be detailed and visual, describing what should be in the image
 3. Focus on visual elements: character appearance, setting, atmosphere, actions, etc.
 4. Keep descriptions concise but descriptive (1-2 sentences)
@@ -42,7 +42,7 @@ Rules for image prompts:
 7. Use "rating:nsfw" tag for nsfw scenarios
 
 Example:
-The sun was setting over the ancient castle <img_prompt="medieval stone castle silhouette against orange and purple sunset sky, dramatic lighting, fantasy atmosphere"> as the knight approached the gates. The heavy wooden doors creaked open...
+The sun was setting over the ancient castle <!--img-prompt="medieval stone castle silhouette against orange and purple sunset sky, dramatic lighting, fantasy atmosphere"--> as the knight approached the gates. The heavy wooden doors creaked open...
 `.trim();
 }
 
@@ -57,7 +57,7 @@ You will be adding image generation prompts to story content for a SillyTavern e
 Your task is to insert image generation prompts throughout the story content at natural narrative points, approximately every 250 words. These prompts will be used with NAI 4.5 Full, so they should be optimized for that model.
 
 **Image Prompt Format Requirements:**
-- Use this EXACT format: <img_prompt="your description here">
+- Use this EXACT format: <!--img-prompt="your description here"-->
 - Insert prompts inline with the narrative at natural break points
 - Aim for approximately one prompt every 250 words, but prioritize natural placement over exact word count
 
@@ -78,7 +78,7 @@ Your task is to insert image generation prompts throughout the story content at 
 
 **Example prompt**
 \`\`\`
-<img_prompt="morning sunlight filtering through curtains, nilou (genshin impact) sleeping peacefully in bed, long red hair spread on white pillow, closed eyes with long lashes, man with short black hair beside her, soft warm lighting, detailed anime style">
+<!--img-prompt="morning sunlight filtering through curtains, nilou (genshin impact) sleeping peacefully in bed, long red hair spread on white pillow, closed eyes with long lashes, man with short black hair beside her, soft warm lighting, detailed anime style"-->
 \`\`\`
 
 Provide the complete story content with image prompts properly inserted. Maintain all original text while adding the image generation prompts at appropriate narrative moments.

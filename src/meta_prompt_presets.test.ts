@@ -159,8 +159,8 @@ describe('meta_prompt_presets', () => {
     it('should return default meta prompt', () => {
       const prompt = getDefaultMetaPrompt();
       expect(prompt).toContain('250');
-      expect(prompt).toContain('<img_prompt="');
-      expect(prompt).toContain('">');
+      expect(prompt).toContain('<!--img-prompt="');
+      expect(prompt).toContain('-->');
     });
 
     it('should contain expected formatting rules', () => {
@@ -188,7 +188,7 @@ describe('meta_prompt_presets', () => {
     it('NAI 4.5 Full preset should have example prompt', () => {
       const preset = getPredefinedPresetById('nai-4.5-full');
       expect(preset?.template).toContain('Example prompt');
-      expect(preset?.template).toContain('<img_prompt=');
+      expect(preset?.template).toContain('<!--img-prompt=');
     });
   });
 
