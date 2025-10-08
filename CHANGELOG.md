@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `isManualGenerationActive()` now checks both actively executing and queued operations
 - Updated documentation to reflect removal of word interval setting
 - Clarified that image generation frequency is controlled via meta prompt presets
+- Dialog option order changed: "Append" now appears before "Replace" in both manual generation and regeneration dialogs
 
 ### Removed
 - Word interval setting (non-functional - interval is part of meta prompt presets)
