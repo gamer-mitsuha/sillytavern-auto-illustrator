@@ -1175,7 +1175,7 @@ export function addImageClickHandlers(
  * @param settings - Extension settings
  */
 export function addManualGenerationButton(
-  messageElement: any,
+  messageElement: JQuery,
   messageId: number,
   context: SillyTavernContext,
   settings: AutoIllustratorSettings

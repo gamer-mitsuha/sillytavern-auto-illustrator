@@ -178,7 +178,7 @@ describe('QueueProcessor', () => {
       queue.updateState(prompt1.id, 'GENERATING');
 
       // Simulate active generation
-      const processorInternal = processor as any;
+      const processorInternal = processor as {activeGenerations: number};
       processorInternal.activeGenerations = 1;
 
       const processRemainingPromise = processor.processRemaining();

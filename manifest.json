@@ -6,10 +6,11 @@
     "js": "dist/index.js",
     "css": "dist/style.css",
     "author": "GamerMitsuha",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "homePage": "https://github.com/gamer-mitsuha/sillytavern-auto-illustrator",
     "auto_update": true,
     "i18n": {
+        "en-us": "i18n/en-us.json",
         "zh-cn": "i18n/zh-cn.json"
     }
 }

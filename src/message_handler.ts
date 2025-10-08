@@ -59,7 +59,7 @@ export function createMessageHandler(
   isMessageBeingStreamed: (messageId: number) => boolean,
   settings: AutoIllustratorSettings,
   getPendingDeferredImages?: () => {
-    images: Array<{prompt: any; imageUrl: string}>;
+    images: Array<{prompt: string; imageUrl: string}>;
     messageId: number;
   } | null
 ): (messageId: number) => Promise<void> {
