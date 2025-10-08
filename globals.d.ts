@@ -109,6 +109,8 @@ declare global {
     logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
     manualGenerationMode: 'replace' | 'append';
     promptDetectionPatterns: string[];
+    commonStyleTags: string;
+    commonStyleTagsPosition: 'prefix' | 'suffix';
   }
 
   interface ImagePromptMatch {

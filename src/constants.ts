@@ -95,6 +95,8 @@ export const DEFAULT_SETTINGS = {
   customPresets: [] as MetaPromptPreset[],
   manualGenerationMode: MANUAL_GENERATION_MODE.DEFAULT,
   promptDetectionPatterns: DEFAULT_PROMPT_DETECTION_PATTERNS,
+  commonStyleTags: '',
+  commonStyleTagsPosition: 'prefix' as const,
 };
 
 /**
@@ -120,5 +122,7 @@ export const UI_ELEMENT_IDS = {
   PROMPT_PATTERNS: 'auto_illustrator_prompt_patterns',
   PROMPT_PATTERNS_RESET: 'auto_illustrator_prompt_patterns_reset',
   PATTERN_VALIDATION_STATUS: 'auto_illustrator_pattern_validation_status',
+  COMMON_STYLE_TAGS: 'auto_illustrator_common_style_tags',
+  COMMON_STYLE_TAGS_POSITION: 'auto_illustrator_common_style_tags_position',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;

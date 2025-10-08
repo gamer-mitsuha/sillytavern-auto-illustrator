@@ -16,6 +16,7 @@ const logger = createLogger('Processor');
 export class QueueProcessor {
   private queue: ImageGenerationQueue;
   private context: SillyTavernContext;
+  private settings: AutoIllustratorSettings;
   private messageId = -1;
   private isRunning = false;
   private isProcessing = false;
@@ -28,15 +29,18 @@ export class QueueProcessor {
    * Creates a new queue processor
    * @param queue - Image generation queue
    * @param context - SillyTavern context
+   * @param settings - Extension settings
    * @param maxConcurrent - Maximum concurrent generations (default: 1)
    */
   constructor(
     queue: ImageGenerationQueue,
     context: SillyTavernContext,
+    settings: AutoIllustratorSettings,
     maxConcurrent = 1
   ) {
     this.queue = queue;
     this.context = context;
+    this.settings = settings;
     this.maxConcurrent = maxConcurrent;
   }
 
@@ -145,7 +149,12 @@ export class QueueProcessor {
     try {
       logger.info(`Generating image for: ${prompt.prompt}`);
 
-      const imageUrl = await generateImage(prompt.prompt, this.context);
+      const imageUrl = await generateImage(
+        prompt.prompt,
+        this.context,
+        this.settings.commonStyleTags,
+        this.settings.commonStyleTagsPosition
+      );
 
       if (imageUrl) {
         // Success

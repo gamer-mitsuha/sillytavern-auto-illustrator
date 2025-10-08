@@ -15,12 +15,16 @@ const logger = createLogger('MessageHandler');
  * @param messageId - Index of the message in chat array
  * @param context - SillyTavern context
  * @param patterns - Optional array of regex pattern strings to use for detection
+ * @param commonTags - Optional common style tags
+ * @param tagsPosition - Position for common tags
  */
 export async function processMessageImages(
   message: string,
   messageId: number,
   context: SillyTavernContext,
-  patterns?: string[]
+  patterns?: string[],
+  commonTags?: string,
+  tagsPosition?: 'prefix' | 'suffix'
 ): Promise<void> {
   // Check if message has image prompts
   if (!hasImagePrompts(message, patterns)) {
@@ -34,7 +38,9 @@ export async function processMessageImages(
     const processedMessage = await replacePromptsWithImages(
       message,
       context,
-      patterns
+      patterns,
+      commonTags,
+      tagsPosition
     );
 
     // Update the message in the chat array
@@ -123,7 +129,9 @@ export function createMessageHandler(
       message.mes,
       messageId,
       context,
-      settings.promptDetectionPatterns
+      settings.promptDetectionPatterns,
+      settings.commonStyleTags,
+      settings.commonStyleTagsPosition
     );
 
     // Emit MESSAGE_EDITED event to trigger UI updates and regex processing

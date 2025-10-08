@@ -285,7 +285,12 @@ async function generateImagesForMessageImpl(
       const prompt = promptsToGenerate[i];
       logger.info(`Generating image ${i + 1}/${promptsToGenerate.length}`);
 
-      const imageUrl = await generateImage(prompt.prompt, context);
+      const imageUrl = await generateImage(
+        prompt.prompt,
+        context,
+        settings.commonStyleTags,
+        settings.commonStyleTagsPosition
+      );
 
       if (imageUrl) {
         generatedImages.push({prompt, imageUrl, originalIndex: i});
@@ -767,7 +772,12 @@ async function regenerateImageImpl(
 
     // Generate new image (this respects concurrency limit and may wait in queue)
     toastr.info(t('toast.generatingNewImage'), t('extensionName'));
-    const imageUrl = await generateImage(promptText, context);
+    const imageUrl = await generateImage(
+      promptText,
+      context,
+      settings.commonStyleTags,
+      settings.commonStyleTagsPosition
+    );
 
     if (!imageUrl) {
       toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
