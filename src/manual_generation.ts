@@ -415,6 +415,15 @@ export async function showGenerationDialog(
     return;
   }
 
+  // Check if dialog already exists and close it (mobile behavior)
+  const existingDialog = $('#auto_illustrator_manual_gen_dialog');
+  if (existingDialog.length > 0) {
+    logger.debug('Dialog already open, closing it');
+    $('.auto-illustrator-dialog-backdrop').remove();
+    existingDialog.remove();
+    return;
+  }
+
   const message = context.chat?.[messageId];
   if (!message) {
     logger.warn('Message not found:', messageId);
@@ -983,6 +992,15 @@ async function showRegenerationDialog(
       t('toast.cannotGenerateMessageStreaming'),
       t('extensionName')
     );
+    return;
+  }
+
+  // Check if dialog already exists and close it (mobile behavior)
+  const existingDialog = $('#auto_illustrator_regen_dialog');
+  if (existingDialog.length > 0) {
+    logger.debug('Dialog already open, closing it');
+    $('.auto-illustrator-dialog-backdrop').remove();
+    existingDialog.remove();
     return;
   }
 

@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix meta-prompt injection failing for first message in new chat session by defaulting to 'normal' generation type
 - Skip setting generation type during dry runs (token counting) to avoid premature type clearing
 - Fix img-prompt tags occupying invisible space in chat by using SillyTavern's native CSS loading (manifest.json "css" field)
+- Fix mobile behavior where clicking an image when dialog is open creates duplicate dialogs instead of closing existing dialog
 
 ### Documentation
 - Simplified Chinese (zh-cn) internationalization support
