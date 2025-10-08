@@ -24,7 +24,7 @@ Automatically generates inline images in your SillyTavern conversations based on
 ## How It Works
 
 ### Non-Streaming Mode
-1. **Prompt Injection**: The extension uses SillyTavern's `setExtensionPrompt` API to register a meta-prompt that instructs the LLM to generate inline image prompts in the format `<!--img-prompt="description"-->` (HTML comment style). The prompt is automatically injected at the right position (in-chat, at depth 0) and controlled by the extension's enabled status.
+1. **Prompt Injection**: The extension monitors the `CHAT_COMPLETION_PROMPT_READY` event and injects the meta-prompt directly as the last system message in the chat array. This instructs the LLM to generate inline image prompts in the format `<!--img-prompt="description"-->` (HTML comment style). The injection is controlled by the extension's enabled status and generation type (skipped for quiet/impersonate modes).
 2. **LLM Response**: The LLM includes image prompts in its response at appropriate story moments
 3. **Image Generation**: The extension detects image prompts via the `MESSAGE_RECEIVED` event, generates images using the SD slash command, and replaces prompts with actual images
 4. **UI Update**: The message is updated with embedded images and `MESSAGE_EDITED` event is emitted
