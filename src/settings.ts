@@ -12,6 +12,7 @@ import {
   MAX_CONCURRENT_GENERATIONS,
   UI_ELEMENT_IDS,
 } from './constants';
+import {t} from './i18n';
 
 export {EXTENSION_NAME};
 
@@ -79,67 +80,67 @@ export function createSettingsUI(): string {
     <div class="auto-illustrator-settings">
       <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
-          <b>Auto Illustrator</b>
+          <b>${t('extensionName')}</b>
           <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <label class="checkbox_label" for="${UI_ELEMENT_IDS.ENABLED}">
               <input id="${UI_ELEMENT_IDS.ENABLED}" type="checkbox" />
-              <span>Enable Auto Illustrator</span>
+              <span>${t('settings.enable')}</span>
             </label>
             <div id="${UI_ELEMENT_IDS.RESET_BUTTON}" class="menu_button menu_button_icon">
               <i class="fa-solid fa-undo"></i>
-              <span>Reset to Defaults</span>
+              <span>${t('settings.resetDefaults')}</span>
             </div>
           </div>
 
           <label for="${UI_ELEMENT_IDS.WORD_INTERVAL}">
-            <span>Word Interval (approx. words between images)</span>
+            <span>${t('settings.wordInterval')}</span>
             <input id="${UI_ELEMENT_IDS.WORD_INTERVAL}" class="text_pole" type="number" min="${WORD_INTERVAL.MIN}" max="${WORD_INTERVAL.MAX}" step="${WORD_INTERVAL.STEP}" />
           </label>
 
           <div class="preset-management">
-            <label>Meta Prompt Preset</label>
+            <label>${t('settings.metaPromptPreset')}</label>
             <div class="preset-toolbar">
               <select id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_SELECT}" class="text_pole flex_fill">
-                <optgroup label="Predefined Presets">
+                <optgroup label="${t('settings.predefinedPresets')}">
                   <option value="default">Default</option>
                   <option value="nai-4.5-full">NAI 4.5 Full</option>
                 </optgroup>
-                <optgroup label="Custom Presets" id="custom_presets_group">
+                <optgroup label="${t('settings.customPresets')}" id="custom_presets_group">
                   <!-- populated by JavaScript -->
                 </optgroup>
               </select>
-              <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_EDIT}" class="menu_button menu_button_icon" title="Edit preset">
+              <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_EDIT}" class="menu_button menu_button_icon" title="${t('settings.editPreset')}">
                 <i class="fa-solid fa-edit"></i>
               </button>
-              <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_DELETE}" class="menu_button menu_button_icon" title="Delete custom preset">
+              <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_DELETE}" class="menu_button menu_button_icon" title="${t('settings.deletePreset')}">
                 <i class="fa-solid fa-trash"></i>
               </button>
             </div>
 
             <div id="${UI_ELEMENT_IDS.PRESET_EDITOR}" style="display:none">
               <label for="${UI_ELEMENT_IDS.META_PROMPT}">
-                <span>Meta Prompt Template</span>
-                <small>Editing preset - Save or Save As to keep changes</small>
+                <span>${t('settings.metaPromptTemplate')}</span>
+                <small>${t('settings.editingPresetHint')}</small>
                 <textarea id="${UI_ELEMENT_IDS.META_PROMPT}" class="text_pole textarea_compact" rows="10" readonly></textarea>
               </label>
               <div class="preset-edit-actions">
                 <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE}" class="menu_button">
-                  <i class="fa-solid fa-save"></i> Save
+                  <i class="fa-solid fa-save"></i> ${t('settings.save')}
                 </button>
                 <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_SAVE_AS}" class="menu_button">
-                  <i class="fa-solid fa-copy"></i> Save As...
+                  <i class="fa-solid fa-copy"></i> ${t('settings.saveAs')}
                 </button>
                 <button id="${UI_ELEMENT_IDS.META_PROMPT_PRESET_CANCEL}" class="menu_button">
-                  <i class="fa-solid fa-times"></i> Cancel
+                  <i class="fa-solid fa-times"></i> ${t('settings.cancel')}
                 </button>
               </div>
             </div>
 
             <div id="${UI_ELEMENT_IDS.PRESET_VIEWER}" class="preset-content-preview">
-              <label>Preset Content Preview:</label>
+              <label>${t('settings.presetContentPreview')}</label>
               <pre id="${UI_ELEMENT_IDS.PRESET_PREVIEW}" class="preset-preview-text"></pre>
             </div>
           </div>
@@ -148,32 +149,32 @@ export function createSettingsUI(): string {
 
           <label class="checkbox_label" for="${UI_ELEMENT_IDS.STREAMING_ENABLED}">
             <input id="${UI_ELEMENT_IDS.STREAMING_ENABLED}" type="checkbox" />
-            <span>Enable Streaming Image Generation</span>
-            <small>Generate images as streaming text arrives (faster perceived latency)</small>
+            <span>${t('settings.streamingEnabled')}</span>
+            <small>${t('settings.streamingEnabledDesc')}</small>
           </label>
 
           <label for="${UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL}">
-            <span>Streaming Poll Interval (ms)</span>
-            <small>How often to check for new prompts during streaming (lower = faster detection, more CPU)</small>
+            <span>${t('settings.streamingPollInterval')}</span>
+            <small>${t('settings.streamingPollIntervalDesc')}</small>
             <input id="${UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL}" class="text_pole" type="number" min="${STREAMING_POLL_INTERVAL.MIN}" max="${STREAMING_POLL_INTERVAL.MAX}" step="${STREAMING_POLL_INTERVAL.STEP}" />
           </label>
 
           <label for="${UI_ELEMENT_IDS.MAX_CONCURRENT}">
-            <span>Max Concurrent Generations</span>
-            <small>Maximum number of images to generate simultaneously (1 recommended for rate limiting)</small>
+            <span>${t('settings.maxConcurrent')}</span>
+            <small>${t('settings.maxConcurrentDesc')}</small>
             <input id="${UI_ELEMENT_IDS.MAX_CONCURRENT}" class="text_pole" type="number" min="${MAX_CONCURRENT_GENERATIONS.MIN}" max="${MAX_CONCURRENT_GENERATIONS.MAX}" step="${MAX_CONCURRENT_GENERATIONS.STEP}" />
           </label>
 
           <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
-            <span>Log Level</span>
-            <small>Controls logging verbosity (DEBUG shows detailed monitoring, INFO shows key events, WARN/ERROR minimal)</small>
+            <span>${t('settings.logLevel')}</span>
+            <small>${t('settings.logLevelDesc')}</small>
             <select id="${UI_ELEMENT_IDS.LOG_LEVEL}" class="text_pole">
-              <option value="trace">TRACE (Most Verbose)</option>
-              <option value="debug">DEBUG</option>
-              <option value="info">INFO (Default)</option>
-              <option value="warn">WARN</option>
-              <option value="error">ERROR</option>
-              <option value="silent">SILENT (No Logs)</option>
+              <option value="trace">${t('settings.logLevel.trace')}</option>
+              <option value="debug">${t('settings.logLevel.debug')}</option>
+              <option value="info">${t('settings.logLevel.info')}</option>
+              <option value="warn">${t('settings.logLevel.warn')}</option>
+              <option value="error">${t('settings.logLevel.error')}</option>
+              <option value="silent">${t('settings.logLevel.silent')}</option>
             </select>
           </label>
         </div>

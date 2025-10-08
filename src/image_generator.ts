@@ -7,6 +7,7 @@ import {extractImagePrompts} from './image_extractor';
 import type {DeferredImage} from './types';
 import {createLogger} from './logger';
 import {ConcurrencyLimiter} from './concurrency_limiter';
+import {t, tCount} from './i18n';
 
 const logger = createLogger('Generator');
 
@@ -166,10 +167,7 @@ export async function replacePromptsWithImages(
 
   // Show notification that image generation is starting
   const imageCount = matches.length;
-  toastr.info(
-    `Generating ${imageCount} image${imageCount > 1 ? 's' : ''}...`,
-    'Auto Illustrator'
-  );
+  toastr.info(tCount(imageCount, 'toast.generatingImages'), t('extensionName'));
 
   // Generate images sequentially to avoid rate limiting
   const batchStartTime = performance.now();
@@ -188,16 +186,16 @@ export async function replacePromptsWithImages(
   // Show completion notification
   if (successCount === imageCount) {
     toastr.success(
-      `Successfully generated ${successCount} image${successCount > 1 ? 's' : ''}`,
-      'Auto Illustrator'
+      tCount(successCount, 'toast.successGenerated'),
+      t('extensionName')
     );
   } else if (successCount > 0) {
     toastr.warning(
-      `Generated ${successCount} of ${imageCount} images`,
-      'Auto Illustrator'
+      t('toast.partialGenerated', {success: successCount, total: imageCount}),
+      t('extensionName')
     );
   } else {
-    toastr.error('Failed to generate images', 'Auto Illustrator');
+    toastr.error(t('toast.failedToGenerate'), t('extensionName'));
   }
 
   // Replace prompts with images in reverse order to preserve indices
