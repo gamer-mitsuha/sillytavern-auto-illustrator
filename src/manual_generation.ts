@@ -479,7 +479,7 @@ export async function showGenerationDialog(
         )
       );
 
-    modeGroup.append(replaceOption).append(appendOption);
+    modeGroup.append(appendOption).append(replaceOption);
     dialog.append(modeGroup);
 
     const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
@@ -1032,7 +1032,7 @@ async function showRegenerationDialog(
           )
         );
 
-      modeGroup.append(replaceOption).append(appendOption);
+      modeGroup.append(appendOption).append(replaceOption);
       dialog.append(modeGroup);
 
       const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
