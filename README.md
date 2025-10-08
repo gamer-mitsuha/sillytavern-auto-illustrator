@@ -24,14 +24,14 @@ Automatically generates inline images in your SillyTavern conversations based on
 ## How It Works
 
 ### Non-Streaming Mode
-1. **Prompt Injection**: The extension uses SillyTavern's `setExtensionPrompt` API to register a meta-prompt that instructs the LLM to generate inline image prompts in the format `<img_prompt="description">`. The prompt is automatically injected at the right position (in-chat, at depth 0) and controlled by the extension's enabled status.
+1. **Prompt Injection**: The extension uses SillyTavern's `setExtensionPrompt` API to register a meta-prompt that instructs the LLM to generate inline image prompts in the format `<!--img-prompt="description"-->` (HTML comment style). The prompt is automatically injected at the right position (in-chat, at depth 0) and controlled by the extension's enabled status.
 2. **LLM Response**: The LLM includes image prompts in its response at appropriate story moments
 3. **Image Generation**: The extension detects image prompts via the `MESSAGE_RECEIVED` event, generates images using the SD slash command, and replaces prompts with actual images
 4. **UI Update**: The message is updated with embedded images and `MESSAGE_EDITED` event is emitted
 
 ### Streaming Mode
 1. **Prompt Injection**: Same as non-streaming mode
-2. **Real-time Detection**: As the LLM streams text, the extension monitors the message and detects `<img-prompt>` tags as they appear
+2. **Real-time Detection**: As the LLM streams text, the extension monitors the message and detects `<!--img-prompt="...">` tags (HTML comment format) as they appear
 3. **Background Generation**: Images are generated in the background while streaming continues (deferred insertion mode)
 4. **Coordinated Insertion**: After BOTH streaming completes (MESSAGE_RECEIVED fires) AND all images are generated, all images are inserted atomically in one operation
 5. **UI Update**: `MESSAGE_UPDATED` and `MESSAGE_EDITED` events trigger rendering and post-processing
@@ -67,7 +67,7 @@ https://github.com/gamer-mitsuha/sillytavern-auto-illustrator
 
 **LLM Response:**
 ```
-As the sun set over the ancient forest, <img_prompt="sunset over ancient mystical forest with towering trees and golden light filtering through leaves"> the path ahead grew darker. She pressed on, her lantern casting dancing shadows.
+As the sun set over the ancient forest, <!--img-prompt="sunset over ancient mystical forest with towering trees and golden light filtering through leaves"--> the path ahead grew darker. She pressed on, her lantern casting dancing shadows.
 ```
 
 **Rendered Result:**
@@ -86,6 +86,13 @@ Access settings via **Extensions** > **Auto Illustrator**
 - **Enable Streaming**: Enable real-time image generation during streaming (recommended)
 - **Streaming Poll Interval**: Milliseconds between prompt detection checks (100-1000ms, step: 50)
 - **Max Concurrent Generations**: Number of images to generate simultaneously (1-5, step: 1)
+- **Prompt Detection Patterns**: Regex patterns to detect image prompts (one per line)
+- **Common Style Tags**: Comma-separated tags to add to all image prompts (e.g., "masterpiece, high quality")
+  - **Position**: Choose whether to add tags as prefix (before) or suffix (after) prompt tags
+  - Tags are automatically deduplicated (case-insensitive) with prompt-specific tags
+- **Default Manual Generation Mode**: Default mode for manual generation and regeneration dialogs
+  - **Append** (default): Keep existing images and add new ones
+  - **Replace**: Delete existing images and regenerate
 - **Log Level**: Control logging verbosity (TRACE/DEBUG/INFO/WARN/ERROR/SILENT)
   - **TRACE/DEBUG**: Detailed monitoring and debugging information
   - **INFO** (default): Key events and operations
@@ -123,7 +130,7 @@ The extension includes a preset management system for organizing and switching b
 
 Meta prompt presets control how the LLM generates image prompts. Each preset includes:
 - **Image generation frequency**: How often images should appear (e.g., every ~250 words)
-- **Prompt format**: Instructions for using `<img_prompt="detailed description">` format
+- **Prompt format**: Instructions for using `<!--img-prompt="detailed description"-->` format (HTML comment style)
 - **Style guidelines**: Specific instructions for different image generation models
 - **Content rules**: Guidelines for visual elements, character consistency, NSFW handling, etc.
 
@@ -152,7 +159,7 @@ This issue has been fixed. Generated images are now automatically saved to chat 
 1. **Check Meta-Prompt**: Ensure a meta-prompt preset is selected
 2. **Adjust Frequency**: Create a custom preset and modify the word interval in the template (e.g., change from 250 to 150 words for more frequent images)
 3. **LLM Context**: Ensure LLM has sufficient context window for meta-prompt
-4. **Test Manually**: Ask the LLM to include `<img_prompt="test">` in response
+4. **Test Manually**: Ask the LLM to include `<!--img-prompt="test"-->` in response
 
 ### Streaming Issues
 

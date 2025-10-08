@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Common style tags feature: Add comma-separated tags to all image prompts with configurable prefix/suffix position and automatic deduplication
-- User-facing setting to control default mode for manual generation and regeneration dialogs (Append vs Replace)
-
 ## [1.0.0] - 2025-10-09
 
 Initial release of SillyTavern Auto Illustrator extension.
@@ -18,6 +14,7 @@ Initial release of SillyTavern Auto Illustrator extension.
 ### Added
 
 - **Core Features**
+  - Common style tags: Add comma-separated tags to all image prompts with configurable prefix/suffix position and automatic deduplication
   - Automatic inline image generation based on LLM-generated prompts
   - Integration with Stable Diffusion slash command (`/sd`)
   - Regex-based image prompt extraction with multi-pattern support
@@ -40,7 +37,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Modal dialog with "Append" and "Replace" modes
   - Replace mode: Remove existing images and regenerate
   - Append mode: Keep existing images and add new ones
-  - Configurable default mode (default: Append)
+  - Configurable default mode in settings UI (default: Append)
   - Purple wand icon for easy identification
   - Image regeneration feature for existing images
 
@@ -84,8 +81,10 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Streaming enable/disable toggle
   - Streaming poll interval slider (100-1000ms)
   - Max concurrent generations slider (1-5)
-  - Log level dropdown
   - Prompt detection patterns configuration
+  - Common style tags with prefix/suffix position control
+  - Default manual generation mode (Append/Replace)
+  - Log level dropdown
   - Reset to defaults button
 
 - **Development & Testing**
