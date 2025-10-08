@@ -209,8 +209,7 @@ Some text
     });
 
     it('should find prompt for second image', () => {
-      const text =
-        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const text = '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
       const result = findPromptForImage(text, '2.jpg');
       expect(result).toBe('test');
     });
@@ -255,8 +254,7 @@ Some text
     });
 
     it('should handle special characters in image src', () => {
-      const text =
-        '<img_prompt="test">\n<img src="path/to/image (1).jpg">';
+      const text = '<img_prompt="test">\n<img src="path/to/image (1).jpg">';
       const result = findPromptForImage(text, 'path/to/image (1).jpg');
       expect(result).toBe('test');
     });
@@ -279,8 +277,7 @@ Some text
     });
 
     it('should handle text content between prompt and image', () => {
-      const text =
-        '<img_prompt="test">\nSome text\n<img src="1.jpg">';
+      const text = '<img_prompt="test">\nSome text\n<img src="1.jpg">';
       const result = findPromptForImage(text, '1.jpg');
       expect(result).toBe('test');
     });
@@ -533,15 +530,13 @@ Some text here
     });
 
     it('should delete first image', () => {
-      const text =
-        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const text = '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
       const result = deleteImageFromText(text, '1.jpg');
       expect(result).toBe('<img_prompt="test">\n<img src="2.jpg">');
     });
 
     it('should delete last image', () => {
-      const text =
-        '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
+      const text = '<img_prompt="test">\n<img src="1.jpg">\n<img src="2.jpg">';
       const result = deleteImageFromText(text, '2.jpg');
       expect(result).toBe('<img_prompt="test">\n<img src="1.jpg">');
     });
@@ -614,8 +609,7 @@ Some text here
     });
 
     it('should handle URLs with query parameters', () => {
-      const text =
-        '<img_prompt="test">\n<img src="image.jpg?v=123&token=abc">';
+      const text = '<img_prompt="test">\n<img src="image.jpg?v=123&token=abc">';
       const result = deleteImageFromText(text, 'image.jpg?v=123&token=abc');
       expect(result).toBe('<img_prompt="test">');
     });

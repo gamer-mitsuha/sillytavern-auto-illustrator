@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Backdrop click to cancel dialog
 
 ### Fixed
+- Settings now reload on chat change to ensure custom presets stay synced across devices
 - Fixed image rendering after deferred insertion by using `updateMessageBlock()` to trigger DOM re-render
 - Images now appear immediately after streaming completes without requiring manual message edit
 - Proper event sequence (MESSAGE_EDITED → updateMessageBlock → MESSAGE_UPDATED) ensures regex "Run on Edit" scripts execute correctly
