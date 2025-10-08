@@ -722,10 +722,21 @@ function initialize(): void {
 
   // Register GENERATION_STARTED to track generation type
   const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
-  context.eventSource.on(GENERATION_STARTED, (type: string) => {
-    currentGenerationType = type;
-    logger.debug('Generation started', {type});
-  });
+  context.eventSource.on(
+    GENERATION_STARTED,
+    (type: string, _options: any, dryRun: boolean) => {
+      // Skip dry runs (token counting/preview)
+      if (dryRun) {
+        logger.debug('Generation started (dry run), skipping type tracking', {
+          type,
+        });
+        return;
+      }
+
+      currentGenerationType = type;
+      logger.info('Generation started (actual)', {type});
+    }
+  );
 
   // Register CHAT_COMPLETION_PROMPT_READY handler for pruning and meta-prompt injection
   const CHAT_COMPLETION_PROMPT_READY =
@@ -745,15 +756,19 @@ function initialize(): void {
     pruneGeneratedImages(eventData.chat);
 
     // Inject meta-prompt as last system message (if enabled and appropriate)
-    // Skip for quiet and impersonate generation types
-    if (
+    // If currentGenerationType is null (e.g., timing issue on first message),
+    // assume 'normal' type to ensure meta-prompt is injected by default.
+    // Only skip for quiet and impersonate types.
+    const effectiveType = currentGenerationType || 'normal';
+    const shouldInject =
       settings.enabled &&
       settings.metaPrompt &&
-      currentGenerationType &&
-      !['quiet', 'impersonate'].includes(currentGenerationType)
-    ) {
+      !['quiet', 'impersonate'].includes(effectiveType);
+
+    if (shouldInject) {
       logger.info('Injecting meta-prompt as last system message', {
-        generationType: currentGenerationType,
+        currentGenerationType,
+        effectiveType,
         metaPromptLength: settings.metaPrompt.length,
       });
 
@@ -762,10 +777,16 @@ function initialize(): void {
         content: settings.metaPrompt,
       });
     } else {
-      logger.debug('Skipping meta-prompt injection', {
+      logger.info('Skipping meta-prompt injection', {
         enabled: settings.enabled,
         hasMetaPrompt: !!settings.metaPrompt,
-        generationType: currentGenerationType,
+        currentGenerationType,
+        effectiveType,
+        reason: !settings.enabled
+          ? 'extension disabled'
+          : !settings.metaPrompt
+            ? 'no meta-prompt'
+            : `generation type is ${effectiveType}`,
       });
     }
   });

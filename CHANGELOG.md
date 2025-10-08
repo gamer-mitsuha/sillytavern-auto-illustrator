@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Manual generation button tooltip now properly supports internationalization (zh-CN translation)
 - Prevent manual/regeneration operations from interfering with active streaming generation on the same message
 - Prevent streaming from starting on a message while manual generation is active on that message
+- Fix meta-prompt injection failing for first message in new chat session by defaulting to 'normal' generation type
+- Skip setting generation type during dry runs (token counting) to avoid premature type clearing
 
 ### Documentation
 - Simplified Chinese (zh-cn) internationalization support
