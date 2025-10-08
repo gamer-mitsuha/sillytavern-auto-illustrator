@@ -3,7 +3,16 @@ import {createMockContext} from './test_helpers';
 import {createMessageHandler, processMessageImages} from './message_handler';
 
 // Mock toastr globally
-(globalThis as any).toastr = {
+interface GlobalWithToastr {
+  toastr: {
+    success: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    warning: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
+}
+
+(globalThis as unknown as GlobalWithToastr).toastr = {
   success: vi.fn(),
   info: vi.fn(),
   warning: vi.fn(),

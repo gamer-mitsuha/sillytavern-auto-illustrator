@@ -633,9 +633,14 @@ Some text here
   });
 
   describe('addManualGenerationButton', () => {
-    let mockContext: any;
-    let mockSettings: any;
-    let mockMessageElement: any;
+    let mockContext: {
+      translate: (key: string) => string;
+      chat: Array<{is_user: boolean; mes: string}>;
+    };
+    let mockSettings: Record<string, unknown>;
+    let mockMessageElement: {
+      find: ReturnType<typeof vi.fn>;
+    };
 
     beforeEach(() => {
       // Initialize i18n with a mock translate function
@@ -667,7 +672,7 @@ Some text here
       };
 
       // Set up global jQuery mock
-      (global as any).$ = vi.fn((selector: string) => {
+      (global as Record<string, unknown>).$ = vi.fn((selector: string) => {
         if (typeof selector === 'string') {
           return mockMessageElement;
         }
@@ -689,7 +694,7 @@ Some text here
         on: vi.fn().mockReturnThis(),
       };
 
-      (global as any).$ = vi.fn((selector: any) => {
+      (global as Record<string, unknown>).$ = vi.fn((selector: unknown) => {
         if (selector === mockMessageElement) {
           return mockMessageElement;
         }

@@ -570,7 +570,7 @@ function handlePresetDelete(): void {
  * STREAM_TOKEN_RECEIVED fires during streaming, so message definitely exists
  * This is more reliable than GENERATION_STARTED which fires before message creation
  */
-function handleFirstStreamToken(_text: string): void {
+function handleFirstStreamToken(): void {
   // Only initialize once per stream
   if (streamingMonitor?.isActive()) {
     return;
@@ -812,7 +812,7 @@ function initialize(): void {
   const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
   context.eventSource.on(
     GENERATION_STARTED,
-    (type: string, _options: any, dryRun: boolean) => {
+    (type: string, _options: unknown, dryRun: boolean) => {
       // Skip dry runs (token counting/preview)
       if (dryRun) {
         logger.debug('Generation started (dry run), skipping type tracking', {
