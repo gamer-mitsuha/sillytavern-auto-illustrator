@@ -13,6 +13,18 @@ import {isStreamingActive} from './index';
 
 const logger = createLogger('ManualGen');
 
+// Track active manual generations per message
+const activeManualGenerations = new Set<number>();
+
+/**
+ * Checks if manual generation is currently active for a specific message
+ * @param messageId - Message ID to check
+ * @returns True if manual generation is active for this message
+ */
+export function isManualGenerationActive(messageId: number): boolean {
+  return activeManualGenerations.has(messageId);
+}
+
 /**
  * Checks if a prompt already has an image after it
  * @param text - Message text
@@ -66,157 +78,165 @@ export async function generateImagesForMessage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  logger.info(`Generating images for message ${messageId} in ${mode} mode`);
+  // Mark this message as having active manual generation
+  activeManualGenerations.add(messageId);
 
-  const message = context.chat?.[messageId];
-  if (!message) {
-    logger.warn('Message not found:', messageId);
-    toastr.error(t('toast.messageNotFound'), t('extensionName'));
-    return 0;
-  }
+  try {
+    logger.info(`Generating images for message ${messageId} in ${mode} mode`);
 
-  let text = message.mes;
-
-  // Extract prompts before any modifications
-  const prompts = extractImagePrompts(text);
-  if (prompts.length === 0) {
-    logger.info('No prompts found in message');
-    toastr.info(t('toast.noPromptsFound'), t('extensionName'));
-    return 0;
-  }
-
-  logger.info(`Found ${prompts.length} prompts`);
-
-  // In replace mode, remove existing images first
-  if (mode === 'replace') {
-    const originalLength = text.length;
-    text = removeExistingImages(text);
-    logger.info(
-      `Replace mode: removed existing images (${originalLength} -> ${text.length} chars)`
-    );
-  } else {
-    logger.info('Append mode: will append new images after existing ones');
-  }
-
-  // In both modes, generate images for all prompts
-  const promptsToGenerate = prompts;
-
-  // Show start notification
-  toastr.info(
-    tCount(promptsToGenerate.length, 'toast.generatingImages'),
-    t('extensionName')
-  );
-
-  // Generate images sequentially
-  const startTime = performance.now();
-
-  // Step 1: Generate all images first
-  const generatedImages: Array<{
-    prompt: ImagePromptMatch;
-    imageUrl: string;
-    originalIndex: number;
-  }> = [];
-
-  for (let i = 0; i < promptsToGenerate.length; i++) {
-    const prompt = promptsToGenerate[i];
-    logger.info(`Generating image ${i + 1}/${promptsToGenerate.length}`);
-
-    const imageUrl = await generateImage(prompt.prompt, context);
-
-    if (imageUrl) {
-      generatedImages.push({prompt, imageUrl, originalIndex: i});
+    const message = context.chat?.[messageId];
+    if (!message) {
+      logger.warn('Message not found:', messageId);
+      toastr.error(t('toast.messageNotFound'), t('extensionName'));
+      return 0;
     }
-  }
 
-  // Step 2: Sort by prompt position (end to start) and insert in reverse order
-  // This ensures that inserting later prompts doesn't shift earlier positions
-  generatedImages.sort((a, b) => b.prompt.startIndex - a.prompt.startIndex);
+    let text = message.mes;
 
-  let successCount = 0;
-  for (const {prompt, imageUrl, originalIndex} of generatedImages) {
-    const promptTag = `<img_prompt="${prompt.prompt}">`;
-    const tagIndex = text.indexOf(promptTag);
+    // Extract prompts before any modifications
+    const prompts = extractImagePrompts(text);
+    if (prompts.length === 0) {
+      logger.info('No prompts found in message');
+      toastr.info(t('toast.noPromptsFound'), t('extensionName'));
+      return 0;
+    }
 
-    if (tagIndex !== -1) {
-      let insertPos = tagIndex + promptTag.length;
+    logger.info(`Found ${prompts.length} prompts`);
 
-      // In append mode, find the position after the last existing image
-      if (mode === 'append') {
-        const afterPrompt = text.substring(insertPos);
-        // Match all consecutive img tags after the prompt (including whitespace between them)
-        const imgTagRegex = /\s*<img\s+[^>]*>/g;
-        let lastMatchEnd = 0;
-        let match;
+    // In replace mode, remove existing images first
+    if (mode === 'replace') {
+      const originalLength = text.length;
+      text = removeExistingImages(text);
+      logger.info(
+        `Replace mode: removed existing images (${originalLength} -> ${text.length} chars)`
+      );
+    } else {
+      logger.info('Append mode: will append new images after existing ones');
+    }
 
-        // Keep matching img tags until we find a non-img-tag or end of string
-        while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
-          // Check if this match is contiguous with previous matches (only whitespace between)
-          if (
-            match.index === lastMatchEnd ||
-            afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
-          ) {
-            lastMatchEnd = imgTagRegex.lastIndex;
-          } else {
-            // Found non-whitespace content, stop here
-            break;
+    // In both modes, generate images for all prompts
+    const promptsToGenerate = prompts;
+
+    // Show start notification
+    toastr.info(
+      tCount(promptsToGenerate.length, 'toast.generatingImages'),
+      t('extensionName')
+    );
+
+    // Generate images sequentially
+    const startTime = performance.now();
+
+    // Step 1: Generate all images first
+    const generatedImages: Array<{
+      prompt: ImagePromptMatch;
+      imageUrl: string;
+      originalIndex: number;
+    }> = [];
+
+    for (let i = 0; i < promptsToGenerate.length; i++) {
+      const prompt = promptsToGenerate[i];
+      logger.info(`Generating image ${i + 1}/${promptsToGenerate.length}`);
+
+      const imageUrl = await generateImage(prompt.prompt, context);
+
+      if (imageUrl) {
+        generatedImages.push({prompt, imageUrl, originalIndex: i});
+      }
+    }
+
+    // Step 2: Sort by prompt position (end to start) and insert in reverse order
+    // This ensures that inserting later prompts doesn't shift earlier positions
+    generatedImages.sort((a, b) => b.prompt.startIndex - a.prompt.startIndex);
+
+    let successCount = 0;
+    for (const {prompt, imageUrl, originalIndex} of generatedImages) {
+      const promptTag = `<img_prompt="${prompt.prompt}">`;
+      const tagIndex = text.indexOf(promptTag);
+
+      if (tagIndex !== -1) {
+        let insertPos = tagIndex + promptTag.length;
+
+        // In append mode, find the position after the last existing image
+        if (mode === 'append') {
+          const afterPrompt = text.substring(insertPos);
+          // Match all consecutive img tags after the prompt (including whitespace between them)
+          const imgTagRegex = /\s*<img\s+[^>]*>/g;
+          let lastMatchEnd = 0;
+          let match;
+
+          // Keep matching img tags until we find a non-img-tag or end of string
+          while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+            // Check if this match is contiguous with previous matches (only whitespace between)
+            if (
+              match.index === lastMatchEnd ||
+              afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+            ) {
+              lastMatchEnd = imgTagRegex.lastIndex;
+            } else {
+              // Found non-whitespace content, stop here
+              break;
+            }
+          }
+
+          if (lastMatchEnd > 0) {
+            // Found existing images, insert after them
+            insertPos += lastMatchEnd;
           }
         }
 
-        if (lastMatchEnd > 0) {
-          // Found existing images, insert after them
-          insertPos += lastMatchEnd;
-        }
+        // Create image tag with index
+        const imageTitle = `AI generated image #${originalIndex + 1}`;
+        const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
+        text =
+          text.substring(0, insertPos) + imageTag + text.substring(insertPos);
+        successCount++;
       }
-
-      // Create image tag with index
-      const imageTitle = `AI generated image #${originalIndex + 1}`;
-      const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
-      text =
-        text.substring(0, insertPos) + imageTag + text.substring(insertPos);
-      successCount++;
     }
-  }
 
-  const duration = performance.now() - startTime;
-  logger.info(
-    `Generated ${successCount}/${promptsToGenerate.length} images (${duration.toFixed(0)}ms total)`
-  );
-
-  // Update message
-  message.mes = text;
-
-  // Emit proper event sequence for DOM update
-  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-  await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-  context.updateMessageBlock(messageId, message);
-
-  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
-
-  // Save chat
-  await context.saveChat();
-  logger.debug('Chat saved after manual generation');
-
-  // Show completion notification
-  if (successCount === promptsToGenerate.length) {
-    toastr.success(
-      tCount(successCount, 'toast.successGenerated'),
-      t('extensionName')
+    const duration = performance.now() - startTime;
+    logger.info(
+      `Generated ${successCount}/${promptsToGenerate.length} images (${duration.toFixed(0)}ms total)`
     );
-  } else if (successCount > 0) {
-    toastr.warning(
-      t('toast.partialGenerated', {
-        success: successCount,
-        total: promptsToGenerate.length,
-      }),
-      t('extensionName')
-    );
-  } else {
-    toastr.error(t('toast.failedToGenerate'), t('extensionName'));
-  }
 
-  return successCount;
+    // Update message
+    message.mes = text;
+
+    // Emit proper event sequence for DOM update
+    const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+    await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+    context.updateMessageBlock(messageId, message);
+
+    const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+    await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+    // Save chat
+    await context.saveChat();
+    logger.debug('Chat saved after manual generation');
+
+    // Show completion notification
+    if (successCount === promptsToGenerate.length) {
+      toastr.success(
+        tCount(successCount, 'toast.successGenerated'),
+        t('extensionName')
+      );
+    } else if (successCount > 0) {
+      toastr.warning(
+        t('toast.partialGenerated', {
+          success: successCount,
+          total: promptsToGenerate.length,
+        }),
+        t('extensionName')
+      );
+    } else {
+      toastr.error(t('toast.failedToGenerate'), t('extensionName'));
+    }
+
+    return successCount;
+  } finally {
+    // Clear active manual generation state
+    activeManualGenerations.delete(messageId);
+  }
 }
 
 /**
@@ -230,9 +250,12 @@ export async function showGenerationDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
-  // Check if streaming is active
-  if (isStreamingActive()) {
-    toastr.warning(t('toast.cannotGenerateWhileStreaming'), t('extensionName'));
+  // Check if streaming is active for this message
+  if (isStreamingActive(messageId)) {
+    toastr.warning(
+      t('toast.cannotGenerateMessageStreaming'),
+      t('extensionName')
+    );
     return;
   }
 
@@ -499,143 +522,158 @@ export async function regenerateImage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  // Initial message check
-  let message = context.chat?.[messageId];
-  if (!message) {
-    logger.error('Message not found:', messageId);
-    toastr.error(t('toast.messageNotFound'), t('extensionName'));
-    return 0;
-  }
+  // Mark this message as having active manual generation
+  activeManualGenerations.add(messageId);
 
-  // Find the prompt for this image (using current message state)
-  const promptText = findPromptForImage(message.mes || '', imageSrc);
-  if (!promptText) {
-    toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-    return 0;
-  }
-
-  logger.info(`Regenerating image for prompt: "${promptText}" (mode: ${mode})`);
-
-  // Generate new image (this respects concurrency limit and may wait in queue)
-  toastr.info(t('toast.generatingNewImage'), t('extensionName'));
-  const imageUrl = await generateImage(promptText, context);
-
-  if (!imageUrl) {
-    toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
-    return 0;
-  }
-
-  // IMPORTANT: Re-read message AFTER generation completes
-  // This ensures we have the latest state if other regenerations happened while we were queued
-  message = context.chat?.[messageId];
-  if (!message) {
-    logger.error('Message not found after generation:', messageId);
-    toastr.error(t('toast.messageDisappeared'), t('extensionName'));
-    return 0;
-  }
-
-  let text = message.mes || '';
-
-  // Determine which image index we're regenerating BEFORE modifying the text
-  const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
-  if (!imageIndex) {
-    logger.error('Could not determine image index for regeneration');
-    toastr.error(t('toast.failedToDetermineIndex'), t('extensionName'));
-    return 0;
-  }
-
-  // Find the prompt tag
-  const promptTag = `<img_prompt="${promptText}">`;
-  const promptIndex = text.indexOf(promptTag);
-
-  if (promptIndex === -1) {
-    logger.error('Prompt tag not found in text');
-    toastr.error(t('toast.failedToFindPromptTag'), t('extensionName'));
-    return 0;
-  }
-
-  let insertPos = promptIndex + promptTag.length;
-
-  // In replace mode, find and remove the specific clicked image, remember its position
-  if (mode === 'replace') {
-    const afterPrompt = text.substring(insertPos);
-    const escapedSrc = imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    // Find the specific image we clicked
-    const imgPattern = new RegExp(`\\s*<img\\s+src="${escapedSrc}"[^>]*>`, '');
-    const imgMatch = afterPrompt.match(imgPattern);
-
-    if (imgMatch && imgMatch.index !== undefined) {
-      // Found the clicked image - remove it
-      const imgStart = insertPos + imgMatch.index;
-      const imgEnd = imgStart + imgMatch[0].length;
-
-      // Remove the image
-      text = text.substring(0, imgStart) + text.substring(imgEnd);
-
-      // Insert new image at the same position where old one was
-      insertPos = imgStart;
-
-      logger.info('Removed and will replace clicked image at same position');
-    } else {
-      logger.warn('Could not find clicked image in text, will append instead');
+  try {
+    // Initial message check
+    let message = context.chat?.[messageId];
+    if (!message) {
+      logger.error('Message not found:', messageId);
+      toastr.error(t('toast.messageNotFound'), t('extensionName'));
+      return 0;
     }
-  } else {
-    // In append mode, find position after all existing images
-    const afterPrompt = text.substring(insertPos);
-    const imgTagRegex = /\s*<img\s+[^>]*>/g;
-    let lastMatchEnd = 0;
-    let match;
 
-    while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
-      if (
-        match.index === lastMatchEnd ||
-        afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
-      ) {
-        lastMatchEnd = imgTagRegex.lastIndex;
+    // Find the prompt for this image (using current message state)
+    const promptText = findPromptForImage(message.mes || '', imageSrc);
+    if (!promptText) {
+      toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
+      return 0;
+    }
+
+    logger.info(
+      `Regenerating image for prompt: "${promptText}" (mode: ${mode})`
+    );
+
+    // Generate new image (this respects concurrency limit and may wait in queue)
+    toastr.info(t('toast.generatingNewImage'), t('extensionName'));
+    const imageUrl = await generateImage(promptText, context);
+
+    if (!imageUrl) {
+      toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
+      return 0;
+    }
+
+    // IMPORTANT: Re-read message AFTER generation completes
+    // This ensures we have the latest state if other regenerations happened while we were queued
+    message = context.chat?.[messageId];
+    if (!message) {
+      logger.error('Message not found after generation:', messageId);
+      toastr.error(t('toast.messageDisappeared'), t('extensionName'));
+      return 0;
+    }
+
+    let text = message.mes || '';
+
+    // Determine which image index we're regenerating BEFORE modifying the text
+    const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
+    if (!imageIndex) {
+      logger.error('Could not determine image index for regeneration');
+      toastr.error(t('toast.failedToDetermineIndex'), t('extensionName'));
+      return 0;
+    }
+
+    // Find the prompt tag
+    const promptTag = `<img_prompt="${promptText}">`;
+    const promptIndex = text.indexOf(promptTag);
+
+    if (promptIndex === -1) {
+      logger.error('Prompt tag not found in text');
+      toastr.error(t('toast.failedToFindPromptTag'), t('extensionName'));
+      return 0;
+    }
+
+    let insertPos = promptIndex + promptTag.length;
+
+    // In replace mode, find and remove the specific clicked image, remember its position
+    if (mode === 'replace') {
+      const afterPrompt = text.substring(insertPos);
+      const escapedSrc = imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Find the specific image we clicked
+      const imgPattern = new RegExp(
+        `\\s*<img\\s+src="${escapedSrc}"[^>]*>`,
+        ''
+      );
+      const imgMatch = afterPrompt.match(imgPattern);
+
+      if (imgMatch && imgMatch.index !== undefined) {
+        // Found the clicked image - remove it
+        const imgStart = insertPos + imgMatch.index;
+        const imgEnd = imgStart + imgMatch[0].length;
+
+        // Remove the image
+        text = text.substring(0, imgStart) + text.substring(imgEnd);
+
+        // Insert new image at the same position where old one was
+        insertPos = imgStart;
+
+        logger.info('Removed and will replace clicked image at same position');
       } else {
-        break;
+        logger.warn(
+          'Could not find clicked image in text, will append instead'
+        );
+      }
+    } else {
+      // In append mode, find position after all existing images
+      const afterPrompt = text.substring(insertPos);
+      const imgTagRegex = /\s*<img\s+[^>]*>/g;
+      let lastMatchEnd = 0;
+      let match;
+
+      while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+        if (
+          match.index === lastMatchEnd ||
+          afterPrompt.substring(lastMatchEnd, match.index).trim() === ''
+        ) {
+          lastMatchEnd = imgTagRegex.lastIndex;
+        } else {
+          break;
+        }
+      }
+
+      if (lastMatchEnd > 0) {
+        insertPos += lastMatchEnd;
       }
     }
 
-    if (lastMatchEnd > 0) {
-      insertPos += lastMatchEnd;
-    }
+    // Count existing regenerations for this image index
+    const regenCount = countRegeneratedImages(text, promptText, imageIndex);
+    const nextRegenNumber = regenCount + 1;
+
+    // Create image tag with meaningful name (without prompt text to avoid display issues)
+    const imageTitle = `AI generated image #${imageIndex} (Regenerated ${nextRegenNumber})`;
+    const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
+    text = text.substring(0, insertPos) + imageTag + text.substring(insertPos);
+
+    // Update message
+    message.mes = text;
+
+    // Emit proper event sequence for DOM update
+    const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+    await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+    context.updateMessageBlock(messageId, message);
+
+    const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+    await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+    // Save chat
+    await context.saveChat();
+
+    toastr.success(t('toast.imageRegenerated'), t('extensionName'));
+    logger.info('Image regenerated successfully');
+
+    // Re-attach click handlers to all images (including the new one)
+    setTimeout(() => {
+      addImageClickHandlers(context, settings);
+    }, 100);
+
+    return 1;
+  } finally {
+    // Clear active manual generation state
+    activeManualGenerations.delete(messageId);
   }
-
-  // Count existing regenerations for this image index
-  const regenCount = countRegeneratedImages(text, promptText, imageIndex);
-  const nextRegenNumber = regenCount + 1;
-
-  // Create image tag with meaningful name (without prompt text to avoid display issues)
-  const imageTitle = `AI generated image #${imageIndex} (Regenerated ${nextRegenNumber})`;
-  const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
-  text = text.substring(0, insertPos) + imageTag + text.substring(insertPos);
-
-  // Update message
-  message.mes = text;
-
-  // Emit proper event sequence for DOM update
-  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-  await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-  context.updateMessageBlock(messageId, message);
-
-  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
-
-  // Save chat
-  await context.saveChat();
-
-  toastr.success(t('toast.imageRegenerated'), t('extensionName'));
-  logger.info('Image regenerated successfully');
-
-  // Re-attach click handlers to all images (including the new one)
-  setTimeout(() => {
-    addImageClickHandlers(context, settings);
-  }, 100);
-
-  return 1;
 }
 
 /**
@@ -715,9 +753,12 @@ async function showRegenerationDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
-  // Check if streaming is active
-  if (isStreamingActive()) {
-    toastr.warning(t('toast.cannotGenerateWhileStreaming'), t('extensionName'));
+  // Check if streaming is active for this message
+  if (isStreamingActive(messageId)) {
+    toastr.warning(
+      t('toast.cannotGenerateMessageStreaming'),
+      t('extensionName')
+    );
     return;
   }
 
@@ -920,10 +961,10 @@ export function addManualGenerationButton(
     )
     .attr('title', t('button.manualGenerate'))
     .on('click', async () => {
-      // Check if streaming is active
-      if (isStreamingActive()) {
+      // Check if streaming is active for this message
+      if (isStreamingActive(messageId)) {
         toastr.warning(
-          t('toast.cannotGenerateWhileStreaming'),
+          t('toast.cannotGenerateMessageStreaming'),
           t('extensionName')
         );
         return;

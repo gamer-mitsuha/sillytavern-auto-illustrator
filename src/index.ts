@@ -26,6 +26,7 @@ import {
 import {
   addManualGenerationButton,
   addImageClickHandlers,
+  isManualGenerationActive,
 } from './manual_generation';
 import {
   initializeConcurrencyLimiter,
@@ -53,10 +54,20 @@ let queueProcessor: QueueProcessor | null = null;
 
 /**
  * Checks if streaming generation is currently active
+ * @param messageId - Optional message ID to check. If provided, checks if THIS message is streaming.
+ *                    If omitted, checks if ANY message is streaming.
  * @returns True if streaming is in progress
  */
-export function isStreamingActive(): boolean {
-  return streamingMonitor?.isActive() ?? false;
+export function isStreamingActive(messageId?: number): boolean {
+  const monitorActive = streamingMonitor?.isActive() ?? false;
+
+  if (messageId === undefined) {
+    // Check if any streaming is active
+    return monitorActive;
+  }
+
+  // Check if THIS specific message is being streamed
+  return monitorActive && currentStreamingMessageId === messageId;
 }
 
 let currentStreamingMessageId: number | null = null; // Track which message is being streamed
@@ -492,6 +503,14 @@ function handleFirstStreamToken(_text: string): void {
 
   // Verify it's an assistant message
   if (message.is_user || message.is_system) {
+    return;
+  }
+
+  // Don't start streaming if manual generation is active for this message
+  if (isManualGenerationActive(messageId)) {
+    logger.info(
+      `Cannot start streaming for message ${messageId}: manual generation active`
+    );
     return;
   }
 
