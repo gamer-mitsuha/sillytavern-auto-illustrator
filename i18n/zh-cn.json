@@ -63,6 +63,7 @@
   "toast.imageNotFound": "未找到图像",
   "toast.imageDeleted": "图像删除成功",
   "toast.cannotUsePredefinedNames": "无法使用预定义预设名称（Default、NAI 4.5 Full）",
+  "toast.cannotGenerateWhileStreaming": "无法在流式生成进行中时生成图像，请等待当前消息完成",
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
   "button.manualGenerate": "从提示生成图像"

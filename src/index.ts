@@ -50,6 +50,15 @@ let messageReceivedFired = false; // Track if MESSAGE_RECEIVED has fired
 let streamingQueue: ImageGenerationQueue | null = null;
 let streamingMonitor: StreamingMonitor | null = null;
 let queueProcessor: QueueProcessor | null = null;
+
+/**
+ * Checks if streaming generation is currently active
+ * @returns True if streaming is in progress
+ */
+export function isStreamingActive(): boolean {
+  return streamingMonitor?.isActive() ?? false;
+}
+
 let currentStreamingMessageId: number | null = null; // Track which message is being streamed
 
 /**
