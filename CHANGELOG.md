@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **BREAKING**: Changed default output format to HTML comment format `<!--img-prompt="..."-->` to fix invisible spacing issue
 - **BREAKING**: Changed tag format from `<img_prompt>` to `<img-prompt>` for HTML5 compliance and reliable CSS styling
+- **BREAKING**: Changed default manual generation mode from "Replace" to "Append"
 - Updated meta prompt presets to use HTML comment format for new messages
 - Extended prompt detection to support three formats: HTML comments (new), hyphenated tags, and underscored tags (legacy)
 - Manual generation and image regeneration now check message-specific streaming status before proceeding
