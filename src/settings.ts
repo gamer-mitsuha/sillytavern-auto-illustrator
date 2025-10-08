@@ -160,11 +160,11 @@ export function createSettingsUI(): string {
           </label>
 
           <label for="${UI_ELEMENT_IDS.PROMPT_PATTERNS}">
-            <span>Prompt Detection Patterns</span>
-            <small>Regex patterns to detect image prompts (one per line). Supports multiple formats for backward compatibility.</small>
+            <span>${t('settings.promptPatterns')}</span>
+            <small>${t('settings.promptPatternsDesc')}</small>
             <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
               <textarea id="${UI_ELEMENT_IDS.PROMPT_PATTERNS}" class="text_pole textarea_compact" rows="5" style="flex: 1;"></textarea>
-              <button id="${UI_ELEMENT_IDS.PROMPT_PATTERNS_RESET}" class="menu_button menu_button_icon" title="Reset to default patterns">
+              <button id="${UI_ELEMENT_IDS.PROMPT_PATTERNS_RESET}" class="menu_button menu_button_icon" title="${t('settings.promptPatternsReset')}">
                 <i class="fa-solid fa-undo"></i>
               </button>
             </div>

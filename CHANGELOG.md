@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Simplified Chinese (zh-cn) internationalization support
   - Full translation coverage for settings UI, dialogs, and notifications
+  - Added translations for Prompt Detection Patterns settings
   - Dynamic translation for count-based messages
   - Automatic language detection via SillyTavern i18n system
 - Manual image generation feature for existing `<img_prompt>` tags
