@@ -40,7 +40,7 @@ All commit messages must follow the Conventional Commits specification. The form
 
 - **Types:** feat (new feature), fix (bug fix), docs (documentation), style (formatting), refactor, test, chore (build/tool changes).
 - **Example:** feat(api): add user authentication endpoint
-- No need to mention Claude in the commit messages.
+- DO NOT mention Claude in the commit messages.
 
 ## **6\. Maintain the Changelog**
 
