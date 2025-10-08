@@ -9,16 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Simplified Chinese (zh-CN) README translation (README_CN.md)
+- Manual generation now checks for active streaming and prevents generation during streaming
 
 ### Changed
 - Updated documentation to reflect removal of word interval setting
 - Clarified that image generation frequency is controlled via meta prompt presets
+- Manual generation and image regeneration now show warning toast when attempted during streaming
 
 ### Removed
 - Word interval setting (non-functional - interval is part of meta prompt presets)
 
 ### Fixed
 - Manual generation button tooltip now properly supports internationalization (zh-CN translation)
+- Prevent manual/regeneration operations from interfering with active streaming generation
 
 ### Documentation
 - Simplified Chinese (zh-cn) internationalization support

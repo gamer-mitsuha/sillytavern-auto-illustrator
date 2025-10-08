@@ -9,6 +9,7 @@ import type {ManualGenerationMode, ImagePromptMatch} from './types';
 import {createLogger} from './logger';
 import {createImagePromptWithImgRegex} from './regex';
 import {t, tCount} from './i18n';
+import {isStreamingActive} from './index';
 
 const logger = createLogger('ManualGen');
 
@@ -229,6 +230,12 @@ export async function showGenerationDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
+  // Check if streaming is active
+  if (isStreamingActive()) {
+    toastr.warning(t('toast.cannotGenerateWhileStreaming'), t('extensionName'));
+    return;
+  }
+
   const message = context.chat?.[messageId];
   if (!message) {
     logger.warn('Message not found:', messageId);
@@ -708,6 +715,12 @@ async function showRegenerationDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
+  // Check if streaming is active
+  if (isStreamingActive()) {
+    toastr.warning(t('toast.cannotGenerateWhileStreaming'), t('extensionName'));
+    return;
+  }
+
   const dialogMessage = t('dialog.whatToDo');
 
   // Show confirmation dialog with mode selection
@@ -907,6 +920,15 @@ export function addManualGenerationButton(
     )
     .attr('title', t('button.manualGenerate'))
     .on('click', async () => {
+      // Check if streaming is active
+      if (isStreamingActive()) {
+        toastr.warning(
+          t('toast.cannotGenerateWhileStreaming'),
+          t('extensionName')
+        );
+        return;
+      }
+
       // Disable button during generation
       button.prop('disabled', true);
       button.css('opacity', '0.5');
