@@ -831,7 +831,16 @@ function initialize(): void {
   const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
 
   context.eventSource.on(CHAT_CHANGED, () => {
-    logger.info('CHAT_CHANGED');
+    logger.info('CHAT_CHANGED - reloading settings');
+
+    // Reload settings from server to ensure sync across devices
+    settings = loadSettings(context);
+    setLogLevel(settings.logLevel);
+    updateMaxConcurrent(settings.maxConcurrentGenerations);
+
+    // Update UI with refreshed settings
+    updateUI();
+
     // Re-add buttons to all messages when chat changes
     setTimeout(() => {
       addButtonsToExistingMessages();
