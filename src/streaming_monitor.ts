@@ -19,6 +19,7 @@ export class StreamingMonitor {
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private queue: ImageGenerationQueue;
   private context: SillyTavernContext;
+  private settings: AutoIllustratorSettings;
   private intervalMs: number;
   private isRunning = false;
   private onNewPromptsCallback?: () => void;
@@ -27,17 +28,20 @@ export class StreamingMonitor {
    * Creates a new streaming monitor
    * @param queue - Image generation queue
    * @param context - SillyTavern context
+   * @param settings - Extension settings
    * @param intervalMs - Polling interval in milliseconds
    * @param onNewPrompts - Optional callback when new prompts are added
    */
   constructor(
     queue: ImageGenerationQueue,
     context: SillyTavernContext,
+    settings: AutoIllustratorSettings,
     intervalMs = 300,
     onNewPrompts?: () => void
   ) {
     this.queue = queue;
     this.context = context;
+    this.settings = settings;
     this.intervalMs = intervalMs;
     this.onNewPromptsCallback = onNewPrompts;
   }
@@ -132,7 +136,12 @@ export class StreamingMonitor {
       logger.info(`Found ${newPrompts.length} new prompts`);
 
       for (const match of newPrompts) {
-        this.queue.addPrompt(match.prompt, match.startIndex, match.endIndex);
+        this.queue.addPrompt(
+          match.prompt,
+          match.fullMatch,
+          match.startIndex,
+          match.endIndex
+        );
       }
 
       // Notify processor that new prompts are available
@@ -150,7 +159,10 @@ export class StreamingMonitor {
    * @returns Array of new prompt matches
    */
   private extractNewPrompts(currentText: string): ImagePromptMatch[] {
-    const allPrompts = extractImagePrompts(currentText);
+    const allPrompts = extractImagePrompts(
+      currentText,
+      this.settings.promptDetectionPatterns
+    );
     const newPrompts: ImagePromptMatch[] = [];
 
     for (const match of allPrompts) {

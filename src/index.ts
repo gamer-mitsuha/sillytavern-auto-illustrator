@@ -17,7 +17,7 @@ import {
   createSettingsUI,
 } from './settings';
 import {createLogger, setLogLevel} from './logger';
-import {UI_ELEMENT_IDS} from './constants';
+import {UI_ELEMENT_IDS, DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
 import {
   getPresetById,
   isPresetPredefined,
@@ -109,6 +109,9 @@ function updateUI(): void {
   const logLevelSelect = document.getElementById(
     UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
+  const promptPatternsTextarea = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_PATTERNS
+  ) as HTMLTextAreaElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -120,6 +123,8 @@ function updateUI(): void {
   if (maxConcurrentInput)
     maxConcurrentInput.value = settings.maxConcurrentGenerations.toString();
   if (logLevelSelect) logLevelSelect.value = settings.logLevel;
+  if (promptPatternsTextarea)
+    promptPatternsTextarea.value = settings.promptDetectionPatterns.join('\n');
 
   // Update preset dropdown with custom presets
   if (presetSelect) {
@@ -185,6 +190,9 @@ function handleSettingsChange(): void {
   const logLevelSelect = document.getElementById(
     UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
+  const promptPatternsTextarea = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_PATTERNS
+  ) as HTMLTextAreaElement;
 
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
@@ -199,6 +207,12 @@ function handleSettingsChange(): void {
   settings.logLevel =
     (logLevelSelect?.value as AutoIllustratorSettings['logLevel']) ??
     settings.logLevel;
+  settings.promptDetectionPatterns = promptPatternsTextarea
+    ? promptPatternsTextarea.value
+        .split('\n')
+        .map(p => p.trim())
+        .filter(p => p.length > 0)
+    : settings.promptDetectionPatterns;
 
   // Apply log level
   setLogLevel(settings.logLevel);
@@ -220,6 +234,23 @@ function handleResetSettings(): void {
   updateUI();
 
   logger.info('Settings reset to defaults');
+}
+
+/**
+ * Resets prompt patterns to defaults
+ */
+function handlePromptPatternsReset(): void {
+  const promptPatternsTextarea = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_PATTERNS
+  ) as HTMLTextAreaElement;
+
+  if (promptPatternsTextarea) {
+    promptPatternsTextarea.value = DEFAULT_PROMPT_DETECTION_PATTERNS.join('\n');
+    // Trigger change event to save the settings
+    handleSettingsChange();
+  }
+
+  logger.info('Prompt patterns reset to defaults');
 }
 
 /**
@@ -546,6 +577,7 @@ function handleFirstStreamToken(_text: string): void {
   streamingMonitor = new StreamingMonitor(
     streamingQueue,
     context,
+    settings,
     settings.streamingPollInterval,
     () => queueProcessor?.trigger()
   );
@@ -843,6 +875,12 @@ function initialize(): void {
       UI_ELEMENT_IDS.MAX_CONCURRENT
     );
     const logLevelSelect = document.getElementById(UI_ELEMENT_IDS.LOG_LEVEL);
+    const promptPatternsTextarea = document.getElementById(
+      UI_ELEMENT_IDS.PROMPT_PATTERNS
+    );
+    const promptPatternsResetButton = document.getElementById(
+      UI_ELEMENT_IDS.PROMPT_PATTERNS_RESET
+    );
     const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
@@ -859,6 +897,11 @@ function initialize(): void {
     );
     maxConcurrentInput?.addEventListener('change', handleSettingsChange);
     logLevelSelect?.addEventListener('change', handleSettingsChange);
+    promptPatternsTextarea?.addEventListener('change', handleSettingsChange);
+    promptPatternsResetButton?.addEventListener(
+      'click',
+      handlePromptPatternsReset
+    );
     resetButton?.addEventListener('click', handleResetSettings);
 
     // Update UI with loaded settings

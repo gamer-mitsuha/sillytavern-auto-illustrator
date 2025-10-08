@@ -90,8 +90,8 @@ describe('QueueProcessor', () => {
     });
 
     it('should include queue stats', () => {
-      queue.addPrompt('test1', 0, 10);
-      queue.addPrompt('test2', 10, 20);
+      queue.addPrompt('test1', '<img-prompt="test1">', 0, 10);
+      queue.addPrompt('test2', '<img-prompt="test2">', 10, 20);
 
       const status = processor.getStatus();
 
@@ -111,8 +111,8 @@ describe('QueueProcessor', () => {
     });
 
     it('should process prompts that are already queued', async () => {
-      queue.addPrompt('prompt1', 0, 10);
-      queue.addPrompt('prompt2', 10, 20);
+      queue.addPrompt('prompt1', '<img-prompt="prompt1">', 0, 10);
+      queue.addPrompt('prompt2', '<img-prompt="prompt2">', 10, 20);
 
       processor.start(0, vi.fn());
 
@@ -130,14 +130,14 @@ describe('QueueProcessor', () => {
   describe('trigger', () => {
     it('should not throw when processor is running', () => {
       processor.start(0, vi.fn());
-      queue.addPrompt('test', 0, 10);
+      queue.addPrompt('test', '<img-prompt="test">', 0, 10);
 
       // Should not throw
       processor.trigger();
     });
 
     it('should not throw when processor is not running', () => {
-      queue.addPrompt('test', 0, 10);
+      queue.addPrompt('test', '<img-prompt="test">', 0, 10);
 
       // Should not throw
       processor.trigger();
@@ -171,8 +171,8 @@ describe('QueueProcessor', () => {
 
   describe('processRemaining', () => {
     it('should wait for active generations before processing queued prompts', async () => {
-      const prompt1 = queue.addPrompt('test1', 0, 10);
-      queue.addPrompt('test2', 20, 30);
+      const prompt1 = queue.addPrompt('test1', '<img-prompt="test1">', 0, 10);
+      queue.addPrompt('test2', '<img-prompt="test2">', 20, 30);
 
       // Mark first as GENERATING
       queue.updateState(prompt1.id, 'GENERATING');
@@ -202,9 +202,9 @@ describe('QueueProcessor', () => {
     });
 
     it('should process all queued prompts sequentially after active generations complete', async () => {
-      queue.addPrompt('test1', 0, 10);
-      queue.addPrompt('test2', 20, 30);
-      queue.addPrompt('test3', 40, 50);
+      queue.addPrompt('test1', '<img-prompt="test1">', 0, 10);
+      queue.addPrompt('test2', '<img-prompt="test2">', 20, 30);
+      queue.addPrompt('test3', '<img-prompt="test3">', 40, 50);
 
       await processor.processRemaining();
 

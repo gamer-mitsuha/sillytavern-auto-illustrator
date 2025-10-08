@@ -11,22 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified Chinese (zh-CN) README translation (README_CN.md)
 - Per-message concurrency control to prevent race conditions between streaming and manual generation
 - Manual generation state tracking for each message to avoid conflicts with streaming
+- Multi-pattern prompt detection system supporting multiple tag formats simultaneously
+- Configurable prompt detection patterns in settings UI (one regex pattern per line)
+- Support for HTML comment format: `<!--img-prompt="..."--->` (invisible, passes through DOMPurify)
+- Backward compatibility with old `<img_prompt>` (underscore) tags from existing chats
 
 ### Changed
-- Updated documentation to reflect removal of word interval setting
-- Clarified that image generation frequency is controlled via meta prompt presets
+- **BREAKING**: Changed default output format to HTML comment format `<!--img-prompt="..."-->` to fix invisible spacing issue
+- **BREAKING**: Changed tag format from `<img_prompt>` to `<img-prompt>` for HTML5 compliance and reliable CSS styling
+- Updated meta prompt presets to use HTML comment format for new messages
+- Extended prompt detection to support three formats: HTML comments (new), hyphenated tags, and underscored tags (legacy)
 - Manual generation and image regeneration now check message-specific streaming status before proceeding
 - Streaming generation now checks for active manual generation before starting for a message
+- Updated documentation to reflect removal of word interval setting
+- Clarified that image generation frequency is controlled via meta prompt presets
 
 ### Removed
 - Word interval setting (non-functional - interval is part of meta prompt presets)
+- Obsolete CSS rules attempting to hide `<img-prompt>` tags (tags are now HTML comments or stripped by DOMPurify)
 
 ### Fixed
+- **CRITICAL**: Fixed image insertion failing by storing full matched tag (`fullMatch`) in queue instead of reconstructing tag format
+- **CRITICAL**: Fixed manual generation not inserting images by using `fullMatch` instead of hardcoded tag format and re-extracting prompts after text modifications
+- **CRITICAL**: Fixed image regeneration failing to find prompts by supporting multi-pattern detection in `findPromptForImage()`, `findImageIndexInPrompt()`, and `countRegeneratedImages()`
+- **CRITICAL**: Fixed all remaining hardcoded tag patterns in `hasExistingImage()`, `removeExistingImages()`, and `pruneGeneratedImages()` to support multi-pattern detection
 - Manual generation button tooltip now properly supports internationalization (zh-CN translation)
 - Prevent manual/regeneration operations from interfering with active streaming generation on the same message
 - Prevent streaming from starting on a message while manual generation is active on that message
 - Fix meta-prompt injection failing for first message in new chat session by defaulting to 'normal' generation type
 - Skip setting generation type during dry runs (token counting) to avoid premature type clearing
+- Fix img-prompt tags occupying invisible space in chat by using SillyTavern's native CSS loading (manifest.json "css" field)
 
 ### Documentation
 - Simplified Chinese (zh-cn) internationalization support

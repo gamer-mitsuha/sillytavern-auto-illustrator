@@ -32,12 +32,14 @@ export class ImageGenerationQueue {
   /**
    * Adds a new prompt to the queue
    * @param prompt - Prompt text
+   * @param fullMatch - The full matched tag string
    * @param startIndex - Start position in message
    * @param endIndex - End position in message
    * @returns The queued prompt, or null if already exists
    */
   addPrompt(
     prompt: string,
+    fullMatch: string,
     startIndex: number,
     endIndex: number
   ): QueuedPrompt | null {
@@ -52,6 +54,7 @@ export class ImageGenerationQueue {
     const queuedPrompt: QueuedPrompt = {
       id,
       prompt,
+      fullMatch,
       startIndex,
       endIndex,
       state: 'QUEUED',

@@ -3,51 +3,51 @@
  * Centralized regular expressions for image prompt tags
  *
  * This module provides reusable regex patterns to avoid duplication and ensure
- * consistency across the codebase when matching img_prompt tags and related patterns.
+ * consistency across the codebase when matching img-prompt tags and related patterns.
  */
 
 /**
- * Matches the img_prompt tag with its content: <img_prompt="...">
+ * Matches the img-prompt tag with its content: <img-prompt="...">
  *
  * Capture groups:
  * - Group 1: The prompt content (supports escaped quotes)
  *
  * Examples:
- * - <img_prompt="sunset scene"> → captures "sunset scene"
- * - <img_prompt="character saying \"hello\""> → captures "character saying \"hello\""
+ * - <img-prompt="sunset scene"> → captures "sunset scene"
+ * - <img-prompt="character saying \"hello\""> → captures "character saying \"hello\""
  *
  * Note: Use createImagePromptRegex() to get a fresh instance for iteration
  */
 export const IMAGE_PROMPT_PATTERN =
-  /<img_prompt="([^"\\]*(?:\\.[^"\\]*)*)"\s*>/g;
+  /<img-prompt="([^"\\]*(?:\\.[^"\\]*)*)"\s*>/g;
 
 /**
- * Matches an img_prompt tag (without capturing the content)
+ * Matches an img-prompt tag (without capturing the content)
  *
  * Used for simple matching without needing to extract the prompt text.
  *
  * Examples:
- * - <img_prompt="any text here">
- * - <img_prompt="">
+ * - <img-prompt="any text here">
+ * - <img-prompt="">
  */
-export const IMAGE_PROMPT_TAG_PATTERN = /<img_prompt="[^"]*">/;
+export const IMAGE_PROMPT_TAG_PATTERN = /<img-prompt="[^"]*">/;
 
 /**
- * Matches an img_prompt tag followed by an img tag (for pruning)
+ * Matches an img-prompt tag followed by an img tag (for pruning)
  *
- * Pattern: <img_prompt="...">OPTIONAL_WHITESPACE<img ...>
+ * Pattern: <img-prompt="...">OPTIONAL_WHITESPACE<img ...>
  *
  * This is used to identify generated images that should be removed from
  * chat history before sending to the LLM. It matches the complete sequence
  * of prompt tag + generated image tag.
  *
  * Examples:
- * - <img_prompt="test">\n<img src="..." title="..." alt="...">
- * - <img_prompt="scene"> <img src="...">
- * - <img_prompt="test"><img src="..." class="foo" id="bar">
+ * - <img-prompt="test">\n<img src="..." title="..." alt="...">
+ * - <img-prompt="scene"> <img src="...">
+ * - <img-prompt="test"><img src="..." class="foo" id="bar">
  */
 export const IMAGE_PROMPT_WITH_IMG_PATTERN =
-  /<img_prompt="[^"]*">\s*<img\s+[^>]*>/g;
+  /<img-prompt="[^"]*">\s*<img\s+[^>]*>/g;
 
 /**
  * Creates a fresh RegExp instance for IMAGE_PROMPT_PATTERN
@@ -87,4 +87,76 @@ export function createImagePromptWithImgRegex(): RegExp {
  */
 export function unescapePromptQuotes(prompt: string): string {
   return prompt.replace(/\\"/g, '"');
+}
+
+/**
+ * Creates a combined regex from multiple pattern strings
+ *
+ * Combines multiple regex pattern strings into a single regex with alternation (|).
+ * Each pattern becomes a non-capturing group in the combined pattern.
+ *
+ * @param patterns - Array of regex pattern strings (without delimiters or flags)
+ * @returns Combined RegExp with global flag
+ *
+ * @example
+ * const patterns = ['<img-prompt="([^"]*)">', '<!--img-prompt="([^"]*)"-->'];
+ * const regex = createCombinedPromptRegex(patterns);
+ * // Results in: /(?:<img-prompt="([^"]*)">) | (?:<!--img-prompt="([^"]*)"-->)/g
+ */
+export function createCombinedPromptRegex(patterns: string[]): RegExp {
+  const combinedPattern = patterns.map(p => `(?:${p})`).join('|');
+  return new RegExp(combinedPattern, 'g');
+}
+
+/**
+ * Extracts all image prompts from text using multiple detection patterns
+ *
+ * Searches text for image prompt tags matching any of the provided patterns.
+ * Returns detailed match information including prompt text and position.
+ *
+ * @param text - Text to search for image prompts
+ * @param patterns - Array of regex pattern strings to match against
+ * @returns Array of matches with prompt text and position information
+ *
+ * @example
+ * const text = '<img-prompt="sunset"><!--img-prompt="forest"-->';
+ * const patterns = ['<img-prompt="([^"]*)">', '<!--img-prompt="([^"]*)"-->'];
+ * const matches = extractImagePromptsMultiPattern(text, patterns);
+ * // Returns: [
+ * //   {prompt: 'sunset', fullMatch: '<img-prompt="sunset">', startIndex: 0, endIndex: 23},
+ * //   {prompt: 'forest', fullMatch: '<!--img-prompt="forest"-->', startIndex: 23, endIndex: 49}
+ * // ]
+ */
+export function extractImagePromptsMultiPattern(
+  text: string,
+  patterns: string[]
+): Array<{
+  prompt: string;
+  fullMatch: string;
+  startIndex: number;
+  endIndex: number;
+}> {
+  const regex = createCombinedPromptRegex(patterns);
+  const results: Array<{
+    prompt: string;
+    fullMatch: string;
+    startIndex: number;
+    endIndex: number;
+  }> = [];
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Find the first defined capture group (the prompt text)
+    const prompt = match.slice(1).find(g => g !== undefined);
+    if (prompt && prompt.trim().length > 0) {
+      results.push({
+        prompt: unescapePromptQuotes(prompt.trim()),
+        fullMatch: match[0],
+        startIndex: match.index,
+        endIndex: match.index + match[0].length,
+      });
+    }
+  }
+
+  return results;
 }

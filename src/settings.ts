@@ -159,6 +159,17 @@ export function createSettingsUI(): string {
             <input id="${UI_ELEMENT_IDS.MAX_CONCURRENT}" class="text_pole" type="number" min="${MAX_CONCURRENT_GENERATIONS.MIN}" max="${MAX_CONCURRENT_GENERATIONS.MAX}" step="${MAX_CONCURRENT_GENERATIONS.STEP}" />
           </label>
 
+          <label for="${UI_ELEMENT_IDS.PROMPT_PATTERNS}">
+            <span>Prompt Detection Patterns</span>
+            <small>Regex patterns to detect image prompts (one per line). Supports multiple formats for backward compatibility.</small>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+              <textarea id="${UI_ELEMENT_IDS.PROMPT_PATTERNS}" class="text_pole textarea_compact" rows="5" style="flex: 1;"></textarea>
+              <button id="${UI_ELEMENT_IDS.PROMPT_PATTERNS_RESET}" class="menu_button menu_button_icon" title="Reset to default patterns">
+                <i class="fa-solid fa-undo"></i>
+              </button>
+            </div>
+          </label>
+
           <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
             <span>${t('settings.logLevel')}</span>
             <small>${t('settings.logLevelDesc')}</small>

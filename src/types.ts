@@ -21,6 +21,8 @@ export interface QueuedPrompt {
   id: string;
   /** The image generation prompt text */
   prompt: string;
+  /** The full matched tag (e.g., '<!--img-prompt="..."-->', '<img-prompt="...">', etc.) */
+  fullMatch: string;
   /** Start index in the message text */
   startIndex: number;
   /** End index in the message text */
@@ -55,7 +57,7 @@ export interface DeferredImage {
  * Match result for an image prompt extracted from text
  */
 export interface ImagePromptMatch {
-  /** The full matched text (e.g., '<img_prompt="...">') */
+  /** The full matched text (e.g., '<img-prompt="...">') */
   fullMatch: string;
   /** The extracted prompt text (unescaped) */
   prompt: string;

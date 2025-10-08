@@ -7,7 +7,6 @@ import {extractImagePrompts, hasImagePrompts} from './image_extractor';
 import {generateImage} from './image_generator';
 import type {ManualGenerationMode, ImagePromptMatch} from './types';
 import {createLogger} from './logger';
-import {createImagePromptWithImgRegex} from './regex';
 import {t, tCount} from './i18n';
 import {isStreamingActive} from './index';
 
@@ -29,20 +28,26 @@ export function isManualGenerationActive(messageId: number): boolean {
  * Checks if a prompt already has an image after it
  * @param text - Message text
  * @param promptText - The prompt to check
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns True if image exists after this prompt
  */
-export function hasExistingImage(text: string, promptText: string): boolean {
-  const promptTag = `<img_prompt="${promptText}">`;
-  const promptIndex = text.indexOf(promptTag);
+export function hasExistingImage(
+  text: string,
+  promptText: string,
+  patterns?: string[]
+): boolean {
+  // Find the prompt using multi-pattern detection
+  const prompts = extractImagePrompts(text, patterns);
+  const matchingPrompt = prompts.find(p => p.prompt === promptText);
 
-  if (promptIndex === -1) {
+  if (!matchingPrompt) {
     return false;
   }
 
   // Check if there's an img tag immediately after the prompt
   const afterPrompt = text.substring(
-    promptIndex + promptTag.length,
-    promptIndex + promptTag.length + 200
+    matchingPrompt.endIndex,
+    matchingPrompt.endIndex + 200
   );
 
   return afterPrompt.trimStart().startsWith('<img');
@@ -51,17 +56,45 @@ export function hasExistingImage(text: string, promptText: string): boolean {
 /**
  * Removes existing images that follow img_prompt tags
  * @param text - Message text
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns Text with existing images removed
  */
-export function removeExistingImages(text: string): string {
-  const pattern = createImagePromptWithImgRegex();
+export function removeExistingImages(
+  text: string,
+  patterns?: string[]
+): string {
+  // Extract all prompts with their positions
+  const prompts = extractImagePrompts(text, patterns);
 
-  // Replace "<img_prompt="..."><img...>" with just "<img_prompt="...">"
-  return text.replace(pattern, match => {
-    // Extract just the img_prompt part
-    const promptMatch = match.match(/<img_prompt="[^"]*">/);
-    return promptMatch ? promptMatch[0] : match;
-  });
+  // Process in reverse order to preserve indices
+  let result = text;
+  for (let i = prompts.length - 1; i >= 0; i--) {
+    const prompt = prompts[i];
+    const afterPrompt = result.substring(prompt.endIndex);
+
+    // Find all consecutive images after this prompt
+    const imgTagRegex = /^\s*<img\s+[^>]*>/g;
+    let match;
+    let totalLength = 0;
+
+    while ((match = imgTagRegex.exec(afterPrompt)) !== null) {
+      if (match.index === totalLength) {
+        totalLength += match[0].length;
+        imgTagRegex.lastIndex = totalLength;
+      } else {
+        break;
+      }
+    }
+
+    // Remove the images (but keep the prompt tag)
+    if (totalLength > 0) {
+      result =
+        result.substring(0, prompt.endIndex) +
+        result.substring(prompt.endIndex + totalLength);
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -93,20 +126,23 @@ export async function generateImagesForMessage(
 
     let text = message.mes;
 
-    // Extract prompts before any modifications
-    const prompts = extractImagePrompts(text);
-    if (prompts.length === 0) {
+    // Extract prompts before any modifications to check if there are any
+    const initialPrompts = extractImagePrompts(
+      text,
+      settings.promptDetectionPatterns
+    );
+    if (initialPrompts.length === 0) {
       logger.info('No prompts found in message');
       toastr.info(t('toast.noPromptsFound'), t('extensionName'));
       return 0;
     }
 
-    logger.info(`Found ${prompts.length} prompts`);
+    logger.info(`Found ${initialPrompts.length} prompts`);
 
     // In replace mode, remove existing images first
     if (mode === 'replace') {
       const originalLength = text.length;
-      text = removeExistingImages(text);
+      text = removeExistingImages(text, settings.promptDetectionPatterns);
       logger.info(
         `Replace mode: removed existing images (${originalLength} -> ${text.length} chars)`
       );
@@ -114,8 +150,11 @@ export async function generateImagesForMessage(
       logger.info('Append mode: will append new images after existing ones');
     }
 
-    // In both modes, generate images for all prompts
-    const promptsToGenerate = prompts;
+    // Re-extract prompts AFTER text modifications to get correct positions and fullMatch
+    const promptsToGenerate = extractImagePrompts(
+      text,
+      settings.promptDetectionPatterns
+    );
 
     // Show start notification
     toastr.info(
@@ -150,10 +189,17 @@ export async function generateImagesForMessage(
 
     let successCount = 0;
     for (const {prompt, imageUrl, originalIndex} of generatedImages) {
-      const promptTag = `<img_prompt="${prompt.prompt}">`;
+      const promptTag = prompt.fullMatch;
       const tagIndex = text.indexOf(promptTag);
 
-      if (tagIndex !== -1) {
+      if (tagIndex === -1) {
+        logger.warn(
+          `Could not find prompt tag in text: "${promptTag.substring(0, 80)}..."`
+        );
+        continue;
+      }
+
+      {
         let insertPos = tagIndex + promptTag.length;
 
         // In append mode, find the position after the last existing image
@@ -265,7 +311,10 @@ export async function showGenerationDialog(
     return;
   }
 
-  const prompts = extractImagePrompts(message.mes);
+  const prompts = extractImagePrompts(
+    message.mes,
+    settings.promptDetectionPatterns
+  );
   if (prompts.length === 0) {
     toastr.info(t('toast.noPromptsFound'), t('extensionName'));
     return;
@@ -373,11 +422,13 @@ export async function showGenerationDialog(
  * Finds the prompt text for a given image in a message
  * @param text - Message text
  * @param imageSrc - Source URL of the image
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns Prompt text or null if not found
  */
 export function findPromptForImage(
   text: string,
-  imageSrc: string
+  imageSrc: string,
+  patterns?: string[]
 ): string | null {
   // Find the image tag in the text
   const imgPattern = new RegExp(
@@ -395,15 +446,17 @@ export function findPromptForImage(
 
   // Search backwards from the image position to find the closest img_prompt tag
   const textBeforeImg = text.substring(0, imgIndex);
-  const promptPattern = /<img_prompt="([^"]*)">(?![\s\S]*<img_prompt="[^"]*">)/;
-  const promptMatch = textBeforeImg.match(promptPattern);
 
-  if (!promptMatch) {
+  // Use extractImagePrompts to find all prompts before the image
+  const prompts = extractImagePrompts(textBeforeImg, patterns);
+
+  if (prompts.length === 0) {
     logger.warn('No prompt found before image');
     return null;
   }
 
-  return promptMatch[1];
+  // Return the last (closest) prompt
+  return prompts[prompts.length - 1].prompt;
 }
 
 /**
@@ -411,20 +464,25 @@ export function findPromptForImage(
  * @param text - Message text
  * @param promptText - The prompt text
  * @param imageSrc - Source URL of the image to find
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns 1-based index of the image, or null if not found
  */
 function findImageIndexInPrompt(
   text: string,
   promptText: string,
-  imageSrc: string
+  imageSrc: string,
+  patterns?: string[]
 ): number | null {
-  const promptTag = `<img_prompt="${promptText}">`;
-  const promptIndex = text.indexOf(promptTag);
+  // Find the prompt tag using multi-pattern detection
+  const prompts = extractImagePrompts(text, patterns);
+  const matchingPrompt = prompts.find(p => p.prompt === promptText);
 
-  if (promptIndex === -1) {
+  if (!matchingPrompt) {
     return null;
   }
 
+  const promptTag = matchingPrompt.fullMatch;
+  const promptIndex = matchingPrompt.startIndex;
   const afterPrompt = text.substring(promptIndex + promptTag.length);
   const imgTagRegex = /\s*<img\s+[^>]*>/g;
   let index = 0;
@@ -457,20 +515,25 @@ function findImageIndexInPrompt(
  * @param text - Message text
  * @param promptText - The prompt text
  * @param imageIndex - The 1-based index of the image
+ * @param patterns - Optional array of regex pattern strings to use for detection
  * @returns Highest regeneration number found (0 if none exist)
  */
 function countRegeneratedImages(
   text: string,
   promptText: string,
-  imageIndex: number
+  imageIndex: number,
+  patterns?: string[]
 ): number {
-  const promptTag = `<img_prompt="${promptText}">`;
-  const promptIndex = text.indexOf(promptTag);
+  // Find the prompt tag using multi-pattern detection
+  const prompts = extractImagePrompts(text, patterns);
+  const matchingPrompt = prompts.find(p => p.prompt === promptText);
 
-  if (promptIndex === -1) {
+  if (!matchingPrompt) {
     return 0;
   }
 
+  const promptTag = matchingPrompt.fullMatch;
+  const promptIndex = matchingPrompt.startIndex;
   const afterPrompt = text.substring(promptIndex + promptTag.length);
   const imgTagRegex = /\s*<img\s+[^>]*>/g;
   let maxRegenNumber = 0;
@@ -535,7 +598,11 @@ export async function regenerateImage(
     }
 
     // Find the prompt for this image (using current message state)
-    const promptText = findPromptForImage(message.mes || '', imageSrc);
+    const promptText = findPromptForImage(
+      message.mes || '',
+      imageSrc,
+      settings.promptDetectionPatterns
+    );
     if (!promptText) {
       toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
       return 0;
@@ -566,23 +633,30 @@ export async function regenerateImage(
     let text = message.mes || '';
 
     // Determine which image index we're regenerating BEFORE modifying the text
-    const imageIndex = findImageIndexInPrompt(text, promptText, imageSrc);
+    const imageIndex = findImageIndexInPrompt(
+      text,
+      promptText,
+      imageSrc,
+      settings.promptDetectionPatterns
+    );
     if (!imageIndex) {
       logger.error('Could not determine image index for regeneration');
       toastr.error(t('toast.failedToDetermineIndex'), t('extensionName'));
       return 0;
     }
 
-    // Find the prompt tag
-    const promptTag = `<img_prompt="${promptText}">`;
-    const promptIndex = text.indexOf(promptTag);
+    // Find the prompt tag using multi-pattern detection
+    const prompts = extractImagePrompts(text, settings.promptDetectionPatterns);
+    const matchingPrompt = prompts.find(p => p.prompt === promptText);
 
-    if (promptIndex === -1) {
+    if (!matchingPrompt) {
       logger.error('Prompt tag not found in text');
       toastr.error(t('toast.failedToFindPromptTag'), t('extensionName'));
       return 0;
     }
 
+    const promptTag = matchingPrompt.fullMatch;
+    const promptIndex = matchingPrompt.startIndex;
     let insertPos = promptIndex + promptTag.length;
 
     // In replace mode, find and remove the specific clicked image, remember its position
@@ -638,7 +712,12 @@ export async function regenerateImage(
     }
 
     // Count existing regenerations for this image index
-    const regenCount = countRegeneratedImages(text, promptText, imageIndex);
+    const regenCount = countRegeneratedImages(
+      text,
+      promptText,
+      imageIndex,
+      settings.promptDetectionPatterns
+    );
     const nextRegenNumber = regenCount + 1;
 
     // Create image tag with meaningful name (without prompt text to avoid display issues)
