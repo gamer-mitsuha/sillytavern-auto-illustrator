@@ -23,56 +23,44 @@ Automatically generates inline images in your SillyTavern conversations based on
 
 ## How It Works
 
-### Non-Streaming Mode
-1. **Prompt Injection**: The extension monitors the `CHAT_COMPLETION_PROMPT_READY` event and injects the meta-prompt directly as the last system message in the chat array. This instructs the LLM to generate inline image prompts in the format `<!--img-prompt="description"-->` (HTML comment style). The injection is controlled by the extension's enabled status and generation type (skipped for quiet/impersonate modes).
-2. **LLM Response**: The LLM includes image prompts in its response at appropriate story moments
-3. **Image Generation**: The extension detects image prompts via the `MESSAGE_RECEIVED` event, generates images using the SD slash command, and replaces prompts with actual images
-4. **UI Update**: The message is updated with embedded images and `MESSAGE_EDITED` event is emitted
+1. **Automatic Prompt Generation**: When you chat, the LLM automatically generates invisible image prompts in its responses at appropriate story moments
+2. **Image Creation**: The extension detects these prompts and generates images using Stable Diffusion
+3. **Inline Display**: Generated images appear directly in the conversation, replacing the invisible prompts seamlessly
 
-### Streaming Mode
-1. **Prompt Injection**: Same as non-streaming mode
-2. **Real-time Detection**: As the LLM streams text, the extension monitors the message and detects `<!--img-prompt="...">` tags (HTML comment format) as they appear
-3. **Background Generation**: Images are generated in the background while streaming continues (deferred insertion mode)
-4. **Coordinated Insertion**: After BOTH streaming completes (MESSAGE_RECEIVED fires) AND all images are generated, all images are inserted atomically in one operation
-5. **UI Update**: `MESSAGE_UPDATED` and `MESSAGE_EDITED` events trigger rendering and post-processing
+## Quick Start
 
-## Installation
+### Prerequisites
 
-Go to the **Extensions** => **Install Extension** menu in SillyTavern and paste the URL of the extension repository:
-
-```
-https://github.com/gamer-mitsuha/sillytavern-auto-illustrator
-```
-
-## Prerequisites
+**IMPORTANT:** You must configure the [Image Generation extension](https://docs.sillytavern.app/extensions/stable-diffusion/) first before using this extension.
 
 - SillyTavern installation
-- Stable Diffusion extension (a built-in extension) installed and configured
-- SD slash command (`/sd`) must be available
+- [Image Generation extension](https://docs.sillytavern.app/extensions/stable-diffusion/) (built-in) installed and configured
+- `/sd` slash command working (test it first!)
 
-## Usage
+### Installation
 
-1. **Enable the Extension**: Go to **Extensions** > **Auto Illustrator** and check "Enable Auto Illustrator"
+1. Go to **Extensions** > **Install Extension** in SillyTavern
+2. Paste the repository URL: `https://github.com/gamer-mitsuha/sillytavern-auto-illustrator`
+3. Click Install
 
-2. **Configure Settings**:
-   - **Meta Prompt Preset**: Choose from predefined presets or create custom ones (controls image generation frequency and style)
-   - **Enable Streaming**: Enable image generation during streaming responses (recommended)
-   - **Streaming Poll Interval**: How often to check for new prompts during streaming (default: 300ms, range: 100-1000ms)
-   - **Max Concurrent Generations**: Maximum number of images to generate simultaneously (default: 1, range: 1-5)
-   - **Log Level**: Control console verbosity (default: INFO, options: TRACE/DEBUG/INFO/WARN/ERROR/SILENT)
+### First Use
 
-3. **Start Chatting**: The LLM will automatically generate image prompts in its responses, and images will appear inline
+1. **Configure Image Generation extension first** if you haven't already
+2. Go to **Extensions** > **Auto Illustrator**
+3. Check **"Enable Auto Illustrator"**
+4. Select a **Meta Prompt Preset** (try "Default" first)
+5. Start chatting - images will appear automatically in responses!
 
 ### Example
 
-**LLM Response:**
+When the LLM responds with:
 ```
-As the sun set over the ancient forest, <!--img-prompt="sunset over ancient mystical forest with towering trees and golden light filtering through leaves"--> the path ahead grew darker. She pressed on, her lantern casting dancing shadows.
+As the sun set over the ancient forest, the path ahead grew darker...
 ```
 
-**Rendered Result:**
+You'll see an image appear inline:
 ```
-As the sun set over the ancient forest, [IMAGE] the path ahead grew darker. She pressed on, her lantern casting dancing shadows.
+As the sun set over the ancient forest, [IMAGE] the path ahead grew darker...
 ```
 
 ## Configuration
@@ -125,65 +113,27 @@ The extension includes a preset management system for organizing and switching b
 - Predefined presets are read-only to preserve original templates
 - Custom presets are stored in your SillyTavern settings
 - Preset selection persists across sessions
-
-### Meta Prompt Templates
-
-Meta prompt presets control how the LLM generates image prompts. Each preset includes:
-- **Image generation frequency**: How often images should appear (e.g., every ~250 words)
-- **Prompt format**: Instructions for using `<!--img-prompt="detailed description"-->` format (HTML comment style)
-- **Style guidelines**: Specific instructions for different image generation models
-- **Content rules**: Guidelines for visual elements, character consistency, NSFW handling, etc.
-
-To adjust image generation frequency, create a custom preset and modify the word count in the template (e.g., change "Every 250 words" to "Every 500 words").
+- Each preset controls image generation frequency (e.g., every ~250 words) and style guidelines
+- To adjust frequency, create a custom preset and modify the word count in the template
 
 
-## Troubleshooting
+## Common Issues
 
-### Images Not Generating
+**Images not generating?**
+- **First**, ensure [Image Generation extension](https://docs.sillytavern.app/extensions/stable-diffusion/) is configured and `/sd` command works
+- Check "Enable Auto Illustrator" is enabled in settings
+- Select a Meta Prompt Preset (try "Default")
+- Open browser console (F12) and set **Log Level** to **DEBUG** for details
 
-1. **Check SD Extension**: Ensure Stable Diffusion extension is installed and configured
-2. **Verify SD Command**: Test `/sd prompt` manually in SillyTavern
-3. **Check Console**: Open browser DevTools and look for `[Auto Illustrator]` logs
-   - Set **Log Level** to **DEBUG** for detailed information
-4. **Enable Extension**: Ensure "Enable Auto Illustrator" is checked in settings
+**LLM not including images in responses?**
+- Ensure a Meta Prompt Preset is selected
+- Try asking the LLM to be more descriptive in its responses
+- For more frequent images, create a custom preset and reduce the word count (e.g., 150 instead of 250)
 
-### Images Disappear After Chat Reload
+**Too much console output?**
+- Go to settings and change **Log Level** to **WARN** or **SILENT**
 
-This issue has been fixed. Generated images are now automatically saved to chat history via `context.saveChat()`. If you still experience this:
-1. Check browser console for save errors
-2. Verify SillyTavern has write permissions
-3. Check that chat file is not corrupted
-
-### LLM Not Generating Prompts
-
-1. **Check Meta-Prompt**: Ensure a meta-prompt preset is selected
-2. **Adjust Frequency**: Create a custom preset and modify the word interval in the template (e.g., change from 250 to 150 words for more frequent images)
-3. **LLM Context**: Ensure LLM has sufficient context window for meta-prompt
-4. **Test Manually**: Ask the LLM to include `<!--img-prompt="test"-->` in response
-
-### Streaming Issues
-
-1. **Enable Streaming**: Ensure "Enable Streaming" is checked in settings
-2. **Check Logs**: Look for `[Auto Illustrator] [Monitor]` and `[Auto Illustrator] [Processor]` logs
-   - Set **Log Level** to **DEBUG** to see detailed streaming activity
-3. **Adjust Poll Interval**: If prompts are missed, try reducing the poll interval
-4. **Concurrency**: If getting rate limit errors, reduce max concurrent generations to 1
-5. **Two-Way Handshake**: Images insert after BOTH generation completes AND MESSAGE_RECEIVED fires
-
-### Too Much Console Output
-
-The extension uses structured logging with configurable verbosity:
-1. Go to **Extensions** > **Auto Illustrator** settings
-2. Change **Log Level** to **WARN** or **ERROR** for less output
-3. Use **SILENT** to disable all logging
-4. Use **DEBUG** or **TRACE** only when troubleshooting
-
-### Extension Not Loading
-
-1. **Check Installation**: Verify extension is installed via Extensions menu
-2. **Restart SillyTavern**: Fully restart the application
-3. **Check Console**: Look for initialization errors in browser DevTools
-4. **Verify Prerequisites**: Ensure SD extension is installed and working
+For more detailed troubleshooting, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
 ## Contributing
 
