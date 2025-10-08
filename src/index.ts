@@ -31,6 +31,7 @@ import {
   initializeConcurrencyLimiter,
   updateMaxConcurrent,
 } from './image_generator';
+import {initializeI18n, t} from './i18n';
 
 const logger = createLogger('Main');
 
@@ -282,10 +283,7 @@ function handlePresetEdit(): void {
  */
 function handlePresetSave(): void {
   if (isPresetPredefined(settings.currentPresetId)) {
-    toastr.error(
-      'Cannot save changes to predefined presets. Use "Save As" to create a custom preset.',
-      'Auto Illustrator'
-    );
+    toastr.error(t('settings.cannotDeletePredefined'), t('extensionName'));
     return;
   }
 
@@ -301,7 +299,7 @@ function handlePresetSave(): void {
     p => p.id === settings.currentPresetId
   );
   if (presetIndex === -1) {
-    toastr.error('Preset not found', 'Auto Illustrator');
+    toastr.error(t('toast.presetNotFound'), t('extensionName'));
     return;
   }
 
@@ -321,7 +319,7 @@ function handlePresetSave(): void {
   isEditingPreset = false;
 
   updateUI();
-  toastr.success('Preset saved', 'Auto Illustrator');
+  toastr.success(t('toast.presetSaved'), t('extensionName'));
   logger.info('Preset saved:', settings.customPresets[presetIndex].name);
 }
 
@@ -335,7 +333,7 @@ function handlePresetSaveAs(): void {
   if (!metaPromptTextarea) return;
 
   const content = metaPromptTextarea.value;
-  const name = prompt('Enter name for new preset:');
+  const name = prompt(t('prompt.enterPresetName'));
 
   if (!name || name.trim() === '') {
     return;
@@ -345,10 +343,7 @@ function handlePresetSaveAs(): void {
 
   // Check if name is a predefined preset name
   if (isPredefinedPresetName(trimmedName)) {
-    toastr.error(
-      'Cannot use predefined preset names (Default, NAI 4.5 Full)',
-      'Auto Illustrator'
-    );
+    toastr.error(t('toast.cannotUsePredefinedNames'), t('extensionName'));
     return;
   }
 
@@ -358,7 +353,7 @@ function handlePresetSaveAs(): void {
   );
 
   if (existingPreset) {
-    const overwrite = confirm(`Overwrite existing preset '${trimmedName}'?`);
+    const overwrite = confirm(t('prompt.overwritePreset', {name: trimmedName}));
     if (!overwrite) {
       return;
     }
@@ -395,7 +390,10 @@ function handlePresetSaveAs(): void {
   isEditingPreset = false;
 
   updateUI();
-  toastr.success(`Preset '${trimmedName}' saved`, 'Auto Illustrator');
+  toastr.success(
+    t('toast.presetSavedNamed', {name: trimmedName}),
+    t('extensionName')
+  );
   logger.info('Preset saved as:', trimmedName);
 }
 
@@ -432,7 +430,7 @@ function handlePresetCancel(): void {
  */
 function handlePresetDelete(): void {
   if (isPresetPredefined(settings.currentPresetId)) {
-    toastr.error('Cannot delete predefined presets', 'Auto Illustrator');
+    toastr.error(t('toast.cannotDeletePredefined'), t('extensionName'));
     return;
   }
 
@@ -440,11 +438,13 @@ function handlePresetDelete(): void {
     p => p.id === settings.currentPresetId
   );
   if (!preset) {
-    toastr.error('Preset not found', 'Auto Illustrator');
+    toastr.error(t('toast.presetNotFound'), t('extensionName'));
     return;
   }
 
-  const confirmDelete = confirm(`Delete preset '${preset.name}'?`);
+  const confirmDelete = confirm(
+    t('prompt.overwritePreset', {name: preset.name})
+  );
   if (!confirmDelete) {
     return;
   }
@@ -462,7 +462,10 @@ function handlePresetDelete(): void {
   saveSettings(settings, context);
   updateUI();
 
-  toastr.success(`Preset '${preset.name}' deleted`, 'Auto Illustrator');
+  toastr.success(
+    t('toast.presetDeleted', {name: preset.name}),
+    t('extensionName')
+  );
   logger.info('Preset deleted:', preset.name);
 }
 
@@ -618,8 +621,8 @@ async function handleGenerationEnded(): Promise<void> {
   const failedCount = stats.FAILED;
   if (failedCount > 0) {
     toastr.warning(
-      `${failedCount} image${failedCount > 1 ? 's' : ''} failed to generate during streaming`,
-      'Auto Illustrator'
+      t('toast.streamingFailed', {count: failedCount}),
+      t('extensionName')
     );
   }
 
@@ -641,6 +644,10 @@ function initialize(): void {
     logger.error('Failed to get SillyTavern context:', error);
     return;
   }
+
+  // Initialize i18n
+  initializeI18n(context);
+  logger.info('Initialized i18n');
 
   // Load settings
   settings = loadSettings(context);

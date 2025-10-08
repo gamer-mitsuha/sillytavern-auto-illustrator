@@ -84,6 +84,7 @@ declare global {
       message: any,
       options?: {rerenderMessage?: boolean}
     ): void;
+    translate(text: string, key?: string | null): string;
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
