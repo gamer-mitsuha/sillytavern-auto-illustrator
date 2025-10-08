@@ -212,6 +212,18 @@ async function generateImagesForMessageImpl(
   settings: AutoIllustratorSettings
 ): Promise<number> {
   try {
+    // Check if streaming is active for this message
+    if (isStreamingActive(messageId)) {
+      logger.warn(
+        `Cannot generate images for message ${messageId}: streaming is active`
+      );
+      toastr.warning(
+        t('toast.cannotGenerateMessageStreaming'),
+        t('extensionName')
+      );
+      return 0;
+    }
+
     logger.info(`Generating images for message ${messageId} in ${mode} mode`);
 
     const message = context.chat?.[messageId];
@@ -709,6 +721,18 @@ async function regenerateImageImpl(
   settings: AutoIllustratorSettings
 ): Promise<number> {
   try {
+    // Check if streaming is active for this message
+    if (isStreamingActive(messageId)) {
+      logger.warn(
+        `Cannot regenerate image for message ${messageId}: streaming is active`
+      );
+      toastr.warning(
+        t('toast.cannotGenerateMessageStreaming'),
+        t('extensionName')
+      );
+      return 0;
+    }
+
     // Initial message check
     let message = context.chat?.[messageId];
     if (!message) {
