@@ -34,6 +34,10 @@ export default {
                 test: /\.html$/,
                 use: { loader: 'html-loader' },
             },
+            {
+                test: /\.md$/,
+                type: 'asset/source',
+            },
         ],
     },
     plugins: [

@@ -181,13 +181,13 @@ describe('meta_prompt_presets', () => {
     it('NAI 4.5 Full preset should contain NAI-specific content', () => {
       const preset = getPredefinedPresetById('nai-4.5-full');
       expect(preset?.template).toContain('NovelAI Diffusion 4.5');
-      expect(preset?.template).toContain('NAI 4.5 Full');
-      expect(preset?.template).toContain('danbooru');
+      expect(preset?.template).toContain('NovelAI 4.5 FULL');
+      expect(preset?.template).toContain('Danbooru');
     });
 
-    it('NAI 4.5 Full preset should have example prompt', () => {
+    it('NAI 4.5 Full preset should have example prompts', () => {
       const preset = getPredefinedPresetById('nai-4.5-full');
-      expect(preset?.template).toContain('Example prompt');
+      expect(preset?.template).toContain('Example Prompts');
       expect(preset?.template).toContain('<!--img-prompt=');
     });
   });
