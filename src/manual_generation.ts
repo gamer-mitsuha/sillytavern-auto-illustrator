@@ -585,6 +585,15 @@ export async function regenerateImage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
+  // Check if manual generation is already active for this message
+  if (activeManualGenerations.has(messageId)) {
+    logger.warn(
+      `Cannot regenerate image for message ${messageId}: manual generation already active`
+    );
+    toastr.warning(t('toast.manualGenerationInProgress'), t('extensionName'));
+    return 0;
+  }
+
   // Mark this message as having active manual generation
   activeManualGenerations.add(messageId);
 

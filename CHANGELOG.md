@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extended prompt detection to support three formats: HTML comments (new), hyphenated tags, and underscored tags (legacy)
 - Manual generation and image regeneration now check message-specific streaming status before proceeding
 - Streaming generation now checks for active manual generation before starting for a message
+- Image regeneration now prevents concurrent execution with manual generation on the same message
 - Updated documentation to reflect removal of word interval setting
 - Clarified that image generation frequency is controlled via meta prompt presets
 
