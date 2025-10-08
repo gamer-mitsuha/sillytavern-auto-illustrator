@@ -65,7 +65,6 @@
   "toast.cannotUsePredefinedNames": "无法使用预定义预设名称（Default、NAI 4.5 Full）",
   "toast.cannotGenerateWhileStreaming": "无法在流式生成进行中时生成图像，请等待当前消息完成",
   "toast.cannotGenerateMessageStreaming": "无法为该消息生成图像：正在流式生成中",
-  "toast.manualGenerationInProgress": "无法重新生成图像：该消息正在进行手动生成",
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
   "button.manualGenerate": "从提示生成图像"

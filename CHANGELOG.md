@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Simplified Chinese (zh-CN) README translation (README_CN.md)
-- Per-message concurrency control to prevent race conditions between streaming and manual generation
+- Per-message operation queue system to serialize manual generation and regeneration operations
 - Manual generation state tracking for each message to avoid conflicts with streaming
 - Multi-pattern prompt detection system supporting multiple tag formats simultaneously
 - Configurable prompt detection patterns in settings UI (one regex pattern per line)
@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extended prompt detection to support three formats: HTML comments (new), hyphenated tags, and underscored tags (legacy)
 - Manual generation and image regeneration now check message-specific streaming status before proceeding
 - Streaming generation now checks for active manual generation before starting for a message
-- Image regeneration now prevents concurrent execution with manual generation on the same message
+- All manual generation and regeneration operations for same message now queue and execute sequentially
+- `isManualGenerationActive()` now checks both actively executing and queued operations
 - Updated documentation to reflect removal of word interval setting
 - Clarified that image generation frequency is controlled via meta prompt presets
 
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **CRITICAL**: Fixed image insertion failing by storing full matched tag (`fullMatch`) in queue instead of reconstructing tag format
+- Race conditions between manual generation and regeneration on same message by implementing operation queue
+- Streaming no longer starts when manual generation operations are queued but not yet executing
 - **CRITICAL**: Fixed manual generation not inserting images by using `fullMatch` instead of hardcoded tag format and re-extracting prompts after text modifications
 - **CRITICAL**: Fixed image regeneration failing to find prompts by supporting multi-pattern detection in `findPromptForImage()`, `findImageIndexInPrompt()`, and `countRegeneratedImages()`
 - **CRITICAL**: Fixed all remaining hardcoded tag patterns in `hasExistingImage()`, `removeExistingImages()`, and `pruneGeneratedImages()` to support multi-pattern detection

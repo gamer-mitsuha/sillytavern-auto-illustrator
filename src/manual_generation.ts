@@ -12,16 +12,93 @@ import {isStreamingActive} from './index';
 
 const logger = createLogger('ManualGen');
 
-// Track active manual generations per message
-const activeManualGenerations = new Set<number>();
+// Per-message operation queue to serialize manual generation and regeneration
+// This prevents race conditions when multiple operations target the same message
+interface MessageOperation {
+  execute: () => Promise<void>;
+}
+
+const messageOperationQueues = new Map<number, MessageOperation[]>();
+const activeMessageOperations = new Set<number>();
+
+/**
+ * Queues an operation for a specific message and executes it when ready
+ * Operations for the same message are executed sequentially to avoid race conditions
+ * @param messageId - Message ID
+ * @param operation - Async operation to execute
+ */
+async function queueMessageOperation(
+  messageId: number,
+  operation: () => Promise<void>
+): Promise<void> {
+  // Get or create queue for this message
+  if (!messageOperationQueues.has(messageId)) {
+    messageOperationQueues.set(messageId, []);
+  }
+
+  const queue = messageOperationQueues.get(messageId)!;
+  const isQueueActive = activeMessageOperations.has(messageId);
+
+  // Add operation to queue
+  return new Promise((resolve, reject) => {
+    queue.push({
+      execute: async () => {
+        try {
+          await operation();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      },
+    });
+
+    // If queue is not currently processing, start processing
+    if (!isQueueActive) {
+      processMessageQueue(messageId);
+    }
+  });
+}
+
+/**
+ * Processes all queued operations for a message sequentially
+ * @param messageId - Message ID
+ */
+async function processMessageQueue(messageId: number): Promise<void> {
+  const queue = messageOperationQueues.get(messageId);
+  if (!queue || queue.length === 0) {
+    return;
+  }
+
+  // Mark queue as active
+  activeMessageOperations.add(messageId);
+
+  try {
+    while (queue.length > 0) {
+      const operation = queue.shift()!;
+      await operation.execute();
+    }
+  } finally {
+    // Mark queue as inactive and clean up
+    activeMessageOperations.delete(messageId);
+    messageOperationQueues.delete(messageId);
+  }
+}
 
 /**
  * Checks if manual generation is currently active for a specific message
+ * This includes both actively executing operations and queued operations
  * @param messageId - Message ID to check
- * @returns True if manual generation is active for this message
+ * @returns True if manual generation is active or queued for this message
  */
 export function isManualGenerationActive(messageId: number): boolean {
-  return activeManualGenerations.has(messageId);
+  // Check if actively running
+  if (activeMessageOperations.has(messageId)) {
+    return true;
+  }
+
+  // Check if has queued operations
+  const queue = messageOperationQueues.get(messageId);
+  return queue !== undefined && queue.length > 0;
 }
 
 /**
@@ -111,9 +188,29 @@ export async function generateImagesForMessage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  // Mark this message as having active manual generation
-  activeManualGenerations.add(messageId);
+  // Queue this operation to avoid race conditions
+  let result = 0;
+  await queueMessageOperation(messageId, async () => {
+    result = await generateImagesForMessageImpl(
+      messageId,
+      mode,
+      context,
+      settings
+    );
+  });
+  return result;
+}
 
+/**
+ * Internal implementation of generateImagesForMessage
+ * This is executed within the message operation queue
+ */
+async function generateImagesForMessageImpl(
+  messageId: number,
+  mode: ManualGenerationMode,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<number> {
   try {
     logger.info(`Generating images for message ${messageId} in ${mode} mode`);
 
@@ -279,9 +376,10 @@ export async function generateImagesForMessage(
     }
 
     return successCount;
-  } finally {
-    // Clear active manual generation state
-    activeManualGenerations.delete(messageId);
+  } catch (error) {
+    logger.error('Error during manual image generation:', error);
+    toastr.error(t('toast.failedToGenerate'), t('extensionName'));
+    return 0;
   }
 }
 
@@ -585,18 +683,31 @@ export async function regenerateImage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  // Check if manual generation is already active for this message
-  if (activeManualGenerations.has(messageId)) {
-    logger.warn(
-      `Cannot regenerate image for message ${messageId}: manual generation already active`
+  // Queue this operation to avoid race conditions
+  let result = 0;
+  await queueMessageOperation(messageId, async () => {
+    result = await regenerateImageImpl(
+      messageId,
+      imageSrc,
+      mode,
+      context,
+      settings
     );
-    toastr.warning(t('toast.manualGenerationInProgress'), t('extensionName'));
-    return 0;
-  }
+  });
+  return result;
+}
 
-  // Mark this message as having active manual generation
-  activeManualGenerations.add(messageId);
-
+/**
+ * Internal implementation of regenerateImage
+ * This is executed within the message operation queue
+ */
+async function regenerateImageImpl(
+  messageId: number,
+  imageSrc: string,
+  mode: ManualGenerationMode,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<number> {
   try {
     // Initial message check
     let message = context.chat?.[messageId];
@@ -758,9 +869,10 @@ export async function regenerateImage(
     }, 100);
 
     return 1;
-  } finally {
-    // Clear active manual generation state
-    activeManualGenerations.delete(messageId);
+  } catch (error) {
+    logger.error('Error during image regeneration:', error);
+    toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
+    return 0;
   }
 }
 
