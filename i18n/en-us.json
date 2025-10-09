@@ -83,6 +83,8 @@
   "toast.cannotUsePredefinedNames": "Cannot use predefined preset names (Default, NAI 4.5 Full)",
   "toast.cannotGenerateWhileStreaming": "Cannot generate images while streaming is in progress, please wait for current message to complete",
   "toast.cannotGenerateMessageStreaming": "Cannot generate images for this message: streaming is active",
+  "toast.valueAdjusted": "Value adjusted from {original} to {clamped} (valid range: {min}-{max}, step: {step})",
+  "toast.valueAdjustedNoStep": "Value adjusted from {original} to {clamped} (valid range: {min}-{max})",
   "prompt.enterPresetName": "Enter name for new preset:",
   "prompt.overwritePreset": "Overwrite existing preset '{name}'?",
   "button.manualGenerate": "Generate images from prompts"

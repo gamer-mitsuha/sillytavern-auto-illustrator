@@ -83,6 +83,8 @@
   "toast.cannotUsePredefinedNames": "无法使用预定义预设名称（Default、NAI 4.5 Full）",
   "toast.cannotGenerateWhileStreaming": "无法在流式生成进行中时生成图像，请等待当前消息完成",
   "toast.cannotGenerateMessageStreaming": "无法为该消息生成图像：正在流式生成中",
+  "toast.valueAdjusted": "数值已从 {original} 调整为 {clamped}（有效范围：{min}-{max}，步长：{step}）",
+  "toast.valueAdjustedNoStep": "数值已从 {original} 调整为 {clamped}（有效范围：{min}-{max}）",
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
   "button.manualGenerate": "从提示词生成图像"

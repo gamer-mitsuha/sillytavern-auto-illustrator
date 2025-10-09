@@ -314,8 +314,9 @@ function handleSettingsChange(): void {
 
   // Validate and clamp numeric settings
   if (streamingPollIntervalInput) {
+    const originalValue = parseInt(streamingPollIntervalInput.value);
     const clampedValue = clampValue(
-      parseInt(streamingPollIntervalInput.value),
+      originalValue,
       STREAMING_POLL_INTERVAL.MIN,
       STREAMING_POLL_INTERVAL.MAX,
       STREAMING_POLL_INTERVAL.STEP
@@ -323,11 +324,26 @@ function handleSettingsChange(): void {
     settings.streamingPollInterval = clampedValue;
     // Update UI to show validated value
     streamingPollIntervalInput.value = clampedValue.toString();
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjusted', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: STREAMING_POLL_INTERVAL.MIN,
+          max: STREAMING_POLL_INTERVAL.MAX,
+          step: STREAMING_POLL_INTERVAL.STEP,
+        }),
+        t('extensionName')
+      );
+    }
   }
 
   if (maxConcurrentInput) {
+    const originalValue = parseInt(maxConcurrentInput.value);
     const clampedValue = clampValue(
-      parseInt(maxConcurrentInput.value),
+      originalValue,
       MAX_CONCURRENT_GENERATIONS.MIN,
       MAX_CONCURRENT_GENERATIONS.MAX,
       MAX_CONCURRENT_GENERATIONS.STEP
@@ -335,11 +351,25 @@ function handleSettingsChange(): void {
     settings.maxConcurrentGenerations = clampedValue;
     // Update UI to show validated value
     maxConcurrentInput.value = clampedValue.toString();
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjustedNoStep', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: MAX_CONCURRENT_GENERATIONS.MIN,
+          max: MAX_CONCURRENT_GENERATIONS.MAX,
+        }),
+        t('extensionName')
+      );
+    }
   }
 
   if (minGenerationIntervalInput) {
+    const originalValue = parseInt(minGenerationIntervalInput.value);
     const clampedValue = clampValue(
-      parseInt(minGenerationIntervalInput.value),
+      originalValue,
       MIN_GENERATION_INTERVAL.MIN,
       MIN_GENERATION_INTERVAL.MAX,
       MIN_GENERATION_INTERVAL.STEP
@@ -347,6 +377,20 @@ function handleSettingsChange(): void {
     settings.minGenerationInterval = clampedValue;
     // Update UI to show validated value
     minGenerationIntervalInput.value = clampedValue.toString();
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjusted', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: MIN_GENERATION_INTERVAL.MIN,
+          max: MIN_GENERATION_INTERVAL.MAX,
+          step: MIN_GENERATION_INTERVAL.STEP,
+        }),
+        t('extensionName')
+      );
+    }
   }
   settings.logLevel =
     (logLevelSelect?.value as AutoIllustratorSettings['logLevel']) ??
