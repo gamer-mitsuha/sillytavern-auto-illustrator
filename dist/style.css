@@ -164,6 +164,11 @@
   box-sizing: border-box;
 }
 
+/* Regeneration confirmation dialog - position lower for easier tapping */
+#auto_illustrator_regen_confirm_dialog {
+  top: 35vh;
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
   .auto-illustrator-dialog {
@@ -171,6 +176,10 @@
     padding: 1rem;
     top: 5vh;
     max-height: 90vh;
+  }
+
+  #auto_illustrator_regen_confirm_dialog {
+    top: 30vh;
   }
 
   .auto-illustrator-dialog h3 {
