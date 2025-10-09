@@ -92,6 +92,7 @@
   "toast.cannotUsePredefinedNames": "Cannot use predefined preset names (Default, NAI 4.5 Full)",
   "toast.cannotGenerateWhileStreaming": "Cannot generate images while streaming is in progress, please wait for current message to complete",
   "toast.cannotGenerateMessageStreaming": "Cannot generate images for this message: streaming is active",
+  "toast.cannotManualWhileStreaming": "Cannot perform this operation while streaming is active for this message",
   "toast.valueAdjusted": "Value adjusted from {original} to {clamped} (valid range: {min}-{max}, step: {step})",
   "toast.valueAdjustedNoStep": "Value adjusted from {original} to {clamped} (valid range: {min}-{max})",
   "toast.feedbackRequired": "Please provide feedback for the prompt update",

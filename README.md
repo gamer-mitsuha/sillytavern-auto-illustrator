@@ -14,6 +14,11 @@ Automatically generates inline images in your SillyTavern conversations based on
 - 🔁 **Manual Generation & Regeneration**: Generate or regenerate images for any message on demand
   - Append mode: Keep existing images and add new ones
   - Replace mode: Remove existing images and regenerate from scratch
+- 🤖 **AI-Powered Prompt Updates**: Click any generated image to update its prompt using LLM feedback
+  - Provide natural language feedback (e.g., "fix hand anatomy", "make background more detailed")
+  - LLM automatically updates the prompt based on your feedback
+  - Full prompt history tracked per image position
+  - Optionally regenerate with the updated prompt
 - 🎯 **Preset Management**: Switch between predefined and custom meta-prompt presets
   - Two predefined presets: Default and NAI 4.5 Full
   - Create, edit, and delete custom presets
@@ -125,6 +130,33 @@ The extension includes a preset management system for organizing and switching b
 - Each preset controls image generation frequency (e.g., every ~250 words) and style guidelines
 - To adjust frequency, create a custom preset and modify the word count in the template
 
+## Advanced Features
+
+### Updating Prompts with AI
+
+When you're not satisfied with a generated image, you can update its prompt using AI assistance:
+
+1. **Click on any AI-generated image** in the conversation
+2. **Select "Update Prompt"** from the dialog
+3. **Provide feedback** in natural language:
+   - "Fix the hand anatomy"
+   - "Make the background more detailed"
+   - "Change the lighting to golden hour"
+   - "Remove the buildings in the background"
+4. **LLM processes your feedback** and updates the prompt automatically
+5. **Choose to regenerate** the image with the updated prompt
+
+**How it works:**
+- The extension tracks the original prompt for each image
+- When you provide feedback, an LLM analyzes the current prompt and your feedback
+- It generates an improved prompt while maintaining the tag format
+- Prompt history is preserved, so you can see how prompts evolved
+- All operations are queued to prevent conflicts with ongoing generation
+
+**Example:**
+- Original prompt: `1girl, long hair, blue eyes, school uniform, classroom`
+- Your feedback: "fix bad hand anatomy and make hands more detailed"
+- Updated prompt: `1girl, long hair, blue eyes, school uniform, classroom, detailed hands, correct anatomy`
 
 ## Common Issues
 

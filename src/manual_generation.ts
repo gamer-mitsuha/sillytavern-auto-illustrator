@@ -993,6 +993,12 @@ async function showPromptUpdateDialog(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<void> {
+  // Check if streaming is active for this message
+  if (isStreamingActive(messageId)) {
+    toastr.warning(t('toast.cannotManualWhileStreaming'), t('extensionName'));
+    return;
+  }
+
   // Check if already active
   if (isManualGenerationActive(messageId)) {
     toastr.warning(t('toast.cannotUpdateDuringGeneration'), t('extensionName'));
