@@ -20,6 +20,9 @@ export class ConcurrencyLimiter {
   constructor(maxConcurrent: number, minInterval = 0) {
     this.maxConcurrent = maxConcurrent;
     this.minInterval = minInterval;
+    logger.info(
+      `ConcurrencyLimiter created: maxConcurrent=${maxConcurrent}, minInterval=${minInterval}ms`
+    );
   }
 
   /**
@@ -69,6 +72,9 @@ export class ConcurrencyLimiter {
    */
   private async waitForMinInterval(): Promise<void> {
     if (this.minInterval === 0 || this.lastCompletionTime === null) {
+      logger.debug(
+        `No interval wait needed (minInterval: ${this.minInterval}ms, lastCompletion: ${this.lastCompletionTime})`
+      );
       return;
     }
 
@@ -76,10 +82,15 @@ export class ConcurrencyLimiter {
     const remaining = this.minInterval - elapsed;
 
     if (remaining > 0) {
-      logger.debug(
-        `Waiting ${remaining}ms before next generation (minInterval: ${this.minInterval}ms)`
+      logger.info(
+        `Waiting ${remaining}ms before next generation (minInterval: ${this.minInterval}ms, elapsed: ${elapsed}ms)`
       );
       await new Promise(resolve => setTimeout(resolve, remaining));
+      logger.info('Wait completed, proceeding with generation');
+    } else {
+      logger.debug(
+        `No wait needed, sufficient time elapsed (${elapsed}ms >= ${this.minInterval}ms)`
+      );
     }
   }
 
