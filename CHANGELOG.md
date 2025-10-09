@@ -26,6 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prompt update operations now queued with generation to prevent race conditions (#14)
 - Enhanced race condition protection: manual operations (generation, regeneration, prompt update) now blocked when streaming active for the same message, preventing conflicts from simultaneous operations
 
+### Fixed
+
+- Prompt update and regeneration confirmation dialogs now visible (#14)
+  - Added CSS styling for `.auto-illustrator-dialog` class
+  - Fixed invisible dialogs that prevented completing the update workflow
+  - Refactored dialog CSS to use generic class for all dialogs (DRY approach)
+- Defensive check for undefined `chat_metadata` prevents errors in old chats (#14)
+- Dialog duplicate prevention for smoother mobile experience (#14)
+- Legacy images without metadata automatically initialized on first access (#14)
+- LLM prompt updates now use `generateRaw()` instead of `generateQuietPrompt()` to prevent story text generation (#14)
+- Prompt IDs no longer written to message text - properly converts IDs to actual prompt text (#14)
+- Image regeneration after prompt update now works correctly with separated sequential operations (#14)
+
 ### Changed
 
 - Simplified README documentation by removing redundant image captions now that demo images are in place
