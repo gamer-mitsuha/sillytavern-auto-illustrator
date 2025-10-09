@@ -76,3 +76,47 @@ export type ManualGenerationMode = 'replace' | 'append';
  * Style tag position type
  */
 export type StyleTagPosition = 'prefix' | 'suffix';
+
+/**
+ * Immutable position identifier for a prompt in chat
+ */
+export interface PromptPosition {
+  readonly messageId: number;
+  readonly promptIndex: number;
+}
+
+/**
+ * Metadata for a single prompt version
+ */
+export interface PromptVersionMetadata {
+  /** Unique identifier for this prompt string */
+  promptId: string;
+
+  /** User feedback that led to this version (empty string for original) */
+  feedback: string;
+
+  /** When this version was created */
+  timestamp: number;
+}
+
+/**
+ * History of prompt versions at a specific position in chat
+ */
+export interface PromptPositionHistory {
+  /** Chronological list of prompt versions */
+  versions: PromptVersionMetadata[];
+}
+
+/**
+ * Auto-illustrator metadata stored per-chat
+ */
+export interface AutoIllustratorChatMetadata {
+  /** Maps image URL to the prompt ID used to generate it */
+  imageUrlToPromptId: Record<string, string>;
+
+  /** Maps prompt ID to actual prompt text (de-duplicated storage) */
+  promptIdToText: Record<string, string>;
+
+  /** Maps prompt position key to version history */
+  promptPositionHistory: Record<string, PromptPositionHistory>;
+}

@@ -165,9 +165,9 @@ describe('meta_prompt_presets', () => {
 
     it('should contain expected formatting rules', () => {
       const prompt = getDefaultMetaPrompt();
-      expect(prompt).toContain('IMPORTANT INSTRUCTION');
-      expect(prompt).toContain('image generation prompts');
-      expect(prompt).toContain('Rules for image prompts');
+      expect(prompt).toContain('Universal Image Prompt Generation Guide');
+      expect(prompt).toContain('Tag-Based Format');
+      expect(prompt).toContain('<!--img-prompt=');
     });
   });
 
