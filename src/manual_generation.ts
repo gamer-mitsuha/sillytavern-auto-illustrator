@@ -851,6 +851,9 @@ async function regenerateImageImpl(
       `Regenerating image for prompt: "${promptText}" (mode: ${mode})`
     );
 
+    // Insert progress widget
+    tryInsertProgressWidgetWithRetry(messageId, 1);
+
     // Generate new image (this respects concurrency limit and may wait in queue)
     toastr.info(t('toast.generatingNewImage'), t('extensionName'));
     const imageUrl = await generateImage(
@@ -860,8 +863,12 @@ async function regenerateImageImpl(
       settings.commonStyleTagsPosition
     );
 
+    // Update progress widget
+    updateProgressWidget(messageId, 1, 1);
+
     if (!imageUrl) {
       toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
+      removeProgressWidget(messageId);
       return 0;
     }
 
@@ -987,6 +994,9 @@ async function regenerateImageImpl(
     toastr.success(t('toast.imageRegenerated'), t('extensionName'));
     logger.info('Image regenerated successfully');
 
+    // Remove progress widget
+    removeProgressWidget(messageId);
+
     // Re-attach click handlers to all images (including the new one)
     setTimeout(() => {
       addImageClickHandlers(context, settings);
@@ -996,6 +1006,7 @@ async function regenerateImageImpl(
   } catch (error) {
     logger.error('Error during image regeneration:', error);
     toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
+    removeProgressWidget(messageId);
     return 0;
   }
 }

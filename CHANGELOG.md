@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Progress widget total count now updates correctly when new prompts are detected during streaming (#19)
   - Widget now shows accurate intermediate states (1/2, 2/3, etc.) instead of just current/current (1/1, 2/2)
   - `insertProgressWidget()` now updates total count when widget already exists instead of failing
+- Progress widget now shows during image regeneration (#19)
+  - Widget displays "Generating images: 0 of 1" during regeneration
+  - Automatically removed after regeneration completes or fails
 
 ### Changed
 
