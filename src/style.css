@@ -147,7 +147,7 @@
 /* All dialogs (manual generation, regeneration, prompt update, confirmation) */
 .auto-illustrator-dialog {
   position: fixed;
-  top: 5vh;
+  top: 10vh;
   left: 50%;
   transform: translateX(-50%);
   background: var(--SmartThemeBlurTintColor, #2a2a2a);
@@ -169,7 +169,7 @@
   .auto-illustrator-dialog {
     width: 95%;
     padding: 1rem;
-    top: 2vh;
+    top: 5vh;
     max-height: 90vh;
   }
 
