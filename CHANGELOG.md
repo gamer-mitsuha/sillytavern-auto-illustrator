@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Stores prompt history per-position in chat
   - Tracks image-to-prompt associations
   - De-duplicates identical prompts across chat
+- AI-powered prompt update dialog (#14)
+  - Click on any AI-generated image and select "Update Prompt"
+  - Provide feedback on what you want to change
+  - LLM automatically updates the prompt based on your feedback
+  - Optionally regenerate image with updated prompt
 - Minimum generation interval setting to enforce time delay between consecutive image generation requests (helps prevent rate limiting)
 
 ### Improved

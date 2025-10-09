@@ -5,10 +5,16 @@
 
 import {extractImagePrompts, hasImagePrompts} from './image_extractor';
 import {generateImage} from './image_generator';
-import type {ManualGenerationMode, ImagePromptMatch} from './types';
+import type {
+  ManualGenerationMode,
+  ImagePromptMatch,
+  PromptPosition,
+} from './types';
 import {createLogger} from './logger';
 import {t, tCount} from './i18n';
 import {isStreamingActive} from './index';
+import {getCurrentPromptId, getPromptText} from './prompt_metadata';
+import {updatePromptForPosition} from './prompt_updater';
 
 const logger = createLogger('ManualGen');
 
@@ -584,6 +590,60 @@ export function findPromptForImage(
 }
 
 /**
+ * Finds the prompt position for a given image in a message
+ * @param messageId - Message ID
+ * @param imageSrc - Source URL of the image
+ * @param text - Message text
+ * @param patterns - Optional array of regex pattern strings to use for detection
+ * @returns PromptPosition or null if not found
+ */
+function findPromptPositionForImage(
+  messageId: number,
+  imageSrc: string,
+  text: string,
+  patterns?: string[]
+): PromptPosition | null {
+  // Find the image tag in the text
+  const imgPattern = new RegExp(
+    `<img\\s+src="${imageSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`,
+    'g'
+  );
+  const imgMatch = imgPattern.exec(text);
+
+  if (!imgMatch) {
+    logger.warn('Image not found in message text:', imageSrc);
+    return null;
+  }
+
+  const imgIndex = imgMatch.index;
+
+  // Search backwards from the image position to find the closest img_prompt tag
+  const textBeforeImg = text.substring(0, imgIndex);
+
+  // Use extractImagePrompts to find all prompts before the image
+  const promptsBeforeImg = extractImagePrompts(textBeforeImg, patterns);
+
+  if (promptsBeforeImg.length === 0) {
+    logger.warn('No prompt found before image');
+    return null;
+  }
+
+  // The last prompt before the image is the one we want
+  const targetPrompt = promptsBeforeImg[promptsBeforeImg.length - 1].prompt;
+
+  // Now find the index of this prompt in the full message
+  const allPrompts = extractImagePrompts(text, patterns);
+  const promptIndex = allPrompts.findIndex(p => p.prompt === targetPrompt);
+
+  if (promptIndex === -1) {
+    logger.warn('Could not find prompt index in full message');
+    return null;
+  }
+
+  return {messageId, promptIndex};
+}
+
+/**
  * Finds the index (1-based) of a specific image after a prompt
  * @param text - Message text
  * @param promptText - The prompt text
@@ -920,6 +980,238 @@ async function regenerateImageImpl(
 }
 
 /**
+ * Shows prompt update dialog for an image and handles the update
+ * @param messageId - Message ID
+ * @param imageSrc - Source URL of image
+ * @param context - SillyTavern context
+ * @param settings - Extension settings
+ */
+async function showPromptUpdateDialog(
+  messageId: number,
+  imageSrc: string,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<void> {
+  const message = context.chat?.[messageId];
+  if (!message) {
+    logger.error('Message not found:', messageId);
+    toastr.error(t('toast.messageNotFound'), t('extensionName'));
+    return;
+  }
+
+  // Find prompt position for this image
+  const position = findPromptPositionForImage(
+    messageId,
+    imageSrc,
+    message.mes,
+    settings.promptDetectionPatterns
+  );
+
+  if (!position) {
+    toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
+    return;
+  }
+
+  // Get current prompt text
+  const currentPromptId = getCurrentPromptId(position, context);
+  const currentPromptMaybe = currentPromptId
+    ? getPromptText(currentPromptId, context)
+    : findPromptForImage(
+        message.mes,
+        imageSrc,
+        settings.promptDetectionPatterns
+      );
+
+  if (!currentPromptMaybe) {
+    toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
+    return;
+  }
+
+  const currentPrompt: string = currentPromptMaybe;
+
+  // Show dialog to get user feedback
+  const userFeedback = await new Promise<string | null>(resolve => {
+    // Create backdrop
+    const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+
+    const dialog = $('<div>')
+      .attr('id', 'auto_illustrator_prompt_update_dialog')
+      .addClass('auto-illustrator-dialog');
+
+    dialog.append($('<h3>').text(t('dialog.updatePromptTitle')));
+
+    // Show current prompt (read-only)
+    dialog.append($('<label>').text(t('dialog.currentPrompt')));
+    const currentPromptDisplay = $('<div>')
+      .addClass('auto-illustrator-current-prompt')
+      .text(currentPrompt);
+    dialog.append(currentPromptDisplay);
+
+    // User feedback textarea
+    dialog.append($('<label>').text(t('dialog.userFeedback')));
+    const feedbackTextarea = $('<textarea>')
+      .addClass('auto-illustrator-feedback-textarea')
+      .attr('placeholder', t('dialog.feedbackPlaceholder'))
+      .attr('rows', '4');
+    dialog.append(feedbackTextarea);
+
+    const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+
+    const updateBtn = $('<button>')
+      .text(t('dialog.updateWithAI'))
+      .addClass('menu_button')
+      .on('click', () => {
+        const feedback = feedbackTextarea.val() as string;
+        if (!feedback || feedback.trim() === '') {
+          toastr.warning(t('toast.feedbackRequired'), t('extensionName'));
+          return;
+        }
+        backdrop.remove();
+        dialog.remove();
+        resolve(feedback.trim());
+      });
+
+    const cancelBtn = $('<button>')
+      .text(t('dialog.cancel'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve(null);
+      });
+
+    buttons.append(updateBtn).append(cancelBtn);
+    dialog.append(buttons);
+
+    // Append backdrop and dialog to body
+    $('body').append(backdrop).append(dialog);
+
+    // Close on backdrop click
+    backdrop.on('click', () => {
+      backdrop.remove();
+      dialog.remove();
+      resolve(null);
+    });
+
+    // Focus on textarea
+    feedbackTextarea.focus();
+  });
+
+  if (!userFeedback) {
+    logger.info('Prompt update cancelled by user');
+    return;
+  }
+
+  // Update prompt using LLM
+  try {
+    toastr.info(t('toast.updatingPromptWithAI'), t('extensionName'));
+
+    const newPromptMaybe = await updatePromptForPosition(
+      position,
+      userFeedback,
+      context
+    );
+
+    if (!newPromptMaybe) {
+      logger.error('Failed to update prompt - LLM returned null');
+      toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+      return;
+    }
+
+    const newPrompt: string = newPromptMaybe;
+
+    logger.info(`Prompt updated: "${currentPrompt}" -> "${newPrompt}"`);
+
+    // Replace the old prompt in the message with the new one
+    const prompts = extractImagePrompts(
+      message.mes,
+      settings.promptDetectionPatterns
+    );
+    const promptMatch = prompts[position.promptIndex];
+
+    if (!promptMatch) {
+      logger.error('Could not find prompt match in message');
+      toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+      return;
+    }
+
+    // Replace the prompt content in the tag
+    let newText = message.mes;
+    const oldTag = promptMatch.fullMatch;
+    // Escape special regex characters in currentPrompt for safe replacement
+    const escapedPrompt = currentPrompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const newTag = oldTag.replace(new RegExp(escapedPrompt, 'g'), newPrompt);
+
+    newText = newText.replace(oldTag, newTag);
+    message.mes = newText;
+
+    // Emit proper event sequence for DOM update
+    const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+    await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+    context.updateMessageBlock(messageId, message);
+
+    const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+    await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+    // Save chat
+    await context.saveChat();
+
+    toastr.success(t('toast.promptUpdated'), t('extensionName'));
+
+    // Ask user if they want to regenerate the image
+    const shouldRegenerate = await new Promise<boolean>(resolve => {
+      const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+
+      const dialog = $('<div>')
+        .attr('id', 'auto_illustrator_regen_confirm_dialog')
+        .addClass('auto-illustrator-dialog');
+
+      dialog.append($('<p>').text(t('dialog.promptUpdatedRegenerate')));
+
+      const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+
+      const yesBtn = $('<button>')
+        .text(t('dialog.yes'))
+        .addClass('menu_button')
+        .on('click', () => {
+          backdrop.remove();
+          dialog.remove();
+          resolve(true);
+        });
+
+      const noBtn = $('<button>')
+        .text(t('dialog.no'))
+        .addClass('menu_button')
+        .on('click', () => {
+          backdrop.remove();
+          dialog.remove();
+          resolve(false);
+        });
+
+      buttons.append(yesBtn).append(noBtn);
+      dialog.append(buttons);
+
+      $('body').append(backdrop).append(dialog);
+
+      backdrop.on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve(false);
+      });
+    });
+
+    if (shouldRegenerate) {
+      // Regenerate the image with the new prompt (replace mode)
+      await regenerateImage(messageId, imageSrc, 'replace', context, settings);
+    }
+  } catch (error) {
+    logger.error('Error updating prompt:', error);
+    toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+  }
+}
+
+/**
  * Deletes a specific image from a message
  * @param messageId - Message ID
  * @param imageSrc - Source URL of image to delete
@@ -1017,98 +1309,111 @@ async function showRegenerationDialog(
   const dialogMessage = t('dialog.whatToDo');
 
   // Show confirmation dialog with mode selection
-  const action = await new Promise<ManualGenerationMode | 'delete' | null>(
-    resolve => {
-      // Create backdrop
-      const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+  const action = await new Promise<
+    ManualGenerationMode | 'delete' | 'update_prompt' | null
+  >(resolve => {
+    // Create backdrop
+    const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
 
-      const dialog = $('<div>')
-        .attr('id', 'auto_illustrator_regen_dialog')
-        .addClass('auto-illustrator-dialog');
+    const dialog = $('<div>')
+      .attr('id', 'auto_illustrator_regen_dialog')
+      .addClass('auto-illustrator-dialog');
 
-      dialog.append($('<p>').text(dialogMessage));
+    dialog.append($('<p>').text(dialogMessage));
 
-      const modeGroup = $('<div>').addClass('auto-illustrator-mode-group');
+    const modeGroup = $('<div>').addClass('auto-illustrator-mode-group');
 
-      const replaceOption = $('<label>')
-        .addClass('auto-illustrator-mode-option')
-        .append(
-          $('<input>')
-            .attr('type', 'radio')
-            .attr('name', 'regen_mode')
-            .val('replace')
-            .prop('checked', settings.manualGenerationMode === 'replace')
+    const replaceOption = $('<label>')
+      .addClass('auto-illustrator-mode-option')
+      .append(
+        $('<input>')
+          .attr('type', 'radio')
+          .attr('name', 'regen_mode')
+          .val('replace')
+          .prop('checked', settings.manualGenerationMode === 'replace')
+      )
+      .append(
+        $('<span>').html(
+          `<strong>${t('dialog.replace')}</strong> ${t('dialog.replaceRegen')}`
         )
-        .append(
-          $('<span>').html(
-            `<strong>${t('dialog.replace')}</strong> ${t('dialog.replaceRegen')}`
-          )
-        );
+      );
 
-      const appendOption = $('<label>')
-        .addClass('auto-illustrator-mode-option')
-        .append(
-          $('<input>')
-            .attr('type', 'radio')
-            .attr('name', 'regen_mode')
-            .val('append')
-            .prop('checked', settings.manualGenerationMode === 'append')
+    const appendOption = $('<label>')
+      .addClass('auto-illustrator-mode-option')
+      .append(
+        $('<input>')
+          .attr('type', 'radio')
+          .attr('name', 'regen_mode')
+          .val('append')
+          .prop('checked', settings.manualGenerationMode === 'append')
+      )
+      .append(
+        $('<span>').html(
+          `<strong>${t('dialog.append')}</strong> ${t('dialog.appendRegen')}`
         )
-        .append(
-          $('<span>').html(
-            `<strong>${t('dialog.append')}</strong> ${t('dialog.appendRegen')}`
-          )
-        );
+      );
 
-      modeGroup.append(appendOption).append(replaceOption);
-      dialog.append(modeGroup);
+    modeGroup.append(appendOption).append(replaceOption);
+    dialog.append(modeGroup);
 
-      const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+    const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
 
-      const generateBtn = $('<button>')
-        .text(t('dialog.generate'))
-        .addClass('menu_button')
-        .on('click', () => {
-          const selectedMode = dialog
-            .find('input[name="regen_mode"]:checked')
-            .val() as ManualGenerationMode;
-          backdrop.remove();
-          dialog.remove();
-          resolve(selectedMode);
-        });
+    const generateBtn = $('<button>')
+      .text(t('dialog.generate'))
+      .addClass('menu_button')
+      .on('click', () => {
+        const selectedMode = dialog
+          .find('input[name="regen_mode"]:checked')
+          .val() as ManualGenerationMode;
+        backdrop.remove();
+        dialog.remove();
+        resolve(selectedMode);
+      });
 
-      const deleteBtn = $('<button>')
-        .text(t('dialog.delete'))
-        .addClass('menu_button caution')
-        .on('click', () => {
-          backdrop.remove();
-          dialog.remove();
-          resolve('delete');
-        });
+    const updatePromptBtn = $('<button>')
+      .text(t('dialog.updatePrompt'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve('update_prompt');
+      });
 
-      const cancelBtn = $('<button>')
-        .text(t('dialog.cancel'))
-        .addClass('menu_button')
-        .on('click', () => {
-          backdrop.remove();
-          dialog.remove();
-          resolve(null);
-        });
+    const deleteBtn = $('<button>')
+      .text(t('dialog.delete'))
+      .addClass('menu_button caution')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve('delete');
+      });
 
-      buttons.append(generateBtn).append(deleteBtn).append(cancelBtn);
-      dialog.append(buttons);
-
-      // Append backdrop and dialog to body
-      $('body').append(backdrop).append(dialog);
-
-      // Close on backdrop click
-      backdrop.on('click', () => {
+    const cancelBtn = $('<button>')
+      .text(t('dialog.cancel'))
+      .addClass('menu_button')
+      .on('click', () => {
         backdrop.remove();
         dialog.remove();
         resolve(null);
       });
-    }
-  );
+
+    buttons
+      .append(generateBtn)
+      .append(updatePromptBtn)
+      .append(deleteBtn)
+      .append(cancelBtn);
+    dialog.append(buttons);
+
+    // Append backdrop and dialog to body
+    $('body').append(backdrop).append(dialog);
+
+    // Close on backdrop click
+    backdrop.on('click', () => {
+      backdrop.remove();
+      dialog.remove();
+      resolve(null);
+    });
+  });
 
   if (!action) {
     logger.info('Action cancelled by user');
@@ -1118,6 +1423,9 @@ async function showRegenerationDialog(
   if (action === 'delete') {
     // Delete the image
     await deleteImage(messageId, imageSrc, context, settings);
+  } else if (action === 'update_prompt') {
+    // Update prompt with AI
+    await showPromptUpdateDialog(messageId, imageSrc, context, settings);
   } else {
     // Regenerate image
     await regenerateImage(messageId, imageSrc, action, context, settings);
