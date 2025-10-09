@@ -8,7 +8,6 @@ import type {
   AutoIllustratorChatMetadata,
   PromptPositionHistory,
   PromptPosition,
-  PromptVersionMetadata,
 } from './types';
 
 const logger = createLogger('PromptMetadata');

@@ -4,10 +4,16 @@
  */
 
 import {extractImagePrompts} from './image_extractor';
-import type {DeferredImage} from './types';
+import type {DeferredImage, PromptPosition} from './types';
 import {createLogger} from './logger';
 import {ConcurrencyLimiter} from './concurrency_limiter';
 import {t, tCount} from './i18n';
+import {
+  getCurrentPromptId,
+  recordImagePrompt,
+  recordPrompt,
+  initializePromptPosition,
+} from './prompt_metadata';
 
 const logger = createLogger('Generator');
 
@@ -277,6 +283,7 @@ export function applyCommonTags(
  * @param patterns - Optional array of regex pattern strings to use for detection
  * @param commonTags - Optional common style tags to apply
  * @param tagsPosition - Position for common tags ('prefix' or 'suffix')
+ * @param messageId - Optional message ID for metadata tracking
  * @returns Text with prompts replaced by image tags
  */
 export async function replacePromptsWithImages(
@@ -284,7 +291,8 @@ export async function replacePromptsWithImages(
   context: SillyTavernContext,
   patterns?: string[],
   commonTags?: string,
-  tagsPosition?: 'prefix' | 'suffix'
+  tagsPosition?: 'prefix' | 'suffix',
+  messageId?: number
 ): Promise<string> {
   const matches = extractImagePrompts(text, patterns);
 
@@ -298,6 +306,19 @@ export async function replacePromptsWithImages(
     'Extracted prompts:',
     matches.map(m => m.prompt)
   );
+
+  // Initialize prompt metadata if messageId is provided
+  if (messageId !== undefined) {
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const promptId = recordPrompt(match.prompt, context);
+      const position: PromptPosition = {messageId, promptIndex: i};
+      initializePromptPosition(position, promptId, context);
+      logger.debug(
+        `Initialized metadata for prompt at position ${messageId}_${i}`
+      );
+    }
+  }
 
   // Show notification that image generation is starting
   const imageCount = matches.length;
@@ -354,6 +375,20 @@ export async function replacePromptsWithImages(
       if (insertion.success) {
         result = insertion.text;
         logger.info('Added image after prompt at index', i);
+
+        // Record image-prompt association if messageId is provided
+        if (messageId !== undefined) {
+          const position: PromptPosition = {messageId, promptIndex: i};
+          const promptId = getCurrentPromptId(position, context);
+          if (promptId) {
+            recordImagePrompt(imageUrl, promptId, context);
+            logger.debug(
+              `Recorded image-prompt association: ${imageUrl} -> ${promptId}`
+            );
+          } else {
+            logger.warn(`No promptId found for position ${messageId}_${i}`);
+          }
+        }
       }
     } else {
       // Keep the prompt tag even if generation failed
@@ -425,6 +460,33 @@ export async function insertDeferredImages(
     if (insertion.success) {
       finalText = insertion.text;
       successCount++;
+
+      // Record image-prompt association in metadata
+      // Extract all prompts from current message to determine index
+      const allPrompts = extractImagePrompts(finalText);
+      const promptIndex = allPrompts.findIndex(
+        p =>
+          p.startIndex === prompt.startIndex &&
+          p.endIndex === prompt.endIndex &&
+          p.prompt === prompt.prompt
+      );
+
+      if (promptIndex >= 0) {
+        const position: PromptPosition = {messageId, promptIndex};
+        const promptId = getCurrentPromptId(position, context);
+        if (promptId) {
+          recordImagePrompt(imageUrl, promptId, context);
+          logger.debug(
+            `Recorded image-prompt association: ${imageUrl} -> ${promptId}`
+          );
+        } else {
+          logger.warn(
+            `No promptId found for position ${messageId}_${promptIndex}`
+          );
+        }
+      } else {
+        logger.warn('Could not find prompt index after insertion');
+      }
     }
   }
 

@@ -90,7 +90,8 @@ describe('PromptUpdater', () => {
       initializePromptPosition(position, originalId, mockContext);
 
       // Remove LLM function
-      mockContext.generateQuietPrompt = undefined as any;
+      mockContext.generateQuietPrompt =
+        undefined as unknown as typeof mockContext.generateQuietPrompt;
 
       await expect(
         updatePromptForPosition(position, 'test', mockContext)

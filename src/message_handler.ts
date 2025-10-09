@@ -40,7 +40,8 @@ export async function processMessageImages(
       context,
       patterns,
       commonTags,
-      tagsPosition
+      tagsPosition,
+      messageId
     );
 
     // Update the message in the chat array

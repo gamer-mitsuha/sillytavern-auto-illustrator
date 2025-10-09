@@ -38,6 +38,7 @@ describe('message_handler', () => {
           },
         },
         chat: [{is_user: false, mes: 'Original message'}],
+        chat_metadata: {},
       });
 
       const message = 'Text with <img-prompt="beautiful scene"> in the middle';
@@ -64,6 +65,7 @@ describe('message_handler', () => {
           },
         },
         chat: [{is_user: false, mes: originalMessage}],
+        chat_metadata: {},
       });
 
       const messageId = 0;
@@ -83,6 +85,7 @@ describe('message_handler', () => {
           },
         },
         chat: [],
+        chat_metadata: {},
       });
 
       const message = 'Text with <img-prompt="test">';
@@ -104,6 +107,7 @@ describe('message_handler', () => {
             },
           },
         },
+        chat_metadata: {},
         eventSource: {
           on: vi.fn(),
           once: vi.fn(),
@@ -147,6 +151,7 @@ describe('message_handler', () => {
         chat: [
           {is_user: false, mes: 'Here is a scene <img-prompt="test scene">'},
         ],
+        chat_metadata: {},
         saveChat: mockSaveChat,
       });
 

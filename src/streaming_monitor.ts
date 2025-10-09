@@ -5,8 +5,9 @@
 
 import {extractImagePrompts} from './image_extractor';
 import {ImageGenerationQueue} from './streaming_image_queue';
-import type {ImagePromptMatch} from './types';
+import type {ImagePromptMatch, PromptPosition} from './types';
 import {createLogger} from './logger';
+import {recordPrompt, initializePromptPosition} from './prompt_metadata';
 
 const logger = createLogger('Monitor');
 
@@ -135,7 +136,34 @@ export class StreamingMonitor {
     if (newPrompts.length > 0) {
       logger.info(`Found ${newPrompts.length} new prompts`);
 
+      // Get all prompts to determine correct indices
+      const allPrompts = extractImagePrompts(
+        currentText,
+        this.settings.promptDetectionPatterns
+      );
+
       for (const match of newPrompts) {
+        // Find the index of this prompt in the full list
+        const promptIndex = allPrompts.findIndex(
+          p =>
+            p.startIndex === match.startIndex &&
+            p.endIndex === match.endIndex &&
+            p.prompt === match.prompt
+        );
+
+        // Initialize prompt metadata
+        if (promptIndex >= 0) {
+          const promptId = recordPrompt(match.prompt, this.context);
+          const position: PromptPosition = {
+            messageId: this.messageId,
+            promptIndex,
+          };
+          initializePromptPosition(position, promptId, this.context);
+          logger.debug(
+            `Initialized metadata for prompt at position ${this.messageId}_${promptIndex}`
+          );
+        }
+
         this.queue.addPrompt(
           match.prompt,
           match.fullMatch,

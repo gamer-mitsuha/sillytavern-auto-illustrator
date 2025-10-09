@@ -4,7 +4,6 @@
  */
 
 import {createLogger} from './logger';
-import {t} from './i18n';
 import promptUpdateTemplate from './presets/prompt_update.md';
 import {
   recordPrompt,

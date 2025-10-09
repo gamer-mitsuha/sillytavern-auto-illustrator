@@ -19,6 +19,7 @@ describe('StreamingMonitor', () => {
     queue = new ImageGenerationQueue();
     mockContext = createMockContext({
       chat: [{mes: '', is_user: false}],
+      chat_metadata: {},
     });
     mockSettings = getDefaultSettings();
     monitor = new StreamingMonitor(queue, mockContext, mockSettings, 300);
