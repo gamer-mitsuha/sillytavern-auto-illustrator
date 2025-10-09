@@ -20,6 +20,8 @@
   "settings.streamingPollIntervalDesc": "检查流式传输期间新提示的频率（越低 = 检测越快，CPU使用越多）",
   "settings.maxConcurrent": "最大并发生成数",
   "settings.maxConcurrentDesc": "同时生成的最大图像数（建议为1以限制速率）",
+  "settings.minGenerationInterval": "最小生成间隔（毫秒）",
+  "settings.minGenerationIntervalDesc": "连续图像生成请求之间的最小时间延迟，有助于防止速率限制（0 = 无延迟）",
   "settings.logLevel": "日志级别",
   "settings.logLevelDesc": "控制日志详细程度（DEBUG显示详细监控，INFO显示关键事件，WARN/ERROR最少）",
   "settings.logLevel.trace": "TRACE（最详细）",

@@ -106,6 +106,7 @@ declare global {
     streamingEnabled: boolean;
     streamingPollInterval: number;
     maxConcurrentGenerations: number;
+    minGenerationInterval: number;
     logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
     manualGenerationMode: 'replace' | 'append';
     promptDetectionPatterns: string[];

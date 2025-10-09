@@ -69,6 +69,18 @@ export const MANUAL_GENERATION_MODE = {
 } as const;
 
 /**
+ * Minimum generation interval configuration (milliseconds)
+ * Enforces a minimum time delay between consecutive image generation requests
+ * to prevent rate limiting or overwhelming the image generation API
+ */
+export const MIN_GENERATION_INTERVAL = {
+  DEFAULT: 0,
+  MIN: 0,
+  MAX: 10000,
+  STEP: 100,
+} as const;
+
+/**
  * Default prompt detection patterns
  * Supports multiple tag formats for backward compatibility:
  * - HTML comment format (new, invisible, passes through DOMPurify)
@@ -90,6 +102,7 @@ export const DEFAULT_SETTINGS = {
   streamingEnabled: true,
   streamingPollInterval: STREAMING_POLL_INTERVAL.DEFAULT,
   maxConcurrentGenerations: MAX_CONCURRENT_GENERATIONS.DEFAULT,
+  minGenerationInterval: MIN_GENERATION_INTERVAL.DEFAULT,
   logLevel: DEFAULT_LOG_LEVEL,
   currentPresetId: PRESET_IDS.DEFAULT,
   customPresets: [] as MetaPromptPreset[],
@@ -117,6 +130,7 @@ export const UI_ELEMENT_IDS = {
   STREAMING_ENABLED: 'auto_illustrator_streaming_enabled',
   STREAMING_POLL_INTERVAL: 'auto_illustrator_streaming_poll_interval',
   MAX_CONCURRENT: 'auto_illustrator_max_concurrent',
+  MIN_GENERATION_INTERVAL: 'auto_illustrator_min_generation_interval',
   LOG_LEVEL: 'auto_illustrator_log_level',
   MANUAL_GEN_MODE: 'auto_illustrator_manual_gen_mode',
   PROMPT_PATTERNS: 'auto_illustrator_prompt_patterns',

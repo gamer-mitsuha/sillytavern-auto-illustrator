@@ -17,10 +17,16 @@ let concurrencyLimiter: ConcurrencyLimiter | null = null;
 /**
  * Initializes the concurrency limiter
  * @param maxConcurrent - Maximum concurrent generations
+ * @param minInterval - Minimum interval between generations (milliseconds)
  */
-export function initializeConcurrencyLimiter(maxConcurrent: number): void {
-  logger.info(`Initializing concurrency limiter (max: ${maxConcurrent})`);
-  concurrencyLimiter = new ConcurrencyLimiter(maxConcurrent);
+export function initializeConcurrencyLimiter(
+  maxConcurrent: number,
+  minInterval = 0
+): void {
+  logger.info(
+    `Initializing concurrency limiter (max: ${maxConcurrent}, minInterval: ${minInterval}ms)`
+  );
+  concurrencyLimiter = new ConcurrencyLimiter(maxConcurrent, minInterval);
 }
 
 /**
@@ -33,6 +39,19 @@ export function updateMaxConcurrent(maxConcurrent: number): void {
   } else {
     logger.warn('Concurrency limiter not initialized, initializing now');
     initializeConcurrencyLimiter(maxConcurrent);
+  }
+}
+
+/**
+ * Updates the minimum generation interval
+ * @param minInterval - New minimum interval (milliseconds)
+ */
+export function updateMinInterval(minInterval: number): void {
+  if (concurrencyLimiter) {
+    concurrencyLimiter.setMinInterval(minInterval);
+  } else {
+    logger.warn('Concurrency limiter not initialized, initializing now');
+    initializeConcurrencyLimiter(1, minInterval);
   }
 }
 
@@ -102,10 +121,10 @@ export async function generateImage(
   commonTags?: string,
   tagsPosition?: 'prefix' | 'suffix'
 ): Promise<string | null> {
-  // If limiter not initialized, create with default value of 1
+  // If limiter not initialized, create with default values
   if (!concurrencyLimiter) {
-    logger.warn('Concurrency limiter not initialized, using default (1)');
-    concurrencyLimiter = new ConcurrencyLimiter(1);
+    logger.warn('Concurrency limiter not initialized, using defaults (1, 0ms)');
+    concurrencyLimiter = new ConcurrencyLimiter(1, 0);
   }
 
   // Wrap the actual generation in the limiter

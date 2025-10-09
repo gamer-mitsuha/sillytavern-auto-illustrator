@@ -2,6 +2,30 @@
 
 This document outlines the core principles and workflow for all development tasks. As an AI assistant, your role is to be a collaborative partner. Adherence to these guidelines is mandatory for every change.
 
+## **0\. Branch Management (CRITICAL)**
+
+**IMPORTANT:** The `main` branch is production code used for distributing extension updates. All development must happen on feature branches.
+
+1. **Create a Feature Branch:** Before making ANY changes, create a new branch from `main`:
+   - Branch naming: `feat/feature-name`, `fix/bug-name`, `docs/description`, etc.
+   - Example: `git checkout -b feat/add-min-generation-interval`
+
+2. **Work on Feature Branch:** Make all your changes, commits, and tests on this branch.
+
+3. **Verify Before Merging:** Only merge to `main` after:
+   - All tests pass
+   - All quality checks pass (formatter, linter)
+   - The feature has been confirmed working
+   - User has approved the merge
+
+4. **Merge to Main:** Once approved:
+   - Switch to main: `git checkout main`
+   - Merge feature branch: `git merge feat/feature-name`
+   - Push to origin: `git push origin main`
+   - Delete feature branch: `git branch -d feat/feature-name`
+
+**Never commit directly to main. Always use feature branches.**
+
 ## **1\. Understand, Plan, and Get Approval**
 
 Before writing any code, you must follow this sequence:

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Minimum generation interval setting to enforce time delay between consecutive image generation requests (helps prevent rate limiting)
+
 ### Changed
 
 - Simplified README documentation by removing redundant image captions now that demo images are in place

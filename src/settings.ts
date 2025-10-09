@@ -9,6 +9,7 @@ import {
   DEFAULT_SETTINGS,
   STREAMING_POLL_INTERVAL,
   MAX_CONCURRENT_GENERATIONS,
+  MIN_GENERATION_INTERVAL,
   UI_ELEMENT_IDS,
 } from './constants';
 import {t} from './i18n';
@@ -161,6 +162,12 @@ export function createSettingsUI(): string {
             <span>${t('settings.maxConcurrent')}</span>
             <small>${t('settings.maxConcurrentDesc')}</small>
             <input id="${UI_ELEMENT_IDS.MAX_CONCURRENT}" class="text_pole" type="number" min="${MAX_CONCURRENT_GENERATIONS.MIN}" max="${MAX_CONCURRENT_GENERATIONS.MAX}" step="${MAX_CONCURRENT_GENERATIONS.STEP}" />
+          </label>
+
+          <label for="${UI_ELEMENT_IDS.MIN_GENERATION_INTERVAL}">
+            <span>${t('settings.minGenerationInterval')}</span>
+            <small>${t('settings.minGenerationIntervalDesc')}</small>
+            <input id="${UI_ELEMENT_IDS.MIN_GENERATION_INTERVAL}" class="text_pole" type="number" min="${MIN_GENERATION_INTERVAL.MIN}" max="${MIN_GENERATION_INTERVAL.MAX}" step="${MIN_GENERATION_INTERVAL.STEP}" />
           </label>
 
           <label for="${UI_ELEMENT_IDS.PROMPT_PATTERNS}">

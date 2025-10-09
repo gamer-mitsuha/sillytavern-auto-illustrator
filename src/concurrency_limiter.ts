@@ -8,15 +8,18 @@ import {createLogger} from './logger';
 const logger = createLogger('Limiter');
 
 /**
- * A simple semaphore to limit concurrent operations
+ * A simple semaphore to limit concurrent operations and enforce minimum time intervals
  */
 export class ConcurrencyLimiter {
   private maxConcurrent: number;
+  private minInterval: number;
   private currentCount = 0;
   private queue: Array<() => void> = [];
+  private lastCompletionTime: number | null = null;
 
-  constructor(maxConcurrent: number) {
+  constructor(maxConcurrent: number, minInterval = 0) {
     this.maxConcurrent = maxConcurrent;
+    this.minInterval = minInterval;
   }
 
   /**
@@ -62,14 +65,36 @@ export class ConcurrencyLimiter {
   }
 
   /**
-   * Executes an async function with concurrency limiting
+   * Waits for minimum interval since last completion
+   */
+  private async waitForMinInterval(): Promise<void> {
+    if (this.minInterval === 0 || this.lastCompletionTime === null) {
+      return;
+    }
+
+    const elapsed = Date.now() - this.lastCompletionTime;
+    const remaining = this.minInterval - elapsed;
+
+    if (remaining > 0) {
+      logger.debug(
+        `Waiting ${remaining}ms before next generation (minInterval: ${this.minInterval}ms)`
+      );
+      await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+  }
+
+  /**
+   * Executes an async function with concurrency limiting and time interval enforcement
    * @param fn - Async function to execute
    * @returns Promise resolving to function result
    */
   async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.waitForMinInterval();
     await this.acquire();
     try {
-      return await fn();
+      const result = await fn();
+      this.lastCompletionTime = Date.now();
+      return result;
     } finally {
       this.release();
     }
@@ -84,6 +109,17 @@ export class ConcurrencyLimiter {
       `Updating max concurrent: ${this.maxConcurrent} → ${maxConcurrent}`
     );
     this.maxConcurrent = maxConcurrent;
+  }
+
+  /**
+   * Updates the minimum generation interval
+   * @param minInterval - New minimum interval (milliseconds)
+   */
+  setMinInterval(minInterval: number): void {
+    logger.info(
+      `Updating min interval: ${this.minInterval}ms → ${minInterval}ms`
+    );
+    this.minInterval = minInterval;
   }
 
   /**

@@ -31,6 +31,7 @@ import {
 import {
   initializeConcurrencyLimiter,
   updateMaxConcurrent,
+  updateMinInterval,
 } from './image_generator';
 import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
@@ -107,6 +108,9 @@ function updateUI(): void {
   const maxConcurrentInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_CONCURRENT
   ) as HTMLInputElement;
+  const minGenerationIntervalInput = document.getElementById(
+    UI_ELEMENT_IDS.MIN_GENERATION_INTERVAL
+  ) as HTMLInputElement;
   const logLevelSelect = document.getElementById(
     UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
@@ -132,6 +136,9 @@ function updateUI(): void {
       settings.streamingPollInterval.toString();
   if (maxConcurrentInput)
     maxConcurrentInput.value = settings.maxConcurrentGenerations.toString();
+  if (minGenerationIntervalInput)
+    minGenerationIntervalInput.value =
+      settings.minGenerationInterval.toString();
   if (logLevelSelect) logLevelSelect.value = settings.logLevel;
   if (promptPatternsTextarea)
     promptPatternsTextarea.value = settings.promptDetectionPatterns.join('\n');
@@ -255,6 +262,9 @@ function handleSettingsChange(): void {
   const maxConcurrentInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_CONCURRENT
   ) as HTMLInputElement;
+  const minGenerationIntervalInput = document.getElementById(
+    UI_ELEMENT_IDS.MIN_GENERATION_INTERVAL
+  ) as HTMLInputElement;
   const logLevelSelect = document.getElementById(
     UI_ELEMENT_IDS.LOG_LEVEL
   ) as HTMLSelectElement;
@@ -281,6 +291,9 @@ function handleSettingsChange(): void {
   settings.maxConcurrentGenerations = maxConcurrentInput
     ? parseInt(maxConcurrentInput.value)
     : settings.maxConcurrentGenerations;
+  settings.minGenerationInterval = minGenerationIntervalInput
+    ? parseInt(minGenerationIntervalInput.value)
+    : settings.minGenerationInterval;
   settings.logLevel =
     (logLevelSelect?.value as AutoIllustratorSettings['logLevel']) ??
     settings.logLevel;
@@ -302,8 +315,9 @@ function handleSettingsChange(): void {
   // Apply log level
   setLogLevel(settings.logLevel);
 
-  // Update concurrency limiter if max concurrent changed
+  // Update concurrency limiter settings
   updateMaxConcurrent(settings.maxConcurrentGenerations);
+  updateMinInterval(settings.minGenerationInterval);
 
   saveSettings(settings, context);
 
@@ -794,10 +808,13 @@ function initialize(): void {
   // Apply log level from settings
   setLogLevel(settings.logLevel);
 
-  // Initialize concurrency limiter with maxConcurrentGenerations setting
-  initializeConcurrencyLimiter(settings.maxConcurrentGenerations);
+  // Initialize concurrency limiter with settings
+  initializeConcurrencyLimiter(
+    settings.maxConcurrentGenerations,
+    settings.minGenerationInterval
+  );
   logger.info(
-    `Initialized concurrency limiter: ${settings.maxConcurrentGenerations}`
+    `Initialized concurrency limiter: max=${settings.maxConcurrentGenerations}, minInterval=${settings.minGenerationInterval}ms`
   );
 
   // Create and register message handler with streaming check
@@ -1025,6 +1042,7 @@ function initialize(): void {
     settings = loadSettings(context);
     setLogLevel(settings.logLevel);
     updateMaxConcurrent(settings.maxConcurrentGenerations);
+    updateMinInterval(settings.minGenerationInterval);
 
     // Update UI with refreshed settings
     updateUI();

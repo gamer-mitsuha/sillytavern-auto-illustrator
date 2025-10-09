@@ -20,6 +20,8 @@
   "settings.streamingPollIntervalDesc": "How often to check for new prompts during streaming (lower = faster detection, more CPU usage)",
   "settings.maxConcurrent": "Max Concurrent Generations",
   "settings.maxConcurrentDesc": "Maximum number of images to generate simultaneously (recommended: 1 to limit rate)",
+  "settings.minGenerationInterval": "Minimum Generation Interval (ms)",
+  "settings.minGenerationIntervalDesc": "Minimum time delay between consecutive image generation requests, helping prevent rate limiting (0 = no delay)",
   "settings.logLevel": "Log Level",
   "settings.logLevelDesc": "Controls logging verbosity (DEBUG shows detailed monitoring, INFO shows key events, WARN/ERROR minimal)",
   "settings.logLevel.trace": "TRACE (Most Verbose)",
