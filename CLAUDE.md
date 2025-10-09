@@ -15,6 +15,7 @@ This document outlines the core principles and workflow for all development task
 3. **Verify Before Merging:** Only merge to `main` after:
    - All tests pass
    - All quality checks pass (formatter, linter)
+   - Build success
    - The feature has been confirmed working
    - User has approved the merge
 
@@ -64,7 +65,7 @@ All commit messages must follow the Conventional Commits specification. The form
 
 - **Types:** feat (new feature), fix (bug fix), docs (documentation), style (formatting), refactor, test, chore (build/tool changes).
 - **Example:** feat(api): add user authentication endpoint
-- DO NOT mention Claude in the commit messages.
+- **DO NOT mention Claude in the commit messages**.
 
 ## **6\. Maintain the Changelog**
 

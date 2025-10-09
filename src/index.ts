@@ -980,6 +980,9 @@ function initialize(): void {
     const maxConcurrentInput = document.getElementById(
       UI_ELEMENT_IDS.MAX_CONCURRENT
     );
+    const minGenerationIntervalInput = document.getElementById(
+      UI_ELEMENT_IDS.MIN_GENERATION_INTERVAL
+    );
     const logLevelSelect = document.getElementById(UI_ELEMENT_IDS.LOG_LEVEL);
     const promptPatternsTextarea = document.getElementById(
       UI_ELEMENT_IDS.PROMPT_PATTERNS
@@ -1011,6 +1014,10 @@ function initialize(): void {
       handleSettingsChange
     );
     maxConcurrentInput?.addEventListener('change', handleSettingsChange);
+    minGenerationIntervalInput?.addEventListener(
+      'change',
+      handleSettingsChange
+    );
     logLevelSelect?.addEventListener('change', handleSettingsChange);
     promptPatternsTextarea?.addEventListener('change', handleSettingsChange);
     promptPatternsResetButton?.addEventListener(
