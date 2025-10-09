@@ -4,6 +4,7 @@
  */
 
 import {createLogger} from './logger';
+import {MAX_CONCURRENT_GENERATIONS, MIN_GENERATION_INTERVAL} from './constants';
 
 const logger = createLogger('Limiter');
 
@@ -18,10 +19,32 @@ export class ConcurrencyLimiter {
   private lastCompletionTime: number | null = null;
 
   constructor(maxConcurrent: number, minInterval = 0) {
-    this.maxConcurrent = maxConcurrent;
-    this.minInterval = minInterval;
+    // Validate and clamp maxConcurrent
+    this.maxConcurrent = Math.max(
+      MAX_CONCURRENT_GENERATIONS.MIN,
+      Math.min(MAX_CONCURRENT_GENERATIONS.MAX, maxConcurrent)
+    );
+
+    // Validate and clamp minInterval
+    this.minInterval = Math.max(
+      MIN_GENERATION_INTERVAL.MIN,
+      Math.min(MIN_GENERATION_INTERVAL.MAX, minInterval)
+    );
+
+    if (this.maxConcurrent !== maxConcurrent) {
+      logger.warn(
+        `maxConcurrent clamped from ${maxConcurrent} to ${this.maxConcurrent} (valid range: ${MAX_CONCURRENT_GENERATIONS.MIN}-${MAX_CONCURRENT_GENERATIONS.MAX})`
+      );
+    }
+
+    if (this.minInterval !== minInterval) {
+      logger.warn(
+        `minInterval clamped from ${minInterval}ms to ${this.minInterval}ms (valid range: ${MIN_GENERATION_INTERVAL.MIN}-${MIN_GENERATION_INTERVAL.MAX}ms)`
+      );
+    }
+
     logger.info(
-      `ConcurrencyLimiter created: maxConcurrent=${maxConcurrent}, minInterval=${minInterval}ms`
+      `ConcurrencyLimiter created: maxConcurrent=${this.maxConcurrent}, minInterval=${this.minInterval}ms`
     );
   }
 
@@ -116,10 +139,20 @@ export class ConcurrencyLimiter {
    * @param maxConcurrent - New max concurrent limit
    */
   setMaxConcurrent(maxConcurrent: number): void {
-    logger.info(
-      `Updating max concurrent: ${this.maxConcurrent} → ${maxConcurrent}`
+    const oldValue = this.maxConcurrent;
+    const clampedValue = Math.max(
+      MAX_CONCURRENT_GENERATIONS.MIN,
+      Math.min(MAX_CONCURRENT_GENERATIONS.MAX, maxConcurrent)
     );
-    this.maxConcurrent = maxConcurrent;
+
+    if (clampedValue !== maxConcurrent) {
+      logger.warn(
+        `maxConcurrent clamped from ${maxConcurrent} to ${clampedValue} (valid range: ${MAX_CONCURRENT_GENERATIONS.MIN}-${MAX_CONCURRENT_GENERATIONS.MAX})`
+      );
+    }
+
+    logger.info(`Updating max concurrent: ${oldValue} → ${clampedValue}`);
+    this.maxConcurrent = clampedValue;
   }
 
   /**
@@ -127,10 +160,20 @@ export class ConcurrencyLimiter {
    * @param minInterval - New minimum interval (milliseconds)
    */
   setMinInterval(minInterval: number): void {
-    logger.info(
-      `Updating min interval: ${this.minInterval}ms → ${minInterval}ms`
+    const oldValue = this.minInterval;
+    const clampedValue = Math.max(
+      MIN_GENERATION_INTERVAL.MIN,
+      Math.min(MIN_GENERATION_INTERVAL.MAX, minInterval)
     );
-    this.minInterval = minInterval;
+
+    if (clampedValue !== minInterval) {
+      logger.warn(
+        `minInterval clamped from ${minInterval}ms to ${clampedValue}ms (valid range: ${MIN_GENERATION_INTERVAL.MIN}-${MIN_GENERATION_INTERVAL.MAX}ms)`
+      );
+    }
+
+    logger.info(`Updating min interval: ${oldValue}ms → ${clampedValue}ms`);
+    this.minInterval = clampedValue;
   }
 
   /**

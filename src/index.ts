@@ -17,7 +17,13 @@ import {
   createSettingsUI,
 } from './settings';
 import {createLogger, setLogLevel} from './logger';
-import {UI_ELEMENT_IDS, DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
+import {
+  UI_ELEMENT_IDS,
+  DEFAULT_PROMPT_DETECTION_PATTERNS,
+  STREAMING_POLL_INTERVAL,
+  MAX_CONCURRENT_GENERATIONS,
+  MIN_GENERATION_INTERVAL,
+} from './constants';
 import {
   getPresetById,
   isPresetPredefined,
@@ -244,6 +250,26 @@ function updateValidationStatus(): void {
 }
 
 /**
+ * Clamps a value to the specified range and rounds to nearest step
+ * @param value - Value to clamp
+ * @param min - Minimum value
+ * @param max - Maximum value
+ * @param step - Step size for rounding
+ * @returns Clamped and rounded value
+ */
+function clampValue(
+  value: number,
+  min: number,
+  max: number,
+  step: number
+): number {
+  // Round to nearest step
+  const rounded = Math.round(value / step) * step;
+  // Clamp to min/max
+  return Math.max(min, Math.min(max, rounded));
+}
+
+/**
  * Handles changes to settings from UI
  */
 function handleSettingsChange(): void {
@@ -285,15 +311,43 @@ function handleSettingsChange(): void {
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
   settings.streamingEnabled =
     streamingEnabledCheckbox?.checked ?? settings.streamingEnabled;
-  settings.streamingPollInterval = streamingPollIntervalInput
-    ? parseInt(streamingPollIntervalInput.value)
-    : settings.streamingPollInterval;
-  settings.maxConcurrentGenerations = maxConcurrentInput
-    ? parseInt(maxConcurrentInput.value)
-    : settings.maxConcurrentGenerations;
-  settings.minGenerationInterval = minGenerationIntervalInput
-    ? parseInt(minGenerationIntervalInput.value)
-    : settings.minGenerationInterval;
+
+  // Validate and clamp numeric settings
+  if (streamingPollIntervalInput) {
+    const clampedValue = clampValue(
+      parseInt(streamingPollIntervalInput.value),
+      STREAMING_POLL_INTERVAL.MIN,
+      STREAMING_POLL_INTERVAL.MAX,
+      STREAMING_POLL_INTERVAL.STEP
+    );
+    settings.streamingPollInterval = clampedValue;
+    // Update UI to show validated value
+    streamingPollIntervalInput.value = clampedValue.toString();
+  }
+
+  if (maxConcurrentInput) {
+    const clampedValue = clampValue(
+      parseInt(maxConcurrentInput.value),
+      MAX_CONCURRENT_GENERATIONS.MIN,
+      MAX_CONCURRENT_GENERATIONS.MAX,
+      MAX_CONCURRENT_GENERATIONS.STEP
+    );
+    settings.maxConcurrentGenerations = clampedValue;
+    // Update UI to show validated value
+    maxConcurrentInput.value = clampedValue.toString();
+  }
+
+  if (minGenerationIntervalInput) {
+    const clampedValue = clampValue(
+      parseInt(minGenerationIntervalInput.value),
+      MIN_GENERATION_INTERVAL.MIN,
+      MIN_GENERATION_INTERVAL.MAX,
+      MIN_GENERATION_INTERVAL.STEP
+    );
+    settings.minGenerationInterval = clampedValue;
+    // Update UI to show validated value
+    minGenerationIntervalInput.value = clampedValue.toString();
+  }
   settings.logLevel =
     (logLevelSelect?.value as AutoIllustratorSettings['logLevel']) ??
     settings.logLevel;

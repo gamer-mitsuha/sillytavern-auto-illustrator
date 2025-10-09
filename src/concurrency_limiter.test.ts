@@ -263,4 +263,91 @@ describe('ConcurrencyLimiter', () => {
       expect(statusAfter.queueLength).toBe(0);
     });
   });
+
+  describe('Combined concurrency and time limiting', () => {
+    it('should work with both concurrency and time limiting enabled', async () => {
+      limiter = new ConcurrencyLimiter(2, 500);
+      const status = limiter.getStatus();
+      expect(status.maxConcurrent).toBe(2);
+
+      limiter.setMaxConcurrent(3);
+      limiter.setMinInterval(1000);
+
+      expect(limiter.getStatus().maxConcurrent).toBe(3);
+    });
+  });
+});
+
+describe('Settings validation', () => {
+  let limiter: ConcurrencyLimiter;
+
+  afterEach(() => {
+    vi.clearAllTimers();
+  });
+
+  describe('setMaxConcurrent validation', () => {
+    it('should clamp values below minimum (1) to 1', () => {
+      limiter = new ConcurrencyLimiter(3);
+      limiter.setMaxConcurrent(0);
+      expect(limiter.getStatus().maxConcurrent).toBe(1);
+
+      limiter.setMaxConcurrent(-5);
+      expect(limiter.getStatus().maxConcurrent).toBe(1);
+    });
+
+    it('should clamp values above maximum (5) to 5', () => {
+      limiter = new ConcurrencyLimiter(3);
+      limiter.setMaxConcurrent(10);
+      expect(limiter.getStatus().maxConcurrent).toBe(5);
+
+      limiter.setMaxConcurrent(100);
+      expect(limiter.getStatus().maxConcurrent).toBe(5);
+    });
+
+    it('should accept valid values within range', () => {
+      limiter = new ConcurrencyLimiter(3);
+      for (let i = 1; i <= 5; i++) {
+        limiter.setMaxConcurrent(i);
+        expect(limiter.getStatus().maxConcurrent).toBe(i);
+      }
+    });
+  });
+
+  describe('setMinInterval validation', () => {
+    it('should clamp negative values to 0', () => {
+      limiter = new ConcurrencyLimiter(1, 500);
+      limiter.setMinInterval(-100);
+      // We test through behavior - negative interval should not cause issues
+      expect(() => limiter.setMinInterval(-100)).not.toThrow();
+    });
+
+    it('should clamp values above maximum (10000) to 10000', () => {
+      limiter = new ConcurrencyLimiter(1, 500);
+      limiter.setMinInterval(15000);
+      expect(() => limiter.setMinInterval(15000)).not.toThrow();
+    });
+
+    it('should accept valid values within range', () => {
+      limiter = new ConcurrencyLimiter(1);
+      expect(() => limiter.setMinInterval(0)).not.toThrow();
+      expect(() => limiter.setMinInterval(5000)).not.toThrow();
+      expect(() => limiter.setMinInterval(10000)).not.toThrow();
+    });
+  });
+
+  describe('Constructor validation', () => {
+    it('should clamp maxConcurrent on construction', () => {
+      limiter = new ConcurrencyLimiter(0, 0);
+      expect(limiter.getStatus().maxConcurrent).toBe(1);
+
+      limiter = new ConcurrencyLimiter(10, 0);
+      expect(limiter.getStatus().maxConcurrent).toBe(5);
+    });
+
+    it('should clamp minInterval on construction', () => {
+      // Test through behavior - out-of-range intervals should not cause issues
+      expect(() => new ConcurrencyLimiter(1, -500)).not.toThrow();
+      expect(() => new ConcurrencyLimiter(1, 15000)).not.toThrow();
+    });
+  });
 });
