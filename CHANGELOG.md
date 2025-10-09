@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Prompt metadata tracking system for supporting prompt regeneration (#14)
+  - Stores prompt history per-position in chat
+  - Tracks image-to-prompt associations
+  - De-duplicates identical prompts across chat
 - Minimum generation interval setting to enforce time delay between consecutive image generation requests (helps prevent rate limiting)
 
 ### Improved
