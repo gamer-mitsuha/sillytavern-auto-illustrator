@@ -61,6 +61,7 @@ Before committing, you **must** perform the following checks and ensure they all
 1. **Run Formatter:** Format the code according to the project's standards (e.g., prettier, black, gofmt).
 2. **Run Linter:** Check for and fix all linting errors.
 3. **Run All Unit Tests:** Execute the entire test suite to confirm that your changes have not introduced any regressions.
+4. **Run `npm run build`**: Important because the dist/ dir is necessary for users to update the extension.
 
 **Do not proceed to the next step if any of these checks fail.**
 
@@ -71,7 +72,7 @@ All commit messages must follow the Conventional Commits specification. The form
 
 - **Types:** feat (new feature), fix (bug fix), docs (documentation), style (formatting), refactor, test, chore (build/tool changes).
 - **Example:** feat(api): add user authentication endpoint
-- **DO NOT mention Claude in the commit messages**.
+- **DO NOT include "Co-Authored-By: Claude <noreply@anthropic.com>" in commit messages**.
 
 ## **6\. Maintain the Changelog**
 
