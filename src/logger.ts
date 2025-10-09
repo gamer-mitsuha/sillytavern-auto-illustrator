@@ -44,7 +44,16 @@ function formatMessage(context: string | undefined, message: string): string {
 }
 
 /**
- * Logs a debug message (lowest priority, most verbose)
+ * Logs a trace message (lowest priority, most verbose)
+ * @param message - Trace message
+ * @param args - Additional arguments
+ */
+export function trace(message: string, ...args: unknown[]): void {
+  logger.trace(formatMessage(undefined, message), ...args);
+}
+
+/**
+ * Logs a debug message
  * @param message - Debug message
  * @param args - Additional arguments
  */
@@ -86,6 +95,8 @@ export function error(message: string, ...args: unknown[]): void {
  */
 export function createLogger(context: string) {
   return {
+    trace: (message: string, ...args: unknown[]) =>
+      logger.trace(formatMessage(context, message), ...args),
     debug: (message: string, ...args: unknown[]) =>
       logger.debug(formatMessage(context, message), ...args),
     info: (message: string, ...args: unknown[]) =>

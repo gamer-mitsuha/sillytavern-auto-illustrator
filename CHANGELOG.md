@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatically removed after images are inserted
   - Mobile-responsive design
 
+### Fixed
+
+- Progress widget total count now updates correctly when new prompts are detected during streaming (#19)
+  - Widget now shows accurate intermediate states (1/2, 2/3, etc.) instead of just current/current (1/1, 2/2)
+  - `insertProgressWidget()` now updates total count when widget already exists instead of failing
+
+### Changed
+
+- "Text changed" logging in streaming monitor changed to TRACE level to reduce log verbosity at DEBUG level
+
 ## [1.1.0] - 2025-10-09
 
 ### Added

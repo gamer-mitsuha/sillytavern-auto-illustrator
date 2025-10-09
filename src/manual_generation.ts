@@ -20,6 +20,11 @@ import {
   initializePromptPosition,
 } from './prompt_metadata';
 import {updatePromptForPosition} from './prompt_updater';
+import {
+  tryInsertProgressWidgetWithRetry,
+  updateProgressWidget,
+  removeProgressWidget,
+} from './progress_widget';
 
 const logger = createLogger('ManualGen');
 
@@ -282,6 +287,9 @@ async function generateImagesForMessageImpl(
       t('extensionName')
     );
 
+    // Insert progress widget
+    tryInsertProgressWidgetWithRetry(messageId, promptsToGenerate.length);
+
     // Generate images sequentially
     const startTime = performance.now();
 
@@ -306,6 +314,9 @@ async function generateImagesForMessageImpl(
       if (imageUrl) {
         generatedImages.push({prompt, imageUrl, originalIndex: i});
       }
+
+      // Update progress widget after each image (success or failure)
+      updateProgressWidget(messageId, i + 1, promptsToGenerate.length);
     }
 
     // Step 2: Sort by prompt position (end to start) and insert in reverse order
@@ -385,6 +396,9 @@ async function generateImagesForMessageImpl(
     await context.saveChat();
     logger.debug('Chat saved after manual generation');
 
+    // Remove progress widget
+    removeProgressWidget(messageId);
+
     // Show completion notification
     if (successCount === promptsToGenerate.length) {
       toastr.success(
@@ -407,6 +421,8 @@ async function generateImagesForMessageImpl(
   } catch (error) {
     logger.error('Error during manual image generation:', error);
     toastr.error(t('toast.failedToGenerate'), t('extensionName'));
+    // Remove progress widget on error
+    removeProgressWidget(messageId);
     return 0;
   }
 }

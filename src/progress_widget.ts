@@ -85,9 +85,10 @@ export function removeProgressWidget(messageId: number): void {
 
 /**
  * Inserts progress widget into a message element
+ * If widget already exists, updates its total count instead
  * @param messageId - Message ID
  * @param total - Total number of images to generate
- * @returns True if widget was inserted, false if message not found
+ * @returns True if widget was inserted or updated, false if message not found
  */
 export function insertProgressWidget(
   messageId: number,
@@ -98,8 +99,24 @@ export function insertProgressWidget(
     `ai-img-progress-${messageId}`
   );
   if (existingWidget) {
-    logger.debug(`Progress widget already exists for message ${messageId}`);
-    return false;
+    // Widget exists - update total count instead of failing
+    const textEl = existingWidget.querySelector('.ai-img-progress-text');
+    if (textEl) {
+      // Extract current count from existing text
+      const currentMatch = textEl.textContent?.match(/(\d+)/);
+      const current = currentMatch ? currentMatch[1] : '0';
+
+      // Update with new total
+      textEl.textContent = t('toast.generatingImagesProgress', {
+        current,
+        total: String(total),
+      });
+
+      logger.debug(
+        `Updated total count for existing widget: ${current}/${total}`
+      );
+    }
+    return true; // Return true since update succeeded
   }
 
   // Find message container
