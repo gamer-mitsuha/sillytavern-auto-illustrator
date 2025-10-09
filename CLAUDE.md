@@ -42,6 +42,11 @@ Before writing any code, you must follow this sequence:
 - **Security First:** Do not include hardcoded secrets (API keys, passwords). Always validate and sanitize user input where appropriate.
 - **Consistent Style** Follow Google Coding Style Guide, e.g., Google TypeScript Style Guide.
 - **Adding Settings:** When adding new settings, follow the comprehensive guide in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#adding-new-settings). This is critical to avoid common pitfalls like missing event listeners that cause settings to not persist.
+- **Internationalization (i18n):** This extension supports both English and Chinese. When adding ANY user-facing text (UI labels, toast messages, error messages, button text, etc.), you MUST:
+  1. Add the English text to [`i18n/en-us.json`](i18n/en-us.json)
+  2. Add the Chinese translation to [`i18n/zh-cn.json`](i18n/zh-cn.json)
+  3. Use the `t()` function to reference the text in code (e.g., `t('settings.newSetting')`, `t('toast.successMessage')`)
+  4. **Never hardcode user-facing strings directly in the code**
 
 ## **3\. Test-Driven Development (TDD) is Mandatory**
 
