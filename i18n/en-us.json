@@ -101,6 +101,7 @@
   "toast.promptUpdated": "Prompt updated successfully",
   "toast.failedToUpdatePrompt": "Failed to update prompt",
   "toast.cannotUpdateDuringGeneration": "Cannot update prompt while images are being generated for this message",
+  "toast.generatingImagesProgress": "Generating images: {current} of {total}",
   "prompt.enterPresetName": "Enter name for new preset:",
   "prompt.overwritePreset": "Overwrite existing preset '{name}'?",
   "button.manualGenerate": "Generate images from prompts"

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Image loading progress indicators (#19)
+  - Real-time progress widget showing "Generating images: X of N"
+  - Animated spinner with visual feedback
+  - Works for both streaming and manual generation
+  - Automatically removed after images are inserted
+  - Mobile-responsive design
+
 ## [1.1.0] - 2025-10-09
 
 ### Added

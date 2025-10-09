@@ -7,6 +7,10 @@ import {ImageGenerationQueue} from './streaming_image_queue';
 import {generateImage} from './image_generator';
 import type {QueuedPrompt, DeferredImage} from './types';
 import {createLogger} from './logger';
+import {
+  tryInsertProgressWidgetWithRetry,
+  updateProgressWidget,
+} from './progress_widget';
 
 const logger = createLogger('Processor');
 
@@ -64,7 +68,7 @@ export class QueueProcessor {
       `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
     );
 
-    // Start processing
+    // Start processing (widget will be inserted when we have prompts)
     this.processNext();
   }
 
@@ -109,6 +113,12 @@ export class QueueProcessor {
       }
 
       logger.info(`Processing prompt: ${nextPrompt.id}`);
+
+      // Insert progress widget on first prompt (if not already inserted)
+      const totalCount = this.queue.size();
+      if (totalCount > 0) {
+        tryInsertProgressWidgetWithRetry(this.messageId, totalCount);
+      }
 
       // Mark as generating and increment active count
       this.queue.updateState(nextPrompt.id, 'GENERATING');
@@ -166,12 +176,22 @@ export class QueueProcessor {
         logger.info(
           `Deferred image insertion (${this.deferredImages.length} total)`
         );
+
+        // Update progress widget
+        const stats = this.queue.getStats();
+        const completedCount = stats.COMPLETED + stats.FAILED;
+        updateProgressWidget(this.messageId, completedCount, this.queue.size());
       } else {
         // Failed
         this.queue.updateState(prompt.id, 'FAILED', {
           error: 'Image generation returned null',
         });
         logger.warn(`Failed to generate image for: ${prompt.prompt}`);
+
+        // Update progress widget (count failed as completed)
+        const stats = this.queue.getStats();
+        const completedCount = stats.COMPLETED + stats.FAILED;
+        updateProgressWidget(this.messageId, completedCount, this.queue.size());
       }
     } catch (error) {
       // Error
@@ -179,6 +199,11 @@ export class QueueProcessor {
         error: error instanceof Error ? error.message : String(error),
       });
       logger.error('Error generating image:', error);
+
+      // Update progress widget (count error as completed)
+      const stats = this.queue.getStats();
+      const completedCount = stats.COMPLETED + stats.FAILED;
+      updateProgressWidget(this.messageId, completedCount, this.queue.size());
     }
   }
 

@@ -14,6 +14,11 @@ import {
   recordPrompt,
   initializePromptPosition,
 } from './prompt_metadata';
+import {
+  tryInsertProgressWidgetWithRetry,
+  updateProgressWidget,
+  removeProgressWidget,
+} from './progress_widget';
 
 const logger = createLogger('Generator');
 
@@ -324,10 +329,16 @@ export async function replacePromptsWithImages(
   const imageCount = matches.length;
   toastr.info(tCount(imageCount, 'toast.generatingImages'), t('extensionName'));
 
+  // Insert progress widget if messageId is provided
+  if (messageId !== undefined) {
+    tryInsertProgressWidgetWithRetry(messageId, imageCount);
+  }
+
   // Generate images sequentially to avoid rate limiting
   const batchStartTime = performance.now();
   const imageUrls: (string | null)[] = [];
-  for (const match of matches) {
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
     const imageUrl = await generateImage(
       match.prompt,
       context,
@@ -335,6 +346,11 @@ export async function replacePromptsWithImages(
       tagsPosition
     );
     imageUrls.push(imageUrl);
+
+    // Update progress widget after each image
+    if (messageId !== undefined) {
+      updateProgressWidget(messageId, i + 1, imageCount);
+    }
   }
 
   const batchDuration = performance.now() - batchStartTime;
@@ -399,6 +415,11 @@ export async function replacePromptsWithImages(
         '- keeping tag'
       );
     }
+  }
+
+  // Remove progress widget if messageId is provided
+  if (messageId !== undefined) {
+    removeProgressWidget(messageId);
   }
 
   return result;
@@ -514,6 +535,9 @@ export async function insertDeferredImages(
   // Save the chat to persist the inserted images
   await context.saveChat();
   logger.debug('Chat saved after inserting deferred images');
+
+  // Remove progress widget
+  removeProgressWidget(messageId);
 
   return successCount;
 }

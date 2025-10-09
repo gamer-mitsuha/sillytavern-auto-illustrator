@@ -13,6 +13,67 @@
   box-shadow: 0 0 15px rgba(155, 89, 182, 0.6);
 }
 
+/* Image generation progress widget */
+.ai-img-progress-widget {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(155, 89, 182, 0.3);
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #ffffff;
+  animation: fadeIn 0.3s ease-in;
+  backdrop-filter: blur(4px);
+}
+
+.ai-img-progress-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #9b59b6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+.ai-img-progress-text {
+  flex: 1;
+  white-space: nowrap;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile optimizations for progress widget */
+@media (max-width: 768px) {
+  .ai-img-progress-widget {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .ai-img-progress-spinner {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 /* Preset Management Styles */
 .preset-management {
   margin: 1rem 0;
