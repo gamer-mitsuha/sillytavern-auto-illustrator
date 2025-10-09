@@ -981,12 +981,35 @@ async function regenerateImageImpl(
 
 /**
  * Shows prompt update dialog for an image and handles the update
+ * This operation is queued to prevent race conditions with generation
  * @param messageId - Message ID
  * @param imageSrc - Source URL of image
  * @param context - SillyTavern context
  * @param settings - Extension settings
  */
 async function showPromptUpdateDialog(
+  messageId: number,
+  imageSrc: string,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<void> {
+  // Check if already active
+  if (isManualGenerationActive(messageId)) {
+    toastr.warning(t('toast.cannotUpdateDuringGeneration'), t('extensionName'));
+    return;
+  }
+
+  // Queue the update operation to avoid race conditions
+  await queueMessageOperation(messageId, async () => {
+    await showPromptUpdateDialogImpl(messageId, imageSrc, context, settings);
+  });
+}
+
+/**
+ * Internal implementation of prompt update dialog
+ * This is executed within the message operation queue
+ */
+async function showPromptUpdateDialogImpl(
   messageId: number,
   imageSrc: string,
   context: SillyTavernContext,
