@@ -85,6 +85,10 @@ declare global {
       options?: {rerenderMessage?: boolean}
     ): void;
     translate(text: string, key?: string | null): string;
+    generateQuietPrompt(options: {
+      quietPrompt: string;
+      quietToLoud?: boolean;
+    }): Promise<string>;
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
