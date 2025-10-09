@@ -23,7 +23,7 @@ describe('PromptUpdater', () => {
       chat_metadata: {},
       chat: new Array(100),
       saveChat: vi.fn(async () => {}),
-      generateQuietPrompt: vi.fn(),
+      generateRaw: vi.fn(),
     } as unknown as SillyTavernContext;
 
     // Setup a message
@@ -43,7 +43,7 @@ describe('PromptUpdater', () => {
       initializePromptPosition(position, originalId, mockContext);
 
       // Mock LLM response
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="1girl, long hair, detailed hands"-->'
       );
 
@@ -54,7 +54,7 @@ describe('PromptUpdater', () => {
       );
 
       expect(newPromptId).toBeTruthy();
-      expect(mockContext.generateQuietPrompt).toHaveBeenCalledOnce();
+      expect(mockContext.generateRaw).toHaveBeenCalledOnce();
 
       const newPrompt = getPromptText(newPromptId!, mockContext);
       expect(newPrompt).toBe('1girl, long hair, detailed hands');
@@ -71,7 +71,7 @@ describe('PromptUpdater', () => {
       const originalId = recordPrompt('1girl, long hair', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="1girl, short hair"-->'
       );
 
@@ -90,8 +90,8 @@ describe('PromptUpdater', () => {
       initializePromptPosition(position, originalId, mockContext);
 
       // Remove LLM function
-      mockContext.generateQuietPrompt =
-        undefined as unknown as typeof mockContext.generateQuietPrompt;
+      mockContext.generateRaw =
+        undefined as unknown as typeof mockContext.generateRaw;
 
       await expect(
         updatePromptForPosition(position, 'test', mockContext)
@@ -108,7 +108,7 @@ describe('PromptUpdater', () => {
       );
 
       expect(result).toBeNull();
-      expect(mockContext.generateQuietPrompt).not.toHaveBeenCalled();
+      expect(mockContext.generateRaw).not.toHaveBeenCalled();
     });
 
     it('should return null if LLM response cannot be parsed', async () => {
@@ -118,7 +118,7 @@ describe('PromptUpdater', () => {
       initializePromptPosition(position, originalId, mockContext);
 
       // LLM returns unparseable response
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         'I cannot help with that'
       );
 
@@ -137,7 +137,7 @@ describe('PromptUpdater', () => {
       const originalId = recordPrompt('1girl', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockRejectedValue(
+      (mockContext.generateRaw as vi.Mock).mockRejectedValue(
         new Error('LLM service unavailable')
       );
 
@@ -160,9 +160,7 @@ describe('PromptUpdater', () => {
       ];
 
       for (const llmResponse of testCases) {
-        (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
-          llmResponse
-        );
+        (mockContext.generateRaw as vi.Mock).mockResolvedValue(llmResponse);
 
         const result = await updatePromptForPosition(
           position,
@@ -188,13 +186,13 @@ describe('PromptUpdater', () => {
       initializePromptPosition(position, id1, mockContext);
 
       // First update
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="1girl, long hair, blue eyes"-->'
       );
       await updatePromptForPosition(position, 'add blue eyes', mockContext);
 
       // Second update
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="1girl, long hair, blue eyes, school uniform"-->'
       );
       await updatePromptForPosition(
@@ -214,24 +212,23 @@ describe('PromptUpdater', () => {
       expect(currentPrompt).toBe('1girl, long hair, blue eyes, school uniform');
     });
 
-    it('should pass correct template to LLM', async () => {
+    it('should pass correct parameters to LLM', async () => {
       const position: PromptPosition = {messageId: 42, promptIndex: 0};
 
       const originalId = recordPrompt('1girl, long hair', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="updated"-->'
       );
 
       await updatePromptForPosition(position, 'make it better', mockContext);
 
-      const llmCall = (mockContext.generateQuietPrompt as vi.Mock).mock
-        .calls[0][0];
-      expect(llmCall.quietPrompt).toContain('1girl, long hair');
-      expect(llmCall.quietPrompt).toContain('make it better');
-      expect(llmCall.quietPrompt).toContain('<!--img-prompt=');
-      expect(llmCall.quietToLoud).toBe(true);
+      const llmCall = (mockContext.generateRaw as vi.Mock).mock.calls[0][0];
+      expect(llmCall.systemPrompt).toBeTruthy();
+      expect(llmCall.prompt).toContain('1girl, long hair');
+      expect(llmCall.prompt).toContain('make it better');
+      expect(llmCall.prompt).toContain('<!--img-prompt=');
     });
 
     it('should save chat after successful update', async () => {
@@ -240,7 +237,7 @@ describe('PromptUpdater', () => {
       const originalId = recordPrompt('1girl', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="updated"-->'
       );
 
@@ -255,18 +252,18 @@ describe('PromptUpdater', () => {
       const originalId = recordPrompt('1girl', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="1girl, improved"-->'
       );
 
       const result = await updatePromptForPosition(position, '', mockContext);
 
       expect(result).toBeTruthy();
-      expect(mockContext.generateQuietPrompt).toHaveBeenCalled();
+      expect(mockContext.generateRaw).toHaveBeenCalled();
 
-      const llmCall = (mockContext.generateQuietPrompt as vi.Mock).mock
-        .calls[0][0];
-      expect(llmCall.quietPrompt).toContain(''); // Empty feedback
+      const llmCall = (mockContext.generateRaw as vi.Mock).mock.calls[0][0];
+      expect(llmCall.systemPrompt).toBeTruthy();
+      expect(llmCall.prompt).toBeTruthy(); // Should have template with empty feedback
     });
 
     it('should handle special characters in feedback', async () => {
@@ -275,7 +272,7 @@ describe('PromptUpdater', () => {
       const originalId = recordPrompt('1girl', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="updated"-->'
       );
 
@@ -294,7 +291,7 @@ describe('PromptUpdater', () => {
       const originalId = recordPrompt('original prompt', mockContext);
       initializePromptPosition(position, originalId, mockContext);
 
-      (mockContext.generateQuietPrompt as vi.Mock).mockResolvedValue(
+      (mockContext.generateRaw as vi.Mock).mockResolvedValue(
         '<!--img-prompt="updated prompt"-->'
       );
 

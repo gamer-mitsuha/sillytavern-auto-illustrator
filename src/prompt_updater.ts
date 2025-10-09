@@ -59,24 +59,28 @@ export async function updatePromptForPosition(
   }
 
   // Check for LLM availability
-  if (!context.generateQuietPrompt) {
-    logger.error('generateQuietPrompt not available in context');
+  if (!context.generateRaw) {
+    logger.error('generateRaw not available in context');
     throw new Error('LLM generation not available');
   }
 
-  // Build LLM prompt using <!--img-prompt="..."--> format
-  const quietPrompt = promptUpdateTemplate
+  // Build system prompt and user prompt using template
+  const systemPrompt =
+    'You are a technical assistant helping to update image generation prompts. Output ONLY the updated prompt in HTML comment format. Do NOT write stories, explanations, or continue any roleplay.';
+
+  // Use the template and replace placeholders
+  const userPrompt = promptUpdateTemplate
     .replace('{{{currentPrompt}}}', currentPrompt)
     .replace('{{{userFeedback}}}', userFeedback);
 
-  logger.debug('Sending prompt to LLM for update');
+  logger.debug('Sending prompt to LLM for update (using generateRaw)');
 
-  // Call LLM
+  // Call LLM with generateRaw (no chat context)
   let llmResponse: string;
   try {
-    llmResponse = await context.generateQuietPrompt({
-      quietPrompt,
-      quietToLoud: true,
+    llmResponse = await context.generateRaw({
+      systemPrompt,
+      prompt: userPrompt,
     });
   } catch (error) {
     logger.error('LLM generation failed:', error);

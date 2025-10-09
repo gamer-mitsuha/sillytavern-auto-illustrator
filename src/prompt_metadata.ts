@@ -33,6 +33,11 @@ export function parsePositionKey(key: string): PromptPosition {
 export function getMetadata(
   context: SillyTavernContext
 ): AutoIllustratorChatMetadata {
+  // Initialize chat_metadata if it doesn't exist
+  if (!context.chat_metadata) {
+    context.chat_metadata = {};
+  }
+
   if (!context.chat_metadata.auto_illustrator) {
     context.chat_metadata.auto_illustrator = {
       imageUrlToPromptId: {},

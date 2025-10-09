@@ -144,9 +144,8 @@
   z-index: 9999;
 }
 
-/* Manual Generation Dialog & Regeneration Dialog */
-#auto_illustrator_manual_gen_dialog,
-#auto_illustrator_regen_dialog {
+/* All dialogs (manual generation, regeneration, prompt update, confirmation) */
+.auto-illustrator-dialog {
   position: fixed;
   top: 5vh;
   left: 50%;
@@ -164,13 +163,53 @@
   overflow-y: auto;
 }
 
-#auto_illustrator_manual_gen_dialog p,
-#auto_illustrator_regen_dialog p {
+.auto-illustrator-dialog p {
   margin: 0 0 1rem 0;
   line-height: 1.6;
   white-space: pre-line;
   color: #ffffff;
   font-size: 1rem;
+}
+
+.auto-illustrator-dialog h3 {
+  margin: 0 0 1rem 0;
+  color: #ffffff;
+  font-size: 1.2rem;
+}
+
+.auto-illustrator-dialog label {
+  display: block;
+  margin: 0.5rem 0 0.25rem 0;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.auto-illustrator-dialog textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--SmartThemeBorderColor, #666);
+  border-radius: 4px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.auto-illustrator-dialog textarea:focus {
+  outline: none;
+  border-color: #9b59b6;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.auto-illustrator-dialog textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.auto-illustrator-feedback-textarea {
+  margin-bottom: 0.5rem;
 }
 
 .auto-illustrator-mode-group {

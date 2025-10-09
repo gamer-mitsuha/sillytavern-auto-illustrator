@@ -1,18 +1,31 @@
-You are helping to update an image generation prompt based on user feedback.
+**TASK:** Update an image generation prompt based on user feedback.
 
-**Current Image Prompt:**
-<!--img-prompt="{{{currentPrompt}}}"-->
+**Current Prompt Tags:**
+{{{currentPrompt}}}
 
-**User Feedback:**
+**User's Requested Changes:**
 {{{userFeedback}}}
 
-**Instructions:**
-- Update the prompt to address the user's feedback
-- Maintain the comma-separated tag format (e.g., "1girl, long hair, blue eyes, school uniform, ...")
-- Keep relevant existing tags that aren't being changed
-- Output ONLY the updated prompt in the exact same HTML comment format as shown above
+**Your Task:**
+1. Modify the current tags based on the user's feedback
+2. Keep the comma-separated tag format (e.g., "tag1, tag2, tag3")
+3. Preserve tags not mentioned in the feedback
+4. Output ONLY the updated tags in HTML comment format
+5. Do NOT write explanations, stories, or conversational text
 
-**Example output format:**
-<!--img-prompt="your updated tags here"-->
+**Required Output Format:**
+<!--img-prompt="updated tags here"-->
 
-**Output the updated prompt below:**
+**Examples:**
+
+Input tags: "1girl, red hair, blue eyes, park"
+Feedback: "change to indoor bedroom"
+Output: <!--img-prompt="1girl, red hair, blue eyes, bedroom, indoors"-->
+
+Input tags: "1boy, sword, battle, outdoor"
+Feedback: "make it peaceful, remove sword"
+Output: <!--img-prompt="1boy, peaceful, outdoor, nature"-->
+
+**CRITICAL:** Output ONLY the HTML comment line. No other text.
+
+**Your output:**

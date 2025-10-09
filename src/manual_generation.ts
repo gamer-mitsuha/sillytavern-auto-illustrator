@@ -13,7 +13,12 @@ import type {
 import {createLogger} from './logger';
 import {t, tCount} from './i18n';
 import {isStreamingActive} from './index';
-import {getCurrentPromptId, getPromptText} from './prompt_metadata';
+import {
+  getCurrentPromptId,
+  getPromptText,
+  recordPrompt,
+  initializePromptPosition,
+} from './prompt_metadata';
 import {updatePromptForPosition} from './prompt_updater';
 
 const logger = createLogger('ManualGen');
@@ -1006,27 +1011,55 @@ async function showPromptUpdateDialog(
   }
 
   // Queue the update operation to avoid race conditions
+  let shouldRegenerate = false;
   await queueMessageOperation(messageId, async () => {
-    await showPromptUpdateDialogImpl(messageId, imageSrc, context, settings);
+    shouldRegenerate = await showPromptUpdateDialogImpl(
+      messageId,
+      imageSrc,
+      context,
+      settings
+    );
   });
+
+  // If user chose to regenerate, queue a separate regeneration operation
+  if (shouldRegenerate) {
+    logger.info('Queueing regeneration after prompt update');
+    await regenerateImage(messageId, imageSrc, 'replace', context, settings);
+  }
 }
 
 /**
  * Internal implementation of prompt update dialog
  * This is executed within the message operation queue
+ * @returns true if user wants to regenerate, false otherwise
  */
 async function showPromptUpdateDialogImpl(
   messageId: number,
   imageSrc: string,
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
-): Promise<void> {
+): Promise<boolean> {
+  // Check if dialog already exists and close it (mobile behavior)
+  const existingDialog = $('#auto_illustrator_prompt_update_dialog');
+  if (existingDialog.length > 0) {
+    logger.debug('Dialog already open, closing it');
+    $('.auto-illustrator-dialog-backdrop').remove();
+    existingDialog.remove();
+    return false;
+  }
+
   const message = context.chat?.[messageId];
   if (!message) {
     logger.error('Message not found:', messageId);
     toastr.error(t('toast.messageNotFound'), t('extensionName'));
-    return;
+    return false;
   }
+
+  logger.debug('showPromptUpdateDialogImpl called', {
+    messageId,
+    imageSrc,
+    messageText: message.mes.substring(0, 200),
+  });
 
   // Find prompt position for this image
   const position = findPromptPositionForImage(
@@ -1037,9 +1070,15 @@ async function showPromptUpdateDialogImpl(
   );
 
   if (!position) {
+    logger.error('Could not find prompt position for image', {
+      imageSrc,
+      messageId,
+    });
     toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-    return;
+    return false;
   }
+
+  logger.debug('Found prompt position', position);
 
   // Get current prompt text
   const currentPromptId = getCurrentPromptId(position, context);
@@ -1053,10 +1092,23 @@ async function showPromptUpdateDialogImpl(
 
   if (!currentPromptMaybe) {
     toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-    return;
+    return false;
   }
 
   const currentPrompt: string = currentPromptMaybe;
+
+  logger.debug('Current prompt extracted', {currentPrompt, currentPromptId});
+
+  // Initialize prompt metadata if it doesn't exist (for legacy images)
+  if (!currentPromptId) {
+    logger.info('Initializing metadata for legacy prompt', {
+      position,
+      promptText: currentPrompt,
+    });
+    const newPromptId = recordPrompt(currentPrompt, context);
+    // Initialize position history with this prompt as version 0
+    initializePromptPosition(position, newPromptId, context);
+  }
 
   // Show dialog to get user feedback
   const userFeedback = await new Promise<string | null>(resolve => {
@@ -1128,28 +1180,34 @@ async function showPromptUpdateDialogImpl(
 
   if (!userFeedback) {
     logger.info('Prompt update cancelled by user');
-    return;
+    return false;
   }
 
   // Update prompt using LLM
   try {
     toastr.info(t('toast.updatingPromptWithAI'), t('extensionName'));
 
-    const newPromptMaybe = await updatePromptForPosition(
+    const newPromptId = await updatePromptForPosition(
       position,
       userFeedback,
       context
     );
 
-    if (!newPromptMaybe) {
+    if (!newPromptId) {
       logger.error('Failed to update prompt - LLM returned null');
       toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
-      return;
+      return false;
     }
 
-    const newPrompt: string = newPromptMaybe;
+    // Get the actual prompt text from the ID
+    const newPromptText = getPromptText(newPromptId, context);
+    if (!newPromptText) {
+      logger.error('Failed to get prompt text for new prompt ID');
+      toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+      return false;
+    }
 
-    logger.info(`Prompt updated: "${currentPrompt}" -> "${newPrompt}"`);
+    logger.info(`Prompt updated: "${currentPrompt}" -> "${newPromptText}"`);
 
     // Replace the old prompt in the message with the new one
     const prompts = extractImagePrompts(
@@ -1161,7 +1219,7 @@ async function showPromptUpdateDialogImpl(
     if (!promptMatch) {
       logger.error('Could not find prompt match in message');
       toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
-      return;
+      return false;
     }
 
     // Replace the prompt content in the tag
@@ -1169,7 +1227,10 @@ async function showPromptUpdateDialogImpl(
     const oldTag = promptMatch.fullMatch;
     // Escape special regex characters in currentPrompt for safe replacement
     const escapedPrompt = currentPrompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const newTag = oldTag.replace(new RegExp(escapedPrompt, 'g'), newPrompt);
+    const newTag = oldTag.replace(
+      new RegExp(escapedPrompt, 'g'),
+      newPromptText
+    );
 
     newText = newText.replace(oldTag, newTag);
     message.mes = newText;
@@ -1230,13 +1291,14 @@ async function showPromptUpdateDialogImpl(
       });
     });
 
-    if (shouldRegenerate) {
-      // Regenerate the image with the new prompt (replace mode)
-      await regenerateImage(messageId, imageSrc, 'replace', context, settings);
-    }
+    logger.info('User chose to regenerate:', shouldRegenerate);
+
+    // Return whether user wants to regenerate, we'll handle it after this operation completes
+    return shouldRegenerate;
   } catch (error) {
     logger.error('Error updating prompt:', error);
     toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+    return false;
   }
 }
 

@@ -89,6 +89,12 @@ declare global {
       quietPrompt: string;
       quietToLoud?: boolean;
     }): Promise<string>;
+    generateRaw(options: {
+      systemPrompt?: string;
+      prompt: string | unknown[];
+      prefill?: string;
+      jsonSchema?: unknown;
+    }): Promise<string>;
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
