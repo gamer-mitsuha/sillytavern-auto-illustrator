@@ -155,12 +155,31 @@
   border-radius: 8px;
   padding: 1.5rem;
   max-width: 500px;
-  max-height: 95vh;
+  max-height: 85vh;
   width: 90%;
   z-index: 10000;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
   color: #ffffff;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .auto-illustrator-dialog {
+    width: 95%;
+    padding: 1rem;
+    top: 2vh;
+    max-height: 90vh;
+  }
+
+  .auto-illustrator-dialog h3 {
+    font-size: 1rem;
+  }
+
+  .auto-illustrator-dialog p {
+    font-size: 0.9rem;
+  }
 }
 
 .auto-illustrator-dialog p {
@@ -262,8 +281,25 @@
   gap: 0.5rem;
   justify-content: flex-end;
   margin-top: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .auto-illustrator-dialog-buttons button {
   min-width: 100px;
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+/* Mobile button optimizations */
+@media (max-width: 768px) {
+  .auto-illustrator-dialog-buttons {
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+
+  .auto-illustrator-dialog-buttons button {
+    min-width: 80px;
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+  }
 }
