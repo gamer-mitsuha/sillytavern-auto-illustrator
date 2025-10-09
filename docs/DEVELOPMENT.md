@@ -151,6 +151,178 @@ npm run test:coverage
    git commit -m "feat: your feature description"
    ```
 
+### Adding New Settings
+
+When adding a new setting to the extension, follow these steps to ensure it works correctly:
+
+#### 1. Add the Constant (if applicable)
+
+If the setting has min/max/default values, add them to `src/constants.ts`:
+
+```typescript
+export const MY_NEW_SETTING = {
+  DEFAULT: 100,
+  MIN: 0,
+  MAX: 1000,
+  STEP: 10,
+} as const;
+```
+
+#### 2. Update the Settings Type
+
+Add the setting field to `AutoIllustratorSettings` in `globals.d.ts`:
+
+```typescript
+interface AutoIllustratorSettings {
+  // ... existing fields
+  myNewSetting: number;  // Add your new field
+}
+```
+
+#### 3. Add to Default Settings
+
+Update `DEFAULT_SETTINGS` in `src/constants.ts`:
+
+```typescript
+export const DEFAULT_SETTINGS = {
+  // ... existing fields
+  myNewSetting: MY_NEW_SETTING.DEFAULT,
+};
+```
+
+#### 4. Add UI Element ID
+
+Add the element ID to `UI_ELEMENT_IDS` in `src/constants.ts`:
+
+```typescript
+export const UI_ELEMENT_IDS = {
+  // ... existing IDs
+  MY_NEW_SETTING: 'auto_illustrator_my_new_setting',
+} as const;
+```
+
+#### 5. Create the UI Element
+
+Add the HTML input/select to the settings UI in `src/settings.ts`:
+
+```typescript
+<label for="${UI_ELEMENT_IDS.MY_NEW_SETTING}">
+  <span>${t('settings.myNewSetting')}</span>
+  <small>${t('settings.myNewSettingDesc')}</small>
+  <input id="${UI_ELEMENT_IDS.MY_NEW_SETTING}" class="text_pole" type="number"
+         min="${MY_NEW_SETTING.MIN}" max="${MY_NEW_SETTING.MAX}"
+         step="${MY_NEW_SETTING.STEP}" />
+</label>
+```
+
+#### 6. Add i18n Translations
+
+Add translation keys to both `i18n/en-us.json` and `i18n/zh-cn.json`:
+
+```json
+{
+  "settings.myNewSetting": "My New Setting",
+  "settings.myNewSettingDesc": "Description of what this setting does"
+}
+```
+
+#### 7. Add to handleSettingsChange()
+
+In `src/index.ts`, retrieve the DOM element in the `handleSettingsChange()` function:
+
+```typescript
+function handleSettingsChange(): void {
+  // ... existing element retrievals
+  const myNewSettingInput = document.getElementById(
+    UI_ELEMENT_IDS.MY_NEW_SETTING
+  ) as HTMLInputElement;
+
+  // ... read and save the value
+  settings.myNewSetting = myNewSettingInput
+    ? parseInt(myNewSettingInput.value)
+    : settings.myNewSetting;
+```
+
+#### 8. Add to updateUI()
+
+In `src/index.ts`, retrieve the element and set its value in `updateUI()`:
+
+```typescript
+function updateUI(): void {
+  // ... existing element retrievals
+  const myNewSettingInput = document.getElementById(
+    UI_ELEMENT_IDS.MY_NEW_SETTING
+  ) as HTMLInputElement;
+
+  // ... set the value
+  if (myNewSettingInput)
+    myNewSettingInput.value = settings.myNewSetting.toString();
+```
+
+#### 9. **CRITICAL**: Add Event Listener
+
+In the `getApi()` function where event listeners are attached, add:
+
+```typescript
+// Get the element
+const myNewSettingInput = document.getElementById(
+  UI_ELEMENT_IDS.MY_NEW_SETTING
+);
+
+// Attach the event listener
+myNewSettingInput?.addEventListener('change', handleSettingsChange);
+```
+
+**⚠️ Common Pitfall**: Forgetting this step will cause the setting to not persist!
+The setting will appear to work but will revert to default on page reload.
+
+#### 10. Use the Setting
+
+Access the setting value through the `settings` object:
+
+```typescript
+// Example usage
+if (settings.myNewSetting > 0) {
+  // Do something with the setting
+}
+```
+
+#### 11. Add Tests
+
+Create or update tests to verify the setting works correctly:
+
+```typescript
+it('should save and load myNewSetting', () => {
+  const context = createMockContext();
+  context.extensionSettings.auto_illustrator = {
+    myNewSetting: 500,
+  };
+
+  const loaded = loadSettings(context);
+  expect(loaded.myNewSetting).toBe(500);
+});
+```
+
+#### Checklist
+
+Use this checklist when adding a new setting:
+
+- [ ] Constant added to `src/constants.ts` (if applicable)
+- [ ] Field added to `AutoIllustratorSettings` in `globals.d.ts`
+- [ ] Default value added to `DEFAULT_SETTINGS` in `src/constants.ts`
+- [ ] UI element ID added to `UI_ELEMENT_IDS` in `src/constants.ts`
+- [ ] HTML element created in `src/settings.ts`
+- [ ] i18n translations added to both `en-us.json` and `zh-cn.json`
+- [ ] Element retrieved in `handleSettingsChange()` in `src/index.ts`
+- [ ] Value read and saved in `handleSettingsChange()`
+- [ ] Element retrieved in `updateUI()` in `src/index.ts`
+- [ ] Value set in `updateUI()`
+- [ ] **Element retrieved in event listener setup (getApi function)**
+- [ ] **Event listener attached to trigger `handleSettingsChange()`**
+- [ ] Tests added/updated
+- [ ] Code formatted with `npm run fix`
+- [ ] All tests pass with `npm test`
+
 ### Commit Message Format
 
 Follow Conventional Commits specification:

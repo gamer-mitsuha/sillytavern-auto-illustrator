@@ -41,6 +41,7 @@ Before writing any code, you must follow this sequence:
 - **No Dead Code:** Do not leave commented-out blocks of old code in the codebase.
 - **Security First:** Do not include hardcoded secrets (API keys, passwords). Always validate and sanitize user input where appropriate.
 - **Consistent Style** Follow Google Coding Style Guide, e.g., Google TypeScript Style Guide.
+- **Adding Settings:** When adding new settings, follow the comprehensive guide in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#adding-new-settings). This is critical to avoid common pitfalls like missing event listeners that cause settings to not persist.
 
 ## **3\. Test-Driven Development (TDD) is Mandatory**
 
