@@ -1011,9 +1011,9 @@ async function showPromptUpdateDialog(
   }
 
   // Queue the update operation to avoid race conditions
-  let shouldRegenerate = false;
+  let selectedMode: ManualGenerationMode | null = null;
   await queueMessageOperation(messageId, async () => {
-    shouldRegenerate = await showPromptUpdateDialogImpl(
+    selectedMode = await showPromptUpdateDialogImpl(
       messageId,
       imageSrc,
       context,
@@ -1022,37 +1022,39 @@ async function showPromptUpdateDialog(
   });
 
   // If user chose to regenerate, queue a separate regeneration operation
-  if (shouldRegenerate) {
-    logger.info('Queueing regeneration after prompt update');
-    await regenerateImage(messageId, imageSrc, 'replace', context, settings);
+  if (selectedMode) {
+    logger.info('Queueing regeneration after prompt update', {
+      mode: selectedMode,
+    });
+    await regenerateImage(messageId, imageSrc, selectedMode, context, settings);
   }
 }
 
 /**
  * Internal implementation of prompt update dialog
  * This is executed within the message operation queue
- * @returns true if user wants to regenerate, false otherwise
+ * @returns selected regeneration mode, or null if user cancelled
  */
 async function showPromptUpdateDialogImpl(
   messageId: number,
   imageSrc: string,
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
-): Promise<boolean> {
+): Promise<ManualGenerationMode | null> {
   // Check if dialog already exists and close it (mobile behavior)
   const existingDialog = $('#auto_illustrator_prompt_update_dialog');
   if (existingDialog.length > 0) {
     logger.debug('Dialog already open, closing it');
     $('.auto-illustrator-dialog-backdrop').remove();
     existingDialog.remove();
-    return false;
+    return null;
   }
 
   const message = context.chat?.[messageId];
   if (!message) {
     logger.error('Message not found:', messageId);
     toastr.error(t('toast.messageNotFound'), t('extensionName'));
-    return false;
+    return null;
   }
 
   logger.debug('showPromptUpdateDialogImpl called', {
@@ -1075,7 +1077,7 @@ async function showPromptUpdateDialogImpl(
       messageId,
     });
     toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-    return false;
+    return null;
   }
 
   logger.debug('Found prompt position', position);
@@ -1092,7 +1094,7 @@ async function showPromptUpdateDialogImpl(
 
   if (!currentPromptMaybe) {
     toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-    return false;
+    return null;
   }
 
   const currentPrompt: string = currentPromptMaybe;
@@ -1180,7 +1182,7 @@ async function showPromptUpdateDialogImpl(
 
   if (!userFeedback) {
     logger.info('Prompt update cancelled by user');
-    return false;
+    return null;
   }
 
   // Update prompt using LLM
@@ -1196,7 +1198,7 @@ async function showPromptUpdateDialogImpl(
     if (!newPromptId) {
       logger.error('Failed to update prompt - LLM returned null');
       toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
-      return false;
+      return null;
     }
 
     // Get the actual prompt text from the ID
@@ -1204,7 +1206,7 @@ async function showPromptUpdateDialogImpl(
     if (!newPromptText) {
       logger.error('Failed to get prompt text for new prompt ID');
       toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
-      return false;
+      return null;
     }
 
     logger.info(`Prompt updated: "${currentPrompt}" -> "${newPromptText}"`);
@@ -1219,7 +1221,7 @@ async function showPromptUpdateDialogImpl(
     if (!promptMatch) {
       logger.error('Could not find prompt match in message');
       toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
-      return false;
+      return null;
     }
 
     // Replace the prompt content in the tag
@@ -1249,56 +1251,101 @@ async function showPromptUpdateDialogImpl(
 
     toastr.success(t('toast.promptUpdated'), t('extensionName'));
 
-    // Ask user if they want to regenerate the image
-    const shouldRegenerate = await new Promise<boolean>(resolve => {
-      const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+    // Ask user if they want to regenerate and how
+    const selectedMode = await new Promise<ManualGenerationMode | null>(
+      resolve => {
+        const backdrop = $('<div>').addClass(
+          'auto-illustrator-dialog-backdrop'
+        );
 
-      const dialog = $('<div>')
-        .attr('id', 'auto_illustrator_regen_confirm_dialog')
-        .addClass('auto-illustrator-dialog');
+        const dialog = $('<div>')
+          .attr('id', 'auto_illustrator_regen_confirm_dialog')
+          .addClass('auto-illustrator-dialog');
 
-      dialog.append($('<p>').text(t('dialog.promptUpdatedRegenerate')));
+        dialog.append(
+          $('<p>').text(t('dialog.promptUpdatedRegenerateWithMode'))
+        );
 
-      const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+        // Add mode selection radio buttons
+        const modeGroup = $('<div>').addClass('auto-illustrator-mode-group');
 
-      const yesBtn = $('<button>')
-        .text(t('dialog.yes'))
-        .addClass('menu_button')
-        .on('click', () => {
+        const replaceOption = $('<label>')
+          .addClass('auto-illustrator-mode-option')
+          .append(
+            $('<input>')
+              .attr('type', 'radio')
+              .attr('name', 'regen_mode')
+              .val('replace')
+              .prop('checked', settings.manualGenerationMode === 'replace')
+          )
+          .append(
+            $('<span>').html(
+              `<strong>${t('dialog.replace')}</strong> ${t('dialog.replaceRegen')}`
+            )
+          );
+
+        const appendOption = $('<label>')
+          .addClass('auto-illustrator-mode-option')
+          .append(
+            $('<input>')
+              .attr('type', 'radio')
+              .attr('name', 'regen_mode')
+              .val('append')
+              .prop('checked', settings.manualGenerationMode === 'append')
+          )
+          .append(
+            $('<span>').html(
+              `<strong>${t('dialog.append')}</strong> ${t('dialog.appendRegen')}`
+            )
+          );
+
+        modeGroup.append(appendOption).append(replaceOption);
+        dialog.append(modeGroup);
+
+        const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+
+        const generateBtn = $('<button>')
+          .text(t('dialog.generate'))
+          .addClass('menu_button')
+          .on('click', () => {
+            const mode = dialog
+              .find('input[name="regen_mode"]:checked')
+              .val() as ManualGenerationMode;
+            backdrop.remove();
+            dialog.remove();
+            resolve(mode);
+          });
+
+        const cancelBtn = $('<button>')
+          .text(t('dialog.cancel'))
+          .addClass('menu_button')
+          .on('click', () => {
+            backdrop.remove();
+            dialog.remove();
+            resolve(null);
+          });
+
+        buttons.append(generateBtn).append(cancelBtn);
+        dialog.append(buttons);
+
+        $('body').append(backdrop).append(dialog);
+
+        backdrop.on('click', () => {
           backdrop.remove();
           dialog.remove();
-          resolve(true);
+          resolve(null);
         });
+      }
+    );
 
-      const noBtn = $('<button>')
-        .text(t('dialog.no'))
-        .addClass('menu_button')
-        .on('click', () => {
-          backdrop.remove();
-          dialog.remove();
-          resolve(false);
-        });
+    logger.info('User selected regeneration mode:', selectedMode);
 
-      buttons.append(yesBtn).append(noBtn);
-      dialog.append(buttons);
-
-      $('body').append(backdrop).append(dialog);
-
-      backdrop.on('click', () => {
-        backdrop.remove();
-        dialog.remove();
-        resolve(false);
-      });
-    });
-
-    logger.info('User chose to regenerate:', shouldRegenerate);
-
-    // Return whether user wants to regenerate, we'll handle it after this operation completes
-    return shouldRegenerate;
+    // Return selected mode (or null if cancelled)
+    return selectedMode;
   } catch (error) {
     logger.error('Error updating prompt:', error);
     toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
-    return false;
+    return null;
   }
 }
 

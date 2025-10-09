@@ -66,6 +66,7 @@
   "dialog.feedbackPlaceholder": "e.g., 'Make the background more detailed' or 'Change the lighting to golden hour'",
   "dialog.updateWithAI": "Update with AI",
   "dialog.promptUpdatedRegenerate": "Prompt updated successfully! Would you like to regenerate the image with the new prompt?",
+  "dialog.promptUpdatedRegenerateWithMode": "Prompt updated successfully! How would you like to regenerate the image?",
   "dialog.yes": "Yes",
   "dialog.no": "No",
   "toast.messageNotFound": "Message not found",

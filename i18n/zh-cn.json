@@ -66,6 +66,7 @@
   "dialog.feedbackPlaceholder": "例如：'让背景更详细' 或 '将光线改为黄金时段'",
   "dialog.updateWithAI": "使用 AI 更新",
   "dialog.promptUpdatedRegenerate": "提示词更新成功！您要使用新提示词重新生成图像吗？",
+  "dialog.promptUpdatedRegenerateWithMode": "提示词更新成功！您想如何重新生成图像？",
   "dialog.yes": "是",
   "dialog.no": "否",
   "toast.messageNotFound": "未找到消息",
