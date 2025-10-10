@@ -10,6 +10,7 @@ import {createLogger} from './logger';
 import {
   tryInsertProgressWidgetWithRetry,
   updateProgressWidget,
+  insertProgressWidget,
 } from './progress_widget';
 
 const logger = createLogger('Processor');
@@ -68,7 +69,10 @@ export class QueueProcessor {
       `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
     );
 
-    // Start processing (widget will be inserted when we have prompts)
+    // Initialize progress widget for this message
+    insertProgressWidget(messageId, 0);
+
+    // Start processing
     this.processNext();
   }
 
@@ -218,11 +222,14 @@ export class QueueProcessor {
 
     // Wait for any active generations to complete first
     // This prevents concurrent execution beyond maxConcurrent limit
-    while (this.activeGenerations > 0) {
-      logger.info(
+    if (this.activeGenerations > 0) {
+      logger.debug(
         `Waiting for ${this.activeGenerations} active generations to complete...`
       );
-      await new Promise(resolve => setTimeout(resolve, 100));
+      while (this.activeGenerations > 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      logger.debug('All active generations completed');
     }
 
     const pending = this.queue.getPromptsByState('QUEUED');

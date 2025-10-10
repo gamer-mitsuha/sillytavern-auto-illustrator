@@ -14,6 +14,7 @@
 }
 
 /* Image generation progress widget */
+/* Legacy per-message widget (deprecated) */
 .ai-img-progress-widget {
   display: flex;
   align-items: center;
@@ -29,9 +30,48 @@
   backdrop-filter: blur(4px);
 }
 
+/* Global progress widget above user input */
+.ai-img-progress-widget-global {
+  /* Use sticky positioning within #sheld for reliable visibility */
+  position: sticky;
+  bottom: 0;
+  /* Use margin auto for centering instead of left+transform with sticky */
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 0.5rem;
+  z-index: 100;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  min-width: 200px;
+  min-height: 40px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(155, 89, 182, 0.5);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #ffffff;
+  animation: fadeIn 0.3s ease-in;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  max-width: 90%;
+}
+
+.ai-img-progress-text-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 150px;
+}
+
 .ai-img-progress-spinner {
   width: 16px;
   height: 16px;
+  min-width: 16px;
+  min-height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #9b59b6;
   border-radius: 50%;
@@ -42,6 +82,7 @@
 .ai-img-progress-text {
   flex: 1;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
 @keyframes spin {
@@ -66,6 +107,12 @@
   .ai-img-progress-widget {
     font-size: 0.85rem;
     padding: 0.4rem 0.8rem;
+  }
+
+  .ai-img-progress-widget-global {
+    font-size: 0.85rem;
+    padding: 0.6rem 1.2rem;
+    bottom: 100px;
   }
 
   .ai-img-progress-spinner {

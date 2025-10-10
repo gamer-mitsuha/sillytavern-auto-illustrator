@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Extension now auto-detects whether LLM is actually streaming at runtime
   - Automatically falls back to immediate processing when LLM streaming is off
   - Removes reliance on static `streamingEnabled` setting for determining processing mode
+- Progress widget no longer shows "Message element not found" errors
+  - Redesigned as global fixed-position widget above user input area
+  - No longer tied to message DOM elements (eliminates timing issues)
+  - Shows progress for all messages with message ID context
+  - Always visible and accessible regardless of scroll position
+  - Works reliably in all modes (streaming, non-streaming, manual generation)
 - Progress widget total count now updates correctly when new prompts are detected during streaming (#19)
   - Widget now shows accurate intermediate states (1/2, 2/3, etc.) instead of just current/current (1/1, 2/2)
   - `insertProgressWidget()` now updates total count when widget already exists instead of failing

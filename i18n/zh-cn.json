@@ -102,6 +102,7 @@
   "toast.failedToUpdatePrompt": "提示词更新失败",
   "toast.cannotUpdateDuringGeneration": "该消息正在生成图像，无法更新提示词",
   "toast.generatingImagesProgress": "正在生成图像：{current}/{total}",
+  "toast.generatingImagesProgressWithMessage": "消息 #{messageId}：正在生成 {current}/{total} 图片",
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
   "button.manualGenerate": "从提示词生成图像"

@@ -1,6 +1,7 @@
 /**
  * Progress Widget Module
- * Manages loading indicators for image generation
+ * Manages a global loading indicator for image generation
+ * Shows progress for all messages in a fixed position above the user input area
  */
 
 import {t} from './i18n';
@@ -8,41 +9,210 @@ import {createLogger} from './logger';
 
 const logger = createLogger('ProgressWidget');
 
+// Global state tracking progress for each message
+const messageProgress = new Map<
+  number,
+  {current: number; total: number; startTime: number}
+>();
+
 /**
- * Creates a progress widget element
- * @param messageId - Message ID
- * @param total - Total number of images to generate
+ * Creates or gets the global progress widget element
  * @returns Widget HTMLElement
  */
-export function createProgressWidget(
-  messageId: number,
-  total: number
-): HTMLElement {
+function getOrCreateGlobalWidget(): HTMLElement {
+  const existingWidget = document.getElementById('ai-img-progress-global');
+  if (existingWidget) {
+    return existingWidget;
+  }
+
+  // Create new global widget
   const widget = document.createElement('div');
-  widget.id = `ai-img-progress-${messageId}`;
-  widget.className = 'ai-img-progress-widget';
+  widget.id = 'ai-img-progress-global';
+  widget.className = 'ai-img-progress-widget-global';
+  widget.style.display = 'none'; // Start hidden, will be shown by updateGlobalWidgetDisplay()
 
-  // Spinner
-  const spinner = document.createElement('div');
-  spinner.className = 'ai-img-progress-spinner';
+  // Find #sheld and #form_sheld to insert widget in correct position
+  const sheld = document.getElementById('sheld');
+  const formSheld = document.getElementById('form_sheld');
 
-  // Text
-  const text = document.createElement('span');
-  text.className = 'ai-img-progress-text';
-  text.textContent = t('toast.generatingImagesProgress', {
-    current: '0',
-    total: String(total),
-  });
+  if (!sheld || !formSheld) {
+    logger.error(
+      'Could not find #sheld or #form_sheld, falling back to body append'
+    );
+    document.body.appendChild(widget);
+    logger.warn(
+      'Widget appended to body as fallback (may have positioning issues)'
+    );
+  } else {
+    // Insert widget BEFORE #form_sheld (just above user input area)
+    // This makes it appear between the chat and the input form
+    sheld.insertBefore(widget, formSheld);
+    logger.info(
+      'Created global progress widget and inserted into #sheld before #form_sheld'
+    );
+  }
 
-  widget.appendChild(spinner);
-  widget.appendChild(text);
-
-  logger.debug(`Created progress widget for message ${messageId}`);
   return widget;
 }
 
 /**
- * Updates the progress widget with current progress
+ * Updates the global widget display with current progress for all messages
+ */
+function updateGlobalWidgetDisplay(): void {
+  const widget = document.getElementById('ai-img-progress-global');
+  if (!widget) {
+    logger.warn('Global widget not found during update');
+    return;
+  }
+
+  logger.info(
+    `Updating global widget display: ${messageProgress.size} message(s), display will be: ${messageProgress.size === 0 ? 'none' : 'flex'}`
+  );
+
+  // Clear existing content
+  widget.innerHTML = '';
+
+  if (messageProgress.size === 0) {
+    // No active generations - hide widget
+    widget.style.display = 'none';
+    logger.debug('No active messages, hiding widget');
+    return;
+  }
+
+  // Show widget
+  widget.style.display = 'flex';
+
+  // Add spinner
+  const spinner = document.createElement('div');
+  spinner.className = 'ai-img-progress-spinner';
+  widget.appendChild(spinner);
+
+  // Add progress text for each message
+  const container = document.createElement('div');
+  container.className = 'ai-img-progress-text-container';
+
+  for (const [messageId, progress] of messageProgress.entries()) {
+    const text = document.createElement('div');
+    text.className = 'ai-img-progress-text';
+    text.textContent = t('toast.generatingImagesProgressWithMessage', {
+      messageId: String(messageId),
+      current: String(progress.current),
+      total: String(progress.total),
+    });
+    container.appendChild(text);
+  }
+
+  widget.appendChild(container);
+
+  // Debug logging AFTER content is added
+  const computedStyle = window.getComputedStyle(widget);
+  const rect = widget.getBoundingClientRect();
+  logger.info(
+    `Widget rendered - display: ${computedStyle.display}, visibility: ${computedStyle.visibility}, position: ${computedStyle.position}, zIndex: ${computedStyle.zIndex}, bottom: ${computedStyle.bottom}`
+  );
+  logger.info(
+    `Widget position - top: ${rect.top}px, left: ${rect.left}px, bottom: ${rect.bottom}px, right: ${rect.right}px, width: ${rect.width}px, height: ${rect.height}px`
+  );
+  logger.info(
+    `Widget content: ${widget.children.length} children, innerHTML length: ${widget.innerHTML.length}`
+  );
+
+  logger.debug(
+    `Updated global widget: ${messageProgress.size} message(s) in progress`
+  );
+}
+
+/**
+ * Adds or updates progress tracking for a message
+ * @param messageId - Message ID
+ * @param current - Current number of images completed
+ * @param total - Total number of images to generate
+ */
+export function addMessageProgress(
+  messageId: number,
+  current: number,
+  total: number
+): void {
+  // Ensure widget exists
+  getOrCreateGlobalWidget();
+
+  // Add or update progress
+  messageProgress.set(messageId, {
+    current,
+    total,
+    startTime: messageProgress.get(messageId)?.startTime || Date.now(),
+  });
+
+  updateGlobalWidgetDisplay();
+
+  logger.info(
+    `Added/updated progress for message ${messageId}: ${current}/${total}`
+  );
+}
+
+/**
+ * Updates progress for a message
+ * @param messageId - Message ID
+ * @param current - Current number of images completed
+ * @param total - Total number of images to generate
+ */
+export function updateMessageProgress(
+  messageId: number,
+  current: number,
+  total: number
+): void {
+  const existing = messageProgress.get(messageId);
+  if (!existing) {
+    logger.warn(
+      `Cannot update progress for message ${messageId}: not being tracked`
+    );
+    return;
+  }
+
+  messageProgress.set(messageId, {
+    current,
+    total,
+    startTime: existing.startTime,
+  });
+
+  updateGlobalWidgetDisplay();
+
+  logger.debug(
+    `Updated progress for message ${messageId}: ${current}/${total}`
+  );
+}
+
+/**
+ * Removes progress tracking for a message and updates display
+ * @param messageId - Message ID
+ */
+export function removeMessageProgress(messageId: number): void {
+  const removed = messageProgress.delete(messageId);
+
+  if (removed) {
+    updateGlobalWidgetDisplay();
+    logger.info(`Removed progress for message ${messageId}`);
+  }
+}
+
+/**
+ * Legacy API: Inserts progress widget (now adds to global widget)
+ * @deprecated Use addMessageProgress instead
+ * @param messageId - Message ID
+ * @param total - Total number of images to generate
+ * @returns Always returns true (widget always succeeds)
+ */
+export function insertProgressWidget(
+  messageId: number,
+  total: number
+): boolean {
+  addMessageProgress(messageId, 0, total);
+  return true;
+}
+
+/**
+ * Legacy API: Updates progress widget (now updates global widget)
+ * @deprecated Use updateMessageProgress instead
  * @param messageId - Message ID
  * @param current - Number of images completed
  * @param total - Total number of images
@@ -52,140 +222,32 @@ export function updateProgressWidget(
   current: number,
   total: number
 ): void {
-  const widget = document.getElementById(`ai-img-progress-${messageId}`);
-  if (!widget) {
-    logger.warn(`Progress widget not found for message ${messageId}`);
-    return;
-  }
-
-  const textEl = widget.querySelector('.ai-img-progress-text');
-  if (textEl) {
-    textEl.textContent = t('toast.generatingImagesProgress', {
-      current: String(current),
-      total: String(total),
-    });
-  }
-
-  logger.debug(
-    `Updated progress widget for message ${messageId}: ${current}/${total}`
-  );
+  updateMessageProgress(messageId, current, total);
 }
 
 /**
- * Removes the progress widget from the DOM
+ * Legacy API: Removes progress widget (now removes from global widget)
+ * @deprecated Use removeMessageProgress instead
  * @param messageId - Message ID
  */
 export function removeProgressWidget(messageId: number): void {
-  const widget = document.getElementById(`ai-img-progress-${messageId}`);
-  if (widget) {
-    widget.remove();
-    logger.debug(`Removed progress widget for message ${messageId}`);
-  }
+  removeMessageProgress(messageId);
 }
 
 /**
- * Inserts progress widget into a message element
- * If widget already exists, updates its total count instead
+ * Legacy API: Tries to insert progress widget with retry logic
+ * @deprecated No longer needed - widget always succeeds. Use insertProgressWidget instead.
  * @param messageId - Message ID
  * @param total - Total number of images to generate
- * @returns True if widget was inserted or updated, false if message not found
- */
-export function insertProgressWidget(
-  messageId: number,
-  total: number
-): boolean {
-  // Check if widget already exists first
-  const existingWidget = document.getElementById(
-    `ai-img-progress-${messageId}`
-  );
-  if (existingWidget) {
-    // Widget exists - update total count instead of failing
-    const textEl = existingWidget.querySelector('.ai-img-progress-text');
-    if (textEl) {
-      // Extract current count from existing text
-      const currentMatch = textEl.textContent?.match(/(\d+)/);
-      const current = currentMatch ? currentMatch[1] : '0';
-
-      // Update with new total
-      textEl.textContent = t('toast.generatingImagesProgress', {
-        current,
-        total: String(total),
-      });
-
-      logger.debug(
-        `Updated total count for existing widget: ${current}/${total}`
-      );
-    }
-    return true; // Return true since update succeeded
-  }
-
-  // Find message container
-  const messageEl = document.querySelector(`.mes[mesid="${messageId}"]`);
-  if (!messageEl) {
-    logger.warn(`Message element not found: ${messageId}`);
-    return false;
-  }
-
-  const messageText = messageEl.querySelector('.mes_text');
-  if (!messageText) {
-    logger.warn(`Message text element not found: ${messageId}`);
-    return false;
-  }
-
-  // Create and insert widget
-  const widget = createProgressWidget(messageId, total);
-  // Insert widget after .mes_text as a sibling, not inside it
-  // This prevents streaming updates from removing the widget
-  messageText.insertAdjacentElement('afterend', widget);
-
-  logger.info(
-    `Inserted progress widget for message ${messageId} (${total} images)`
-  );
-  return true;
-}
-
-/**
- * Tries to insert progress widget with retry logic
- * Retries up to maxRetries times with delay between attempts
- * @param messageId - Message ID
- * @param total - Total number of images to generate
- * @param maxRetries - Maximum number of retry attempts (default: 10)
- * @param retryDelay - Delay between retries in ms (default: 100)
+ * @param _maxRetries - Unused (kept for API compatibility)
+ * @param _retryDelay - Unused (kept for API compatibility)
  */
 export function tryInsertProgressWidgetWithRetry(
   messageId: number,
   total: number,
-  maxRetries = 10,
-  retryDelay = 100
+  _maxRetries?: number,
+  _retryDelay?: number
 ): void {
-  let attempts = 0;
-
-  const attemptInsert = () => {
-    attempts++;
-
-    // Try to insert widget
-    const success = insertProgressWidget(messageId, total);
-
-    if (success) {
-      logger.debug(
-        `Progress widget inserted successfully on attempt ${attempts}`
-      );
-      return;
-    }
-
-    // Retry if we haven't exceeded max attempts
-    if (attempts < maxRetries) {
-      logger.debug(
-        `Progress widget insertion failed, retrying... (attempt ${attempts}/${maxRetries})`
-      );
-      setTimeout(attemptInsert, retryDelay);
-    } else {
-      logger.warn(
-        `Failed to insert progress widget after ${maxRetries} attempts`
-      );
-    }
-  };
-
-  // Start first attempt
-  attemptInsert();
+  // No retry needed - just add to global widget
+  insertProgressWidget(messageId, total);
 }
