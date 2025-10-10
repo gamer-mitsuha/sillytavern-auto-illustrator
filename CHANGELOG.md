@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Image generation now works correctly when LLM streaming is disabled (#26)
+  - Extension now auto-detects whether LLM is actually streaming at runtime
+  - Automatically falls back to immediate processing when LLM streaming is off
+  - Removes reliance on static `streamingEnabled` setting for determining processing mode
 - Progress widget total count now updates correctly when new prompts are detected during streaming (#19)
   - Widget now shows accurate intermediate states (1/2, 2/3, etc.) instead of just current/current (1/1, 2/2)
   - `insertProgressWidget()` now updates total count when widget already exists instead of failing

@@ -117,11 +117,7 @@ describe('message_handler', () => {
       });
 
       const mockSettings = {streamingEnabled: false} as AutoIllustratorSettings;
-      const handler = createMessageHandler(
-        mockContext,
-        () => false,
-        mockSettings
-      );
+      const handler = createMessageHandler(mockContext, mockSettings);
       expect(typeof handler).toBe('function');
     });
 
@@ -131,7 +127,9 @@ describe('message_handler', () => {
         .mockResolvedValue('https://example.com/image.png');
       const mockEmit = vi.fn();
       const mockSaveChat = vi.fn().mockResolvedValue(undefined);
+      const mockUpdateMessageBlock = vi.fn();
       const MESSAGE_EDITED = 'MESSAGE_EDITED';
+      const MESSAGE_UPDATED = 'MESSAGE_UPDATED';
       const mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
@@ -147,25 +145,29 @@ describe('message_handler', () => {
         },
         eventTypes: {
           MESSAGE_EDITED: MESSAGE_EDITED,
+          MESSAGE_UPDATED: MESSAGE_UPDATED,
         },
         chat: [
           {is_user: false, mes: 'Here is a scene <img-prompt="test scene">'},
         ],
         chat_metadata: {},
         saveChat: mockSaveChat,
+        updateMessageBlock: mockUpdateMessageBlock,
       });
 
-      const isMessageBeingStreamed = () => false; // Not streaming during test
       const mockSettings = {streamingEnabled: false} as AutoIllustratorSettings;
-      const handler = createMessageHandler(
-        mockContext,
-        isMessageBeingStreamed,
-        mockSettings
-      );
+      const handler = createMessageHandler(mockContext, mockSettings);
       await handler(0);
 
-      // Should call emit with MESSAGE_EDITED event type constant
+      // Should call updateMessageBlock to render images in DOM
+      expect(mockUpdateMessageBlock).toHaveBeenCalledWith(
+        0,
+        mockContext.chat[0]
+      );
+
+      // Should call emit with MESSAGE_EDITED and MESSAGE_UPDATED event types
       expect(mockEmit).toHaveBeenCalledWith(MESSAGE_EDITED, 0);
+      expect(mockEmit).toHaveBeenCalledWith(MESSAGE_UPDATED, 0);
     });
   });
 });

@@ -6,6 +6,10 @@
 import {hasImagePrompts} from './image_extractor';
 import {replacePromptsWithImages} from './image_generator';
 import {createLogger} from './logger';
+import {
+  isMessageBeingStreamed,
+  handleMessageReceivedForStreaming,
+} from './index';
 
 const logger = createLogger('MessageHandler');
 
@@ -56,46 +60,26 @@ export async function processMessageImages(
 /**
  * Creates a message handler function for MESSAGE_RECEIVED events
  * @param context - SillyTavern context
- * @param isMessageBeingStreamed - Function to check if a message is currently being streamed
  * @param settings - Extension settings
- * @param getPendingDeferredImages - Function to get and clear pending deferred images
  * @returns Message handler function
  */
 export function createMessageHandler(
   context: SillyTavernContext,
-  isMessageBeingStreamed: (messageId: number) => boolean,
-  settings: AutoIllustratorSettings,
-  getPendingDeferredImages?: () => {
-    images: Array<{prompt: string; imageUrl: string}>;
-    messageId: number;
-  } | null
+  settings: AutoIllustratorSettings
 ): (messageId: number) => Promise<void> {
   return async (messageId: number) => {
     logger.info('MESSAGE_RECEIVED event, messageId:', messageId);
 
-    // If streaming is enabled, mark MESSAGE_RECEIVED as fired and try insertion
-    if (settings.streamingEnabled && getPendingDeferredImages) {
-      logger.info('MESSAGE_RECEIVED fired for streaming message, marking flag');
-      // Call the callback to signal MESSAGE_RECEIVED fired
-      getPendingDeferredImages();
-      return;
-    }
-
-    // Skip if streaming is enabled - streaming handles all image generation
-    if (settings.streamingEnabled) {
-      logger.info(
-        'Skipping MESSAGE_RECEIVED - streaming mode handles image generation'
-      );
-      return;
-    }
-
-    // Skip if this message is currently being processed by streaming
+    // If streaming is handling this message, just signal and return
     if (isMessageBeingStreamed(messageId)) {
-      logger.info(
-        'Skipping MESSAGE_RECEIVED - message is being processed by streaming'
-      );
+      logger.info('Message being streamed, signaling MESSAGE_RECEIVED');
+      handleMessageReceivedForStreaming();
       return;
     }
+
+    // No streaming active - process immediately
+    // This handles both disabled streaming AND LLM streaming off (auto-fallback)
+    logger.info('No streaming active, processing immediately');
 
     // Get the message from chat
     const message = context.chat?.[messageId];
@@ -135,10 +119,18 @@ export function createMessageHandler(
       settings.commonStyleTagsPosition
     );
 
-    // Emit MESSAGE_EDITED event to trigger UI updates and regex processing
+    // Emit MESSAGE_EDITED event first to trigger regex "Run on Edit"
     logger.info('Emitting MESSAGE_EDITED event');
     const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-    context.eventSource.emit(MESSAGE_EDITED, messageId);
+    await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+    // Re-render the message block to display images in DOM
+    // This calls messageFormatting() which processes <img> tags into rendered HTML
+    context.updateMessageBlock(messageId, message);
+
+    // Emit MESSAGE_UPDATED to notify other extensions
+    const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+    await context.eventSource.emit(MESSAGE_UPDATED, messageId);
 
     // Save the chat to persist the inserted images
     await context.saveChat();

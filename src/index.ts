@@ -81,6 +81,15 @@ export function isStreamingActive(messageId?: number): boolean {
 let currentStreamingMessageId: number | null = null; // Track which message is being streamed
 
 /**
+ * Checks if a specific message is currently being streamed
+ * @param messageId - Message ID to check
+ * @returns True if this message is being streamed
+ */
+export function isMessageBeingStreamed(messageId: number): boolean {
+  return currentStreamingMessageId === messageId;
+}
+
+/**
  * Updates the UI elements with current settings
  */
 function updateUI(): void {
@@ -795,6 +804,16 @@ function handleFirstStreamToken(): void {
 }
 
 /**
+ * Handles MESSAGE_RECEIVED event when in streaming mode
+ * Signals that the message has been finalized and attempts to insert deferred images
+ */
+export function handleMessageReceivedForStreaming(): void {
+  logger.info('MESSAGE_RECEIVED fired for streaming, setting flag');
+  messageReceivedFired = true;
+  tryInsertDeferredImages();
+}
+
+/**
  * Attempts to insert deferred images if both conditions are met:
  * 1. All images have been generated (pendingDeferredImages exists)
  * 2. MESSAGE_RECEIVED has fired (messageReceivedFired is true)
@@ -915,22 +934,8 @@ function initialize(): void {
     `Initialized concurrency limiter: max=${settings.maxConcurrentGenerations}, minInterval=${settings.minGenerationInterval}ms`
   );
 
-  // Create and register message handler with streaming check
-  const isMessageBeingStreamed = (messageId: number) =>
-    currentStreamingMessageId === messageId;
-  const getPendingDeferredImages = () => {
-    // Mark MESSAGE_RECEIVED as fired and try insertion
-    logger.info('MESSAGE_RECEIVED callback invoked, setting flag');
-    messageReceivedFired = true;
-    tryInsertDeferredImages(); // Try to insert if images are ready
-    return null; // We don't return pending images anymore
-  };
-  const messageHandler = createMessageHandler(
-    context,
-    isMessageBeingStreamed,
-    settings,
-    getPendingDeferredImages
-  );
+  // Create and register message handler
+  const messageHandler = createMessageHandler(context, settings);
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
