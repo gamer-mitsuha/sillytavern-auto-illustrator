@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Progress widget now shows cumulative count for sequential image regenerations
+  - When clicking multiple regenerate buttons rapidly (e.g., 3 images), widget now shows "0/3 → 1/3 → 2/3 → 3/3" instead of "0/1 → 1/1" for each
+  - Added regeneration tracking to accumulate pending and completed counts per message
+  - Widget only disappears after all regenerations complete
+
 ### Changed
 
 - Improved logging level assignments for reduced verbosity at INFO level (#42)
