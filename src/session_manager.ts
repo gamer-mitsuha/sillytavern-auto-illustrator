@@ -14,15 +14,17 @@ const logger = createLogger('SessionManager');
 
 /**
  * Manages streaming session lifecycle
- * Ensures only one streaming session is active at a time
- * Encapsulates all session state (queue, monitor, processor, barrier)
+ * Supports multiple concurrent sessions (one per message)
+ * Each session independently monitors, queues, and processes image generation
+ * Image generation is globally rate-limited via Bottleneck limiter
  */
 export class SessionManager {
-  private currentSession: StreamingSession | null = null;
+  private sessions: Map<number, StreamingSession> = new Map();
 
   /**
    * Starts a new streaming session for a message
-   * If another session is active, it will be cancelled first
+   * If a session already exists for this message, it will be cancelled first
+   * Multiple sessions can exist concurrently for different messages
    *
    * @param messageId - Message being streamed
    * @param context - SillyTavern context
@@ -34,12 +36,13 @@ export class SessionManager {
     context: SillyTavernContext,
     settings: AutoIllustratorSettings
   ): StreamingSession {
-    // Cancel existing session if any
-    if (this.currentSession) {
+    // Cancel existing session for this specific message if any
+    const existing = this.sessions.get(messageId);
+    if (existing) {
       logger.warn(
-        `Starting new session for message ${messageId}, cancelling existing session for message ${this.currentSession.messageId}`
+        `Message ${messageId} already has active session ${existing.sessionId}, cancelling it`
       );
-      this.cancelSession();
+      this.cancelSession(messageId);
     }
 
     const sessionId = `session_${messageId}_${Date.now()}`;
@@ -80,10 +83,10 @@ export class SessionManager {
       startedAt: Date.now(),
     };
 
-    this.currentSession = session;
+    this.sessions.set(messageId, session);
 
     logger.info(
-      `Started streaming session ${sessionId} for message ${messageId}`
+      `Started streaming session ${sessionId} for message ${messageId} (${this.sessions.size} total active)`
     );
 
     // Start monitor and processor
@@ -94,16 +97,17 @@ export class SessionManager {
   }
 
   /**
-   * Cancels the current streaming session
+   * Cancels a specific streaming session
    * Aborts ongoing operations and stops components
+   * @param messageId - Message ID of the session to cancel
    */
-  cancelSession(): void {
-    if (!this.currentSession) {
+  cancelSession(messageId: number): void {
+    const session = this.sessions.get(messageId);
+    if (!session) {
       return;
     }
 
-    const {sessionId, messageId, abortController, monitor, processor} =
-      this.currentSession;
+    const {sessionId, abortController, monitor, processor} = session;
 
     logger.info(
       `Cancelling streaming session ${sessionId} for message ${messageId}`
@@ -116,36 +120,66 @@ export class SessionManager {
     monitor.stop();
     processor.stop();
 
-    // Clear reference
-    this.currentSession = null;
+    // Remove from map
+    this.sessions.delete(messageId);
+    logger.info(
+      `Cancelled session for message ${messageId} (${this.sessions.size} remaining)`
+    );
   }
 
   /**
-   * Ends the current session gracefully (completed, not cancelled)
+   * Ends a specific session gracefully (completed, not cancelled)
    * Assumes monitor and processor have already been stopped by caller
+   * @param messageId - Message ID of the session to end
    */
-  endSession(): void {
-    if (!this.currentSession) {
+  endSession(messageId: number): void {
+    const session = this.sessions.get(messageId);
+    if (!session) {
       return;
     }
 
-    const {sessionId, messageId, startedAt} = this.currentSession;
+    const {sessionId, startedAt} = session;
     const duration = Date.now() - startedAt;
 
     logger.info(
       `Ending streaming session ${sessionId} for message ${messageId} (duration: ${duration}ms)`
     );
 
-    // Clear reference (monitor/processor already stopped by caller)
-    this.currentSession = null;
+    // Remove from map (monitor/processor already stopped by caller)
+    this.sessions.delete(messageId);
+    logger.info(
+      `Ended session for message ${messageId} (${this.sessions.size} remaining)`
+    );
   }
 
   /**
-   * Gets the current active session
-   * @returns Current session or null if none active
+   * Gets a specific session by message ID
+   * @param messageId - Message ID to get session for
+   * @returns Session for the message or null if none exists
+   */
+  getSession(messageId: number): StreamingSession | null {
+    return this.sessions.get(messageId) ?? null;
+  }
+
+  /**
+   * Gets the most recent session (last one added to map)
+   * @deprecated Use getSession(messageId) instead for explicit session lookup
+   * @returns Most recent session or null if none active
    */
   getCurrentSession(): StreamingSession | null {
-    return this.currentSession;
+    if (this.sessions.size === 0) {
+      return null;
+    }
+    const sessions = Array.from(this.sessions.values());
+    return sessions[sessions.length - 1];
+  }
+
+  /**
+   * Gets all active sessions
+   * @returns Array of all active streaming sessions
+   */
+  getAllSessions(): StreamingSession[] {
+    return Array.from(this.sessions.values());
   }
 
   /**
@@ -154,53 +188,40 @@ export class SessionManager {
    * @returns True if streaming is active (optionally for specific message)
    */
   isActive(messageId?: number): boolean {
-    if (!this.currentSession) {
-      return false;
-    }
-
     if (messageId === undefined) {
-      return true; // Any session active
+      // Check if any session is active
+      return this.sessions.size > 0;
     }
 
-    return this.currentSession.messageId === messageId;
+    // Check if specific message has an active session
+    return this.sessions.has(messageId);
   }
 
   /**
    * Gets status information for debugging
-   * @returns Status object with session details
+   * @returns Status object with details for all active sessions
    */
   getStatus(): {
-    hasActiveSession: boolean;
-    sessionId: string | null;
-    messageId: number | null;
-    duration: number | null;
-    queueSize: number | null;
-    monitorActive: boolean;
-    processorActive: boolean;
+    activeSessionCount: number;
+    sessions: Array<{
+      sessionId: string;
+      messageId: number;
+      duration: number;
+      queueSize: number;
+      monitorActive: boolean;
+      processorActive: boolean;
+    }>;
   } {
-    if (!this.currentSession) {
-      return {
-        hasActiveSession: false,
-        sessionId: null,
-        messageId: null,
-        duration: null,
-        queueSize: null,
-        monitorActive: false,
-        processorActive: false,
-      };
-    }
-
-    const {sessionId, messageId, startedAt, queue, monitor, processor} =
-      this.currentSession;
-
     return {
-      hasActiveSession: true,
-      sessionId,
-      messageId,
-      duration: Date.now() - startedAt,
-      queueSize: queue.size(),
-      monitorActive: monitor.isActive(),
-      processorActive: processor.getStatus().isRunning,
+      activeSessionCount: this.sessions.size,
+      sessions: Array.from(this.sessions.values()).map(s => ({
+        sessionId: s.sessionId,
+        messageId: s.messageId,
+        duration: Date.now() - s.startedAt,
+        queueSize: s.queue.size(),
+        monitorActive: s.monitor.isActive(),
+        processorActive: s.processor.getStatus().isRunning,
+      })),
     };
   }
 }

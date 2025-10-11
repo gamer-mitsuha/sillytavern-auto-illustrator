@@ -9,6 +9,7 @@ import {createLogger} from './logger';
 import {
   isMessageBeingStreamed,
   handleMessageReceivedForStreaming,
+  currentGenerationType,
 } from './index';
 
 const logger = createLogger('MessageHandler');
@@ -68,12 +69,14 @@ export function createMessageHandler(
   settings: AutoIllustratorSettings
 ): (messageId: number) => Promise<void> {
   return async (messageId: number) => {
-    logger.info('MESSAGE_RECEIVED event, messageId:', messageId);
+    // Use global currentGenerationType, default to 'normal' if not set
+    const type = currentGenerationType || 'normal';
+    logger.info('MESSAGE_RECEIVED event, messageId:', messageId, 'type:', type);
 
     // If streaming is handling this message, just signal and return
     if (isMessageBeingStreamed(messageId)) {
       logger.info('Message being streamed, signaling MESSAGE_RECEIVED');
-      handleMessageReceivedForStreaming();
+      handleMessageReceivedForStreaming(messageId, type);
       return;
     }
 

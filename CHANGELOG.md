@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Multiple concurrent streaming sessions support (#43)
+  - Each message now maintains its own independent streaming session
+  - Sessions can run concurrently without interfering with each other
+  - No more image loss when sending messages quickly
+  - Progress widgets show all active messages simultaneously
+  - Image generation remains globally rate-limited via Bottleneck
+  - Automatic session cleanup on chat changes
+  - Better UX: users see all active generations
+
 - Phase 3: Complete streaming coordination refactor with SessionManager (#41)
   - Replaced 6 scattered module-level state variables with single SessionManager
   - Replaced manual flag-based coordination with explicit Barrier pattern

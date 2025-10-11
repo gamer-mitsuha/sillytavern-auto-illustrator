@@ -112,27 +112,39 @@ Before starting manual testing:
 
 ---
 
-### 5. Session Management & Cancellation
+### 5. Session Management & Multiple Concurrent Sessions
 
-**Purpose**: Verify proper session cleanup when streaming is interrupted.
+**Purpose**: Verify proper session management with multiple concurrent streaming messages.
 
 **Steps**:
-1. Start streaming with image generation
-2. **While streaming**, trigger a new message (cancels previous)
-3. **Verify**: Previous session cancels cleanly
-4. **Verify**: No images from cancelled session insert
-5. **Verify**: New session starts without errors
-6. **Verify**: Console shows: "Cancelling streaming session" and "Session changed, skipping insertion"
+1. Start streaming message N with image generation
+2. **While message N is streaming**, send message N+2
+3. **Verify**: Both sessions run concurrently without interfering
+4. **Verify**: Progress widgets show both messages (e.g., "2 messages")
+5. **Verify**: Message N completes and inserts its images correctly
+6. **Verify**: Message N+2 completes and inserts its images correctly
+7. **Verify**: No images from wrong sessions insert
+8. **Verify**: Console shows session count increasing/decreasing correctly
+
+**Additional Test - Session Cleanup**:
+1. Start streaming with active sessions
+2. Change chat or trigger CHAT_CHANGED event
+3. **Verify**: All active sessions cancel cleanly
+4. **Verify**: Console shows: "Cancelling N active streaming sessions"
+5. **Verify**: No orphaned sessions remain
 
 **Expected Behavior**:
-- Only one active session at a time
-- Cancelled sessions don't insert images
-- SessionManager tracks current session correctly
+- Multiple sessions can run concurrently (one per message)
+- Each session has independent queue, monitor, processor, and barrier
+- Sessions identified by messageId
+- Image generation globally rate-limited via Bottleneck
+- Chat changes cancel all sessions
 
 **Common Issues**:
-- Images from old session insert → Check session ID validation
-- New session blocked → Check cancellation cleanup
-- Memory leak → Check barrier/processor cleanup
+- Sessions interfere with each other → Check session isolation
+- Images insert in wrong message → Check messageId validation
+- Memory leak with many sessions → Check session cleanup
+- Duplicate session for same message → Check startSession() logic
 
 ---
 
@@ -233,19 +245,23 @@ Before starting manual testing:
 
 ### 10. Rapid Message Changes
 
-**Purpose**: Verify session handling with fast message switching.
+**Purpose**: Verify session handling with fast message succession.
 
 **Steps**:
 1. Rapidly send 5+ messages while previous ones are streaming
-2. **Verify**: Sessions cancel and start cleanly
-3. **Verify**: No orphaned images insert
-4. **Verify**: No errors in console
-5. **Verify**: Latest session completes successfully
+2. **Verify**: All sessions run concurrently without errors
+3. **Verify**: Each message gets its own progress widget
+4. **Verify**: Images insert in correct messages
+5. **Verify**: No errors in console
+6. **Verify**: All sessions complete successfully
+7. **Verify**: Memory usage remains reasonable
 
 **Expected Behavior**:
-- SessionManager cancels old sessions
-- DOM queue prevents race conditions
-- No memory leaks from abandoned sessions
+- SessionManager maintains multiple concurrent sessions
+- Each message identified by messageId
+- DOM queue prevents race conditions within each message
+- No memory leaks from concurrent sessions
+- All messages receive their respective images
 
 ---
 

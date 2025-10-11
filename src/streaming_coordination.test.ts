@@ -138,7 +138,7 @@ describe('Streaming Coordination Integration', () => {
       // Clean up
       session.monitor.stop();
       session.processor.stop();
-      manager.endSession();
+      manager.endSession(0);
 
       expect(manager.getCurrentSession()).toBeNull();
     });
@@ -159,7 +159,7 @@ describe('Streaming Coordination Integration', () => {
       // Session should still be cleanable after timeout
       session.monitor.stop();
       session.processor.stop();
-      manager.endSession();
+      manager.endSession(0);
 
       expect(manager.getCurrentSession()).toBeNull();
     });
@@ -172,7 +172,7 @@ describe('Streaming Coordination Integration', () => {
       session.barrier.arrive('genDone');
 
       // Cancel session before messageReceived arrives
-      manager.cancelSession();
+      manager.cancelSession(0);
 
       expect(manager.getCurrentSession()).toBeNull();
       expect(manager.isActive()).toBe(false);
@@ -230,8 +230,9 @@ describe('Streaming Coordination Integration', () => {
       await session1.barrier.whenReady;
       session1.monitor.stop();
       session1.processor.stop();
-      manager.endSession();
+      manager.endSession(0);
 
+      expect(manager.getSession(0)).toBeNull();
       expect(manager.getCurrentSession()).toBeNull();
 
       // Second session
@@ -241,8 +242,9 @@ describe('Streaming Coordination Integration', () => {
       await session2.barrier.whenReady;
       session2.monitor.stop();
       session2.processor.stop();
-      manager.endSession();
+      manager.endSession(1);
 
+      expect(manager.getSession(1)).toBeNull();
       expect(manager.getCurrentSession()).toBeNull();
     });
   });
@@ -262,7 +264,7 @@ describe('Streaming Coordination Integration', () => {
       // Clean up failed session
       session1.monitor.stop();
       session1.processor.stop();
-      manager.endSession();
+      manager.endSession(0);
 
       // Should be able to start new session
       const session2 = manager.startSession(1, context, settings);
@@ -272,7 +274,7 @@ describe('Streaming Coordination Integration', () => {
       // Clean up
       session2.monitor.stop();
       session2.processor.stop();
-      manager.endSession();
+      manager.endSession(1);
     });
 
     it('should handle rapid session changes', () => {
@@ -283,17 +285,22 @@ describe('Streaming Coordination Integration', () => {
       expect(manager.isActive(0)).toBe(true);
 
       manager.startSession(1, context, settings);
-      expect(manager.isActive(0)).toBe(false);
+      // With multi-session support, both should be active
+      expect(manager.isActive(0)).toBe(true);
       expect(manager.isActive(1)).toBe(true);
 
       const session3 = manager.startSession(2, context, settings);
-      expect(manager.isActive(1)).toBe(false);
+      // All three sessions should be active with multi-session support
+      expect(manager.isActive(0)).toBe(true);
+      expect(manager.isActive(1)).toBe(true);
       expect(manager.isActive(2)).toBe(true);
 
-      // Clean up final session
+      // Clean up all sessions
+      manager.cancelSession(0);
+      manager.cancelSession(1);
       session3.monitor.stop();
       session3.processor.stop();
-      manager.endSession();
+      manager.endSession(2);
     });
   });
 

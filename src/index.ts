@@ -47,7 +47,7 @@ let settings: AutoIllustratorSettings;
 let isEditingPreset = false; // Track if user is currently editing a preset
 
 // Generation state
-let currentGenerationType: string | null = null; // Track generation type for filtering
+export let currentGenerationType: string | null = null; // Track generation type for filtering
 
 // Streaming state - managed by SessionManager
 let sessionManager: SessionManager;
@@ -752,33 +752,49 @@ function handleFirstStreamToken(): void {
 /**
  * Handles MESSAGE_RECEIVED event when in streaming mode
  * Signals that the message has been finalized and deferred images can be inserted
+ * @param messageId - ID of the message that was received
+ * @param type - Type of generation (e.g., 'normal', 'regenerate', 'swipe')
  */
-export function handleMessageReceivedForStreaming(): void {
-  const session = sessionManager.getCurrentSession();
+export function handleMessageReceivedForStreaming(
+  messageId: number,
+  type: string
+): void {
+  logger.debug(
+    `MESSAGE_RECEIVED event for message ${messageId}, type: ${type}`
+  );
+
+  const session = sessionManager.getSession(messageId);
   if (!session) {
-    logger.debug('No active session, ignoring MESSAGE_RECEIVED');
+    logger.debug(`No active session for message ${messageId}`);
     return;
   }
 
-  logger.info('MESSAGE_RECEIVED fired, signaling barrier');
+  logger.info(`MESSAGE_RECEIVED for message ${messageId}, signaling barrier`);
   session.barrier.arrive('messageReceived');
 }
 
 /**
  * Handles GENERATION_ENDED event
+ * @param chatLength - Length of chat array when event fired (messageId = chatLength - 1)
  */
-async function handleGenerationEnded(): Promise<void> {
+async function handleGenerationEnded(chatLength: number): Promise<void> {
   currentGenerationType = null;
 
-  const session = sessionManager.getCurrentSession();
+  // GENERATION_ENDED passes chat.length, so messageId is chat.length - 1
+  const messageId = chatLength - 1;
+  logger.debug(
+    `GENERATION_ENDED event (chatLength: ${chatLength}, messageId: ${messageId})`
+  );
+
+  const session = sessionManager.getSession(messageId);
   if (!session) {
-    logger.debug('No active session, ignoring GENERATION_ENDED');
+    logger.debug(`No active session for message ${messageId}`);
     return;
   }
 
-  logger.info('GENERATION_ENDED, finalizing streaming session');
+  logger.info(`GENERATION_ENDED for message ${messageId}, finalizing session`);
 
-  const {sessionId, messageId, barrier, monitor, processor, queue} = session;
+  const {sessionId, barrier, monitor, processor, queue} = session;
 
   // Final scan for any remaining prompts
   monitor.finalScan();
@@ -813,14 +829,14 @@ async function handleGenerationEnded(): Promise<void> {
         logger.info('Barrier resolved, inserting deferred images');
 
         // Check session still current (not cancelled)
-        const currentSession = sessionManager.getCurrentSession();
+        const currentSession = sessionManager.getSession(messageId);
         logger.info(
-          `Session check: current=${currentSession?.sessionId}, expected=${sessionId}`
+          `Session check for message ${messageId}: current=${currentSession?.sessionId}, expected=${sessionId}`
         );
 
         if (currentSession?.sessionId !== sessionId) {
           logger.warn(
-            `Session changed, skipping insertion (current: ${currentSession?.sessionId}, expected: ${sessionId})`
+            `Session changed for message ${messageId}, skipping insertion (current: ${currentSession?.sessionId}, expected: ${sessionId})`
           );
           return;
         }
@@ -834,20 +850,23 @@ async function handleGenerationEnded(): Promise<void> {
         logger.info('Deferred images inserted successfully');
 
         // End session after successful insertion
-        sessionManager.endSession();
-        logger.info('Session ended after successful insertion');
+        sessionManager.endSession(messageId);
+        logger.info(
+          `Session ended for message ${messageId} after successful insertion`
+        );
       } catch (error) {
         logger.error('Barrier failed or insertion error:', error);
         toastr.error('Failed to insert generated images', t('extensionName'));
 
         // End session even on error
-        sessionManager.endSession();
+        sessionManager.endSession(messageId);
         logger.info('Session ended after error');
       }
     })();
   } else {
     // No deferred images, end session immediately
-    sessionManager.endSession();
+    sessionManager.endSession(messageId);
+    logger.info(`Session ended for message ${messageId} (no deferred images)`);
   }
 
   // Show notification if failures
@@ -856,6 +875,23 @@ async function handleGenerationEnded(): Promise<void> {
       t('toast.streamingFailed', {count: stats.FAILED}),
       t('extensionName')
     );
+  }
+}
+
+/**
+ * Cancels all active streaming sessions
+ * Used when chat is cleared or reset
+ */
+function cancelAllSessions(): void {
+  const sessions = sessionManager.getAllSessions();
+  if (sessions.length === 0) {
+    return;
+  }
+
+  logger.info(`Cancelling ${sessions.length} active streaming sessions`);
+
+  for (const session of sessions) {
+    sessionManager.cancelSession(session.messageId);
   }
 }
 
@@ -1110,7 +1146,12 @@ function initialize(): void {
   const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
 
   context.eventSource.on(CHAT_CHANGED, () => {
-    logger.info('CHAT_CHANGED - reloading settings');
+    logger.info(
+      'CHAT_CHANGED - cancelling all sessions and reloading settings'
+    );
+
+    // Cancel all active streaming sessions
+    cancelAllSessions();
 
     // Reload settings from server to ensure sync across devices
     settings = loadSettings(context);
