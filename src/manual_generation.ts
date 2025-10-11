@@ -25,97 +25,9 @@ import {
   updateProgressWidget,
   removeProgressWidget,
 } from './progress_widget';
+import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('ManualGen');
-
-// Per-message operation queue to serialize manual generation and regeneration
-// This prevents race conditions when multiple operations target the same message
-interface MessageOperation {
-  execute: () => Promise<void>;
-}
-
-const messageOperationQueues = new Map<number, MessageOperation[]>();
-const activeMessageOperations = new Set<number>();
-
-/**
- * Queues an operation for a specific message and executes it when ready
- * Operations for the same message are executed sequentially to avoid race conditions
- * @param messageId - Message ID
- * @param operation - Async operation to execute
- */
-async function queueMessageOperation(
-  messageId: number,
-  operation: () => Promise<void>
-): Promise<void> {
-  // Get or create queue for this message
-  if (!messageOperationQueues.has(messageId)) {
-    messageOperationQueues.set(messageId, []);
-  }
-
-  const queue = messageOperationQueues.get(messageId)!;
-  const isQueueActive = activeMessageOperations.has(messageId);
-
-  // Add operation to queue
-  return new Promise((resolve, reject) => {
-    queue.push({
-      execute: async () => {
-        try {
-          await operation();
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      },
-    });
-
-    // If queue is not currently processing, start processing
-    if (!isQueueActive) {
-      processMessageQueue(messageId);
-    }
-  });
-}
-
-/**
- * Processes all queued operations for a message sequentially
- * @param messageId - Message ID
- */
-async function processMessageQueue(messageId: number): Promise<void> {
-  const queue = messageOperationQueues.get(messageId);
-  if (!queue || queue.length === 0) {
-    return;
-  }
-
-  // Mark queue as active
-  activeMessageOperations.add(messageId);
-
-  try {
-    while (queue.length > 0) {
-      const operation = queue.shift()!;
-      await operation.execute();
-    }
-  } finally {
-    // Mark queue as inactive and clean up
-    activeMessageOperations.delete(messageId);
-    messageOperationQueues.delete(messageId);
-  }
-}
-
-/**
- * Checks if manual generation is currently active for a specific message
- * This includes both actively executing operations and queued operations
- * @param messageId - Message ID to check
- * @returns True if manual generation is active or queued for this message
- */
-export function isManualGenerationActive(messageId: number): boolean {
-  // Check if actively running
-  if (activeMessageOperations.has(messageId)) {
-    return true;
-  }
-
-  // Check if has queued operations
-  const queue = messageOperationQueues.get(messageId);
-  return queue !== undefined && queue.length > 0;
-}
 
 /**
  * Checks if a prompt already has an image after it
@@ -192,6 +104,7 @@ export function removeExistingImages(
 
 /**
  * Generates images for all prompts in a message
+ * Operations are serialized per-message via DOM queue
  * @param messageId - Message index in chat array
  * @param mode - Generation mode (replace or append)
  * @param context - SillyTavern context
@@ -204,41 +117,22 @@ export async function generateImagesForMessage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  // Queue this operation to avoid race conditions
-  let result = 0;
-  await queueMessageOperation(messageId, async () => {
-    result = await generateImagesForMessageImpl(
-      messageId,
-      mode,
-      context,
-      settings
-    );
-  });
-  return result;
-}
-
-/**
- * Internal implementation of generateImagesForMessage
- * This is executed within the message operation queue
- */
-async function generateImagesForMessageImpl(
-  messageId: number,
-  mode: ManualGenerationMode,
-  context: SillyTavernContext,
-  settings: AutoIllustratorSettings
-): Promise<number> {
-  try {
-    // Check if streaming is active for this message
-    if (isStreamingActive(messageId)) {
-      logger.warn(
-        `Cannot generate images for message ${messageId}: streaming is active`
-      );
-      toastr.warning(
-        t('toast.cannotGenerateMessageStreaming'),
-        t('extensionName')
-      );
-      return 0;
-    }
+  // Wrap in scheduleDomOperation to serialize with other message operations
+  return scheduleDomOperation(
+    messageId,
+    async () => {
+      try {
+        // Check if streaming is active for this message
+        if (isStreamingActive(messageId)) {
+          logger.warn(
+            `Cannot generate images for message ${messageId}: streaming is active`
+          );
+          toastr.warning(
+            t('toast.cannotGenerateMessageStreaming'),
+            t('extensionName')
+          );
+          return 0;
+        }
 
     logger.info(`Generating images for message ${messageId} in ${mode} mode`);
 
@@ -417,14 +311,17 @@ async function generateImagesForMessageImpl(
       toastr.error(t('toast.failedToGenerate'), t('extensionName'));
     }
 
-    return successCount;
-  } catch (error) {
-    logger.error('Error during manual image generation:', error);
-    toastr.error(t('toast.failedToGenerate'), t('extensionName'));
-    // Remove progress widget on error
-    removeProgressWidget(messageId);
-    return 0;
-  }
+        return successCount;
+      } catch (error) {
+        logger.error('Error during manual image generation:', error);
+        toastr.error(t('toast.failedToGenerate'), t('extensionName'));
+        // Remove progress widget on error
+        removeProgressWidget(messageId);
+        return 0;
+      }
+    },
+    'manual image generation'
+  );
 }
 
 /**
@@ -776,6 +673,7 @@ function countRegeneratedImages(
 
 /**
  * Regenerates a specific image in a message
+ * Operations are serialized per-message via DOM queue
  * @param messageId - Message ID
  * @param imageSrc - Source URL of image to regenerate
  * @param mode - Replace or append
@@ -790,43 +688,22 @@ export async function regenerateImage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<number> {
-  // Queue this operation to avoid race conditions
-  let result = 0;
-  await queueMessageOperation(messageId, async () => {
-    result = await regenerateImageImpl(
-      messageId,
-      imageSrc,
-      mode,
-      context,
-      settings
-    );
-  });
-  return result;
-}
-
-/**
- * Internal implementation of regenerateImage
- * This is executed within the message operation queue
- */
-async function regenerateImageImpl(
-  messageId: number,
-  imageSrc: string,
-  mode: ManualGenerationMode,
-  context: SillyTavernContext,
-  settings: AutoIllustratorSettings
-): Promise<number> {
-  try {
-    // Check if streaming is active for this message
-    if (isStreamingActive(messageId)) {
-      logger.warn(
-        `Cannot regenerate image for message ${messageId}: streaming is active`
-      );
-      toastr.warning(
-        t('toast.cannotGenerateMessageStreaming'),
-        t('extensionName')
-      );
-      return 0;
-    }
+  // Wrap in scheduleDomOperation to serialize with other message operations
+  return scheduleDomOperation(
+    messageId,
+    async () => {
+      try {
+        // Check if streaming is active for this message
+        if (isStreamingActive(messageId)) {
+          logger.warn(
+            `Cannot regenerate image for message ${messageId}: streaming is active`
+          );
+          toastr.warning(
+            t('toast.cannotGenerateMessageStreaming'),
+            t('extensionName')
+          );
+          return 0;
+        }
 
     // Initial message check
     let message = context.chat?.[messageId];
@@ -1002,18 +879,21 @@ async function regenerateImageImpl(
       addImageClickHandlers(context, settings);
     }, 100);
 
-    return 1;
-  } catch (error) {
-    logger.error('Error during image regeneration:', error);
-    toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
-    removeProgressWidget(messageId);
-    return 0;
-  }
+        return 1;
+      } catch (error) {
+        logger.error('Error during image regeneration:', error);
+        toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
+        removeProgressWidget(messageId);
+        return 0;
+      }
+    },
+    'image regeneration'
+  );
 }
 
 /**
  * Shows prompt update dialog for an image and handles the update
- * This operation is queued to prevent race conditions with generation
+ * Operations are serialized per-message via DOM queue
  * @param messageId - Message ID
  * @param imageSrc - Source URL of image
  * @param context - SillyTavern context
@@ -1031,35 +911,30 @@ async function showPromptUpdateDialog(
     return;
   }
 
-  // Check if already active
-  if (isManualGenerationActive(messageId)) {
-    toastr.warning(t('toast.cannotUpdateDuringGeneration'), t('extensionName'));
-    return;
-  }
+  // Wrap in scheduleDomOperation to serialize with other message operations
+  const selectedMode = await scheduleDomOperation(
+    messageId,
+    async () => {
+      return await showPromptUpdateDialogImpl(
+        messageId,
+        imageSrc,
+        context,
+        settings
+      );
+    },
+    'prompt update dialog'
+  );
 
-  // Queue the update operation to avoid race conditions
-  let selectedMode: ManualGenerationMode | null = null;
-  await queueMessageOperation(messageId, async () => {
-    selectedMode = await showPromptUpdateDialogImpl(
-      messageId,
-      imageSrc,
-      context,
-      settings
-    );
-  });
-
-  // If user chose to regenerate, queue a separate regeneration operation
+  // If user chose to regenerate, regenerate the image
+  // (regenerateImage also uses scheduleDomOperation, so it will be queued)
   if (selectedMode) {
-    logger.info('Queueing regeneration after prompt update', {
-      mode: selectedMode,
-    });
+    logger.info('Regenerating after prompt update', {mode: selectedMode});
     await regenerateImage(messageId, imageSrc, selectedMode, context, settings);
   }
 }
 
 /**
  * Internal implementation of prompt update dialog
- * This is executed within the message operation queue
  * @returns selected regeneration mode, or null if user cancelled
  */
 async function showPromptUpdateDialogImpl(
@@ -1390,12 +1265,16 @@ async function deleteImage(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<boolean> {
-  const message = context.chat?.[messageId];
-  if (!message) {
-    logger.error('Message not found:', messageId);
-    toastr.error(t('toast.messageNotFound'), t('extensionName'));
-    return false;
-  }
+  // Wrap in scheduleDomOperation to serialize with other message operations
+  return scheduleDomOperation(
+    messageId,
+    async () => {
+      const message = context.chat?.[messageId];
+      if (!message) {
+        logger.error('Message not found:', messageId);
+        toastr.error(t('toast.messageNotFound'), t('extensionName'));
+        return false;
+      }
 
   let text = message.mes || '';
   const originalLength = text.length;
@@ -1437,7 +1316,10 @@ async function deleteImage(
     addImageClickHandlers(context, settings);
   }, 100);
 
-  return true;
+      return true;
+    },
+    'image deletion'
+  );
 }
 
 /**

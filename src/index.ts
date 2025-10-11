@@ -32,7 +32,6 @@ import {
 import {
   addManualGenerationButton,
   addImageClickHandlers,
-  isManualGenerationActive,
 } from './manual_generation';
 import {
   initializeConcurrencyLimiter,
@@ -746,13 +745,7 @@ function handleFirstStreamToken(): void {
     return;
   }
 
-  // Don't start streaming if manual generation is active for this message
-  if (isManualGenerationActive(messageId)) {
-    logger.info(
-      `Cannot start streaming for message ${messageId}: manual generation active`
-    );
-    return;
-  }
+  // Note: DOM queue will automatically serialize with any manual generation operations
 
   // Don't restart if already monitoring this message
   // This prevents recreating the processor and losing deferred images
