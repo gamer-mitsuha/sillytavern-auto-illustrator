@@ -47,7 +47,7 @@ function getOrCreateGlobalWidget(): HTMLElement {
     // Insert widget BEFORE #form_sheld (just above user input area)
     // This makes it appear between the chat and the input form
     sheld.insertBefore(widget, formSheld);
-    logger.info(
+    logger.debug(
       'Created global progress widget and inserted into #sheld before #form_sheld'
     );
   }
@@ -65,7 +65,7 @@ function updateGlobalWidgetDisplay(): void {
     return;
   }
 
-  logger.info(
+  logger.debug(
     `Updating global widget display: ${messageProgress.size} message(s), display will be: ${messageProgress.size === 0 ? 'none' : 'flex'}`
   );
 
@@ -107,13 +107,13 @@ function updateGlobalWidgetDisplay(): void {
   // Debug logging AFTER content is added
   const computedStyle = window.getComputedStyle(widget);
   const rect = widget.getBoundingClientRect();
-  logger.info(
+  logger.trace(
     `Widget rendered - display: ${computedStyle.display}, visibility: ${computedStyle.visibility}, position: ${computedStyle.position}, zIndex: ${computedStyle.zIndex}, bottom: ${computedStyle.bottom}`
   );
-  logger.info(
+  logger.trace(
     `Widget position - top: ${rect.top}px, left: ${rect.left}px, bottom: ${rect.bottom}px, right: ${rect.right}px, width: ${rect.width}px, height: ${rect.height}px`
   );
-  logger.info(
+  logger.trace(
     `Widget content: ${widget.children.length} children, innerHTML length: ${widget.innerHTML.length}`
   );
 
@@ -146,7 +146,7 @@ export function addMessageProgress(
       total,
       startTime: existing.startTime,
     });
-    logger.info(
+    logger.debug(
       `Updated progress for message ${messageId}: ${Math.max(existing.current, current)}/${total} (preserved current: ${existing.current}, new total: ${total})`
     );
   } else {
@@ -156,7 +156,7 @@ export function addMessageProgress(
       total,
       startTime: Date.now(),
     });
-    logger.info(
+    logger.debug(
       `Added new progress for message ${messageId}: ${current}/${total}`
     );
   }
@@ -205,7 +205,7 @@ export function removeMessageProgress(messageId: number): void {
 
   if (removed) {
     updateGlobalWidgetDisplay();
-    logger.info(`Removed progress for message ${messageId}`);
+    logger.debug(`Removed progress for message ${messageId}`);
   }
 }
 

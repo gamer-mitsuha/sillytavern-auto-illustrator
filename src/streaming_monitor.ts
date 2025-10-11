@@ -61,7 +61,7 @@ export class StreamingMonitor {
     this.lastSeenText = '';
     this.isRunning = true;
 
-    logger.info(
+    logger.debug(
       `Starting monitor for message ${messageId} (interval: ${this.intervalMs}ms)`
     );
 
@@ -82,7 +82,7 @@ export class StreamingMonitor {
       return;
     }
 
-    logger.info('Stopping monitor');
+    logger.debug('Stopping monitor');
     this.isRunning = false;
 
     if (this.pollInterval) {
@@ -99,7 +99,7 @@ export class StreamingMonitor {
    * Should be called before stopping the monitor to catch any last-moment prompts
    */
   finalScan(): void {
-    logger.info('Performing final scan for remaining prompts');
+    logger.debug('Performing final scan for remaining prompts');
     this.checkForNewPrompts();
   }
 
@@ -134,7 +134,7 @@ export class StreamingMonitor {
     const newPrompts = this.extractNewPrompts(currentText);
 
     if (newPrompts.length > 0) {
-      logger.info(`Found ${newPrompts.length} new prompts`);
+      logger.debug(`Found ${newPrompts.length} new prompts`);
 
       // Get all prompts to determine correct indices
       const allPrompts = extractImagePrompts(

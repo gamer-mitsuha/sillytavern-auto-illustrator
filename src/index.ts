@@ -736,7 +736,7 @@ function handleFirstStreamToken(): void {
     return;
   }
 
-  logger.info(
+  logger.debug(
     `First token received for message ${messageId}, starting streaming`
   );
   currentGenerationType = 'streaming';
@@ -744,7 +744,7 @@ function handleFirstStreamToken(): void {
   // Start new session (cancels existing if any)
   const session = sessionManager.startSession(messageId, context, settings);
 
-  logger.info(
+  logger.debug(
     `Streaming monitor and processor started for session ${session.sessionId}`
   );
 }
@@ -769,7 +769,7 @@ export function handleMessageReceivedForStreaming(
     return;
   }
 
-  logger.info(`MESSAGE_RECEIVED for message ${messageId}, signaling barrier`);
+  logger.debug(`MESSAGE_RECEIVED for message ${messageId}, signaling barrier`);
   session.barrier.arrive('messageReceived');
 }
 
@@ -792,7 +792,7 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
     return;
   }
 
-  logger.info(`GENERATION_ENDED for message ${messageId}, finalizing session`);
+  logger.debug(`GENERATION_ENDED for message ${messageId}, finalizing session`);
 
   const {sessionId, barrier, monitor, processor, queue} = session;
 
@@ -808,29 +808,29 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
 
   // Get deferred images
   const deferredImages = processor.getDeferredImages();
-  logger.info(`${deferredImages.length} images ready for insertion`);
+  logger.debug(`${deferredImages.length} images ready for insertion`);
 
   // Stop processor
   processor.stop();
 
   // Log stats
   const stats = queue.getStats();
-  logger.info('Final stats:', stats);
+  logger.debug('Final stats:', stats);
 
   // Wait for barrier and insert deferred images
   if (deferredImages.length > 0) {
     // Don't wrap in scheduleDomOperation - insertDeferredImages does that internally
     // Wrapping would cause deadlock since DOM ops for same message are serialized
     (async () => {
-      logger.info('Waiting for barrier (genDone + messageReceived)...');
+      logger.debug('Waiting for barrier (genDone + messageReceived)...');
 
       try {
         await barrier.whenReady;
-        logger.info('Barrier resolved, inserting deferred images');
+        logger.debug('Barrier resolved, inserting deferred images');
 
         // Check session still current (not cancelled)
         const currentSession = sessionManager.getSession(messageId);
-        logger.info(
+        logger.debug(
           `Session check for message ${messageId}: current=${currentSession?.sessionId}, expected=${sessionId}`
         );
 
@@ -842,16 +842,16 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
         }
 
         // Insert images (this internally uses scheduleDomOperation)
-        logger.info(
+        logger.debug(
           `Inserting ${deferredImages.length} deferred images for message ${messageId}`
         );
         await insertDeferredImages(deferredImages, messageId, context);
 
-        logger.info('Deferred images inserted successfully');
+        logger.debug('Deferred images inserted successfully');
 
         // End session after successful insertion
         sessionManager.endSession(messageId);
-        logger.info(
+        logger.debug(
           `Session ended for message ${messageId} after successful insertion`
         );
       } catch (error) {
@@ -860,13 +860,13 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
 
         // End session even on error
         sessionManager.endSession(messageId);
-        logger.info('Session ended after error');
+        logger.debug('Session ended after error');
       }
     })();
   } else {
     // No deferred images, end session immediately
     sessionManager.endSession(messageId);
-    logger.info(`Session ended for message ${messageId} (no deferred images)`);
+    logger.debug(`Session ended for message ${messageId} (no deferred images)`);
   }
 
   // Show notification if failures

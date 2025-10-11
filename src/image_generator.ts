@@ -179,7 +179,7 @@ export async function generateImage(
   return imageLimiter.schedule({id: jobId}, async () => {
     // Check again after acquiring slot
     if (signal?.aborted) {
-      logger.info('Generation aborted after scheduling:', prompt);
+      logger.debug('Generation aborted after scheduling:', prompt);
       return null;
     }
 
@@ -189,7 +189,7 @@ export async function generateImage(
         ? applyCommonTags(prompt, commonTags, tagsPosition)
         : prompt;
 
-    logger.info('Generating image for prompt:', enhancedPrompt);
+    logger.debug('Generating image for prompt:', enhancedPrompt);
     if (commonTags && enhancedPrompt !== prompt) {
       logger.debug(`Original prompt: "${prompt}"`);
       logger.debug(`Enhanced with common tags: "${enhancedPrompt}"`);
@@ -208,14 +208,14 @@ export async function generateImage(
         return null;
       }
 
-      logger.info('Calling SD command...');
+      logger.debug('Calling SD command...');
       const imageUrl = await sdCommand.callback(
         {quiet: 'true'},
         enhancedPrompt
       );
 
       const duration = performance.now() - startTime;
-      logger.info(
+      logger.debug(
         `Generated image URL: ${imageUrl} (took ${duration.toFixed(0)}ms)`
       );
 

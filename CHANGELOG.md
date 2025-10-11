@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Improved logging level assignments for reduced verbosity at INFO level (#42)
+  - Moved 40+ internal operation logs from INFO to DEBUG level (session start/stop, queue operations, barrier signals, progress updates)
+  - Moved detailed widget rendering logs from INFO to TRACE level (DOM position, CSS styles)
+  - INFO level now focuses on user-facing events only (generation complete, errors, user actions)
+  - DEBUG level shows development details for troubleshooting
+  - TRACE level shows very detailed state changes (useful for deep debugging)
+
 ## [1.2.0] - 2025-10-11
 
 ### Added

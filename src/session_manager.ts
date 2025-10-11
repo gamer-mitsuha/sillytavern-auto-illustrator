@@ -85,7 +85,7 @@ export class SessionManager {
 
     this.sessions.set(messageId, session);
 
-    logger.info(
+    logger.debug(
       `Started streaming session ${sessionId} for message ${messageId} (${this.sessions.size} total active)`
     );
 
@@ -109,7 +109,7 @@ export class SessionManager {
 
     const {sessionId, abortController, monitor, processor} = session;
 
-    logger.info(
+    logger.debug(
       `Cancelling streaming session ${sessionId} for message ${messageId}`
     );
 
@@ -122,7 +122,7 @@ export class SessionManager {
 
     // Remove from map
     this.sessions.delete(messageId);
-    logger.info(
+    logger.debug(
       `Cancelled session for message ${messageId} (${this.sessions.size} remaining)`
     );
   }
@@ -141,13 +141,13 @@ export class SessionManager {
     const {sessionId, startedAt} = session;
     const duration = Date.now() - startedAt;
 
-    logger.info(
+    logger.debug(
       `Ending streaming session ${sessionId} for message ${messageId} (duration: ${duration}ms)`
     );
 
     // Remove from map (monitor/processor already stopped by caller)
     this.sessions.delete(messageId);
-    logger.info(
+    logger.debug(
       `Ended session for message ${messageId} (${this.sessions.size} remaining)`
     );
   }

@@ -91,7 +91,7 @@ export class Barrier {
     this.needed.delete(part);
 
     if (this.needed.size === 0) {
-      logger.info('All barrier conditions met, resolving');
+      logger.debug('All barrier conditions met, resolving');
       this.resolved = true;
       if (this.timeoutHandle) {
         clearTimeout(this.timeoutHandle);

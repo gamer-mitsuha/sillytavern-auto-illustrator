@@ -69,7 +69,7 @@ export class QueueProcessor {
     this.deferredImages = [];
     this.barrier = barrier ?? null;
 
-    logger.info(
+    logger.debug(
       `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent}) ${barrier ? 'with barrier' : 'without barrier'}`
     );
 
@@ -88,7 +88,7 @@ export class QueueProcessor {
       return;
     }
 
-    logger.info('Stopping processor');
+    logger.debug('Stopping processor');
     this.isRunning = false;
     this.messageId = -1;
     // Note: we don't cancel active generations, let them complete
@@ -116,11 +116,11 @@ export class QueueProcessor {
       if (!nextPrompt) {
         // No more pending prompts
         this.isProcessing = false;
-        logger.info('No pending prompts, waiting...');
+        logger.debug('No pending prompts, waiting...');
         return;
       }
 
-      logger.info(`Processing prompt: ${nextPrompt.id}`);
+      logger.debug(`Processing prompt: ${nextPrompt.id}`);
 
       // Insert progress widget on first prompt (if not already inserted)
       const totalCount = this.queue.size();
@@ -165,7 +165,7 @@ export class QueueProcessor {
    */
   private async generateImageForPrompt(prompt: QueuedPrompt): Promise<void> {
     try {
-      logger.info(`Generating image for: ${prompt.prompt}`);
+      logger.debug(`Generating image for: ${prompt.prompt}`);
 
       const imageUrl = await generateImage(
         prompt.prompt,
@@ -177,11 +177,11 @@ export class QueueProcessor {
       if (imageUrl) {
         // Success
         this.queue.updateState(prompt.id, 'COMPLETED', {imageUrl});
-        logger.info(`Generated image: ${imageUrl}`);
+        logger.debug(`Generated image: ${imageUrl}`);
 
         // Store for later batch insertion (after streaming completes)
         this.deferredImages.push({prompt, imageUrl});
-        logger.info(
+        logger.debug(
           `Deferred image insertion (${this.deferredImages.length} total)`
         );
 
@@ -222,12 +222,12 @@ export class QueueProcessor {
    * @returns Promise that resolves when all prompts are processed
    */
   async processRemaining(): Promise<void> {
-    logger.info('Processing remaining prompts...');
+    logger.debug('Processing remaining prompts...');
 
     // Signal barrier FIRST before waiting, since we're done queueing new work
     // This prevents barrier timeout while waiting for active generations
     if (this.barrier && 'arrive' in this.barrier) {
-      logger.info(
+      logger.debug(
         'Signaling genDone to barrier (before waiting for completions)'
       );
       this.barrier.arrive('genDone');
@@ -246,7 +246,7 @@ export class QueueProcessor {
     }
 
     const pending = this.queue.getPromptsByState('QUEUED');
-    logger.info(`${pending.length} prompts remaining`);
+    logger.debug(`${pending.length} prompts remaining`);
 
     if (pending.length > 0) {
       // Process remaining prompts sequentially to respect maxConcurrent
@@ -254,7 +254,7 @@ export class QueueProcessor {
       for (const prompt of pending) {
         await this.generateImageForPrompt(prompt);
       }
-      logger.info('Finished processing remaining prompts');
+      logger.debug('Finished processing remaining prompts');
     }
   }
 
