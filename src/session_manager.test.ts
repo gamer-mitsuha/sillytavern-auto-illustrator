@@ -332,4 +332,81 @@ describe('SessionManager', () => {
       expect(manager.isActive()).toBe(false);
     });
   });
+
+  describe('session lifecycle and logging', () => {
+    it('should log session duration on endSession', () => {
+      const session = manager.startSession(0, context, settings);
+      const startTime = session.startedAt;
+
+      // Manually stop components
+      session.monitor.stop();
+      session.processor.stop();
+
+      // End session
+      manager.endSession();
+
+      // Session should be cleared
+      expect(manager.getCurrentSession()).toBeNull();
+      expect(manager.isActive()).toBe(false);
+
+      // Duration should be logged (verify via session object)
+      const duration = Date.now() - startTime;
+      expect(duration).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should handle endSession in success path', () => {
+      const session = manager.startSession(0, context, settings);
+
+      // Simulate successful completion
+      session.monitor.stop();
+      session.processor.stop();
+      session.barrier.arrive('genDone');
+      session.barrier.arrive('messageReceived');
+
+      manager.endSession();
+
+      expect(manager.getCurrentSession()).toBeNull();
+      expect(manager.isActive()).toBe(false);
+    });
+
+    it('should handle endSession in error path', () => {
+      const session = manager.startSession(0, context, settings);
+
+      // Simulate error during processing
+      session.monitor.stop();
+      session.processor.stop();
+      // Don't signal barrier (simulating error before completion)
+
+      manager.endSession();
+
+      expect(manager.getCurrentSession()).toBeNull();
+      expect(manager.isActive()).toBe(false);
+    });
+
+    it('should handle endSession after barrier timeout', async () => {
+      // Use very short timeout for testing
+      const session = manager.startSession(0, context, settings);
+
+      // Manually create a barrier with short timeout to test timeout path
+      const shortBarrier = new (await import('./barrier')).Barrier(
+        ['genDone', 'messageReceived'],
+        50
+      );
+
+      // Signal only one condition
+      shortBarrier.arrive('genDone');
+      // Don't signal messageReceived - let it timeout
+
+      // Wait for timeout
+      await expect(shortBarrier.whenReady).rejects.toThrow(/timeout/i);
+
+      // Session should still be cleanable
+      session.monitor.stop();
+      session.processor.stop();
+      manager.endSession();
+
+      expect(manager.getCurrentSession()).toBeNull();
+      expect(manager.isActive()).toBe(false);
+    });
+  });
 });

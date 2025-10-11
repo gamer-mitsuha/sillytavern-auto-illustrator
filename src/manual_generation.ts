@@ -1,6 +1,12 @@
 /**
  * Manual Generation Module
  * Handles manual image generation for existing img_prompt tags
+ *
+ * TODO: Address technical debt identified in external code review:
+ * 1. Use settings.promptDetectionPatterns instead of default patterns for consistency
+ *    (currently addManualGenerationButton uses hasImagePrompts without custom patterns)
+ * 2. Add HTML attribute escaping for img tag title/src attributes to prevent
+ *    attribute injection in edge cases (e.g., prompt contains quotes)
  */
 
 import {extractImagePrompts, hasImagePrompts} from './image_extractor';
@@ -267,6 +273,7 @@ export async function generateImagesForMessage(
             }
 
             // Create image tag with index
+            // TODO: Add HTML attribute escaping for imageUrl and imageTitle (security)
             const imageTitle = `AI generated image #${originalIndex + 1}`;
             const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
             text =
@@ -862,6 +869,7 @@ export async function regenerateImage(
         const nextRegenNumber = regenCount + 1;
 
         // Create image tag with meaningful name (without prompt text to avoid display issues)
+        // TODO: Add HTML attribute escaping for imageUrl and imageTitle (security)
         const imageTitle = `AI generated image #${imageIndex} (Regenerated ${nextRegenNumber})`;
         const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
         text =
@@ -1568,6 +1576,7 @@ export function addManualGenerationButton(
   }
 
   // Only add button if message has prompts
+  // TODO: Pass settings.promptDetectionPatterns for consistency with other functions
   if (!hasImagePrompts(message.mes)) {
     return;
   }
