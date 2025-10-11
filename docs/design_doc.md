@@ -64,6 +64,30 @@
 - **Log levels**: Configurable verbosity (TRACE/DEBUG/INFO/WARN/ERROR/SILENT)
 - **Manual gen mode**: Default mode for manual generation (replace/append)
 
+### Multi-Session Architecture (v1.2.0) ✅
+- **Concurrent streaming sessions**: Multiple messages can stream and generate images simultaneously
+- **SessionManager**: Manages independent sessions indexed by messageId using Map-based storage
+  - Each session has its own queue, monitor, processor, and barrier
+  - O(1) session lookup and management
+  - Automatic cleanup on chat changes (CHAT_CHANGED event)
+- **Barrier pattern**: Synchronization primitive for coordinating async operations
+  - Two-way handshake: waits for BOTH streaming completion AND image generation
+  - Configurable timeout (default: 5 minutes)
+  - Prevents race conditions in image insertion
+- **Bottleneck integration**: Global rate limiting for image generation API
+  - Prevents API overload across all concurrent sessions
+  - Configurable concurrent limit and minimum interval
+  - Sequential processing per prompt within rate limit
+- **DOM queue**: Per-message operation serialization
+  - Prevents race conditions from concurrent DOM updates
+  - Ensures atomic operations within each message
+  - Independent queues for independent messages
+- **Benefits**:
+  - No image loss when sending messages quickly
+  - Better UX with simultaneous progress indicators
+  - Each message completes independently
+  - Memory-safe with automatic session cleanup
+
 ### CSS Styling ✅
 - **Hidden prompt tags**: `<img-prompt>` tags styled with `display: none` to prevent invisible spacing in chat
 - **Preserved in history**: Tags remain in message text for regeneration and history tracking
