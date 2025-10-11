@@ -25,3 +25,8 @@ yarn-error.log*
 # Sensitive files
 .env
 .mcp.json
+
+# Temporary development files
+commit_diff.txt
+*.diff
+*.patch
