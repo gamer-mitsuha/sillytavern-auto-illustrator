@@ -120,3 +120,26 @@ export interface AutoIllustratorChatMetadata {
   /** Maps prompt position key to version history */
   promptPositionHistory: Record<string, PromptPositionHistory>;
 }
+
+/**
+ * Represents a streaming session with all its components
+ * Used by SessionManager to track active streaming state
+ */
+export interface StreamingSession {
+  /** Unique identifier for this session */
+  readonly sessionId: string;
+  /** Message ID being streamed */
+  readonly messageId: number;
+  /** Barrier for coordinating generation completion + message finalization */
+  readonly barrier: import('./barrier').Barrier;
+  /** AbortController for cancelling this session */
+  readonly abortController: AbortController;
+  /** Queue of prompts for this session */
+  readonly queue: import('./streaming_image_queue').ImageGenerationQueue;
+  /** Monitor that detects new prompts during streaming */
+  readonly monitor: import('./streaming_monitor').StreamingMonitor;
+  /** Processor that generates images */
+  readonly processor: import('./queue_processor').QueueProcessor;
+  /** Timestamp when session started */
+  readonly startedAt: number;
+}

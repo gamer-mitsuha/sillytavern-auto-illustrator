@@ -30,6 +30,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "bottleneck": "^2.19.5",
     "loglevel": "^1.9.2"
   }
 }
