@@ -38,6 +38,7 @@ import {
 } from './image_generator';
 import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
+import {removeMessageProgress} from './progress_widget';
 
 const logger = createLogger('Main');
 
@@ -849,6 +850,13 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
 
         logger.debug('Deferred images inserted successfully');
 
+        // Show success notification (extended display time: 5 seconds)
+        toastr.success(
+          t('toast.streamingSuccess', {count: deferredImages.length}),
+          t('extensionName'),
+          {timeOut: 5000}
+        );
+
         // End session after successful insertion
         sessionManager.endSession(messageId);
         logger.debug(
@@ -864,16 +872,23 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
       }
     })();
   } else {
-    // No deferred images, end session immediately
+    // No deferred images, end session immediately and remove progress widget
     sessionManager.endSession(messageId);
+    removeMessageProgress(messageId);
     logger.debug(`Session ended for message ${messageId} (no deferred images)`);
+
+    // Show info notification that no prompts were detected (extended display time: 5 seconds)
+    toastr.info(t('toast.streamingNoPrompts'), t('extensionName'), {
+      timeOut: 5000,
+    });
   }
 
-  // Show notification if failures
+  // Show notification if failures (extended display time: 5 seconds)
   if (stats.FAILED > 0) {
     toastr.warning(
       t('toast.streamingFailed', {count: stats.FAILED}),
-      t('extensionName')
+      t('extensionName'),
+      {timeOut: 5000}
     );
   }
 }

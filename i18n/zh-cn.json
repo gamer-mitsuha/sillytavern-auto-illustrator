@@ -81,6 +81,8 @@
   "toast.cannotDeletePredefined": "无法删除预定义预设",
   "toast.presetDeleted": "预设 '{name}' 已删除",
   "toast.streamingFailed": "{count} 张图像在流式传输期间生成失败",
+  "toast.streamingSuccess": "流式传输期间成功生成 {count} 张图像",
+  "toast.streamingNoPrompts": "流式传输期间未检测到图像生成提示词",
   "toast.promptNotFoundForImage": "找不到此图像的提示词",
   "toast.generatingNewImage": "正在生成新图像...",
   "toast.failedToGenerateImage": "生成图像失败",

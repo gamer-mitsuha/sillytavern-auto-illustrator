@@ -8,11 +8,18 @@ import '../../../../global';
 
 declare global {
   // Toastr notification library (loaded globally)
+  interface ToastrOptions {
+    timeOut?: number;
+    extendedTimeOut?: number;
+    closeButton?: boolean;
+    progressBar?: boolean;
+  }
+
   interface Toastr {
-    success(message: string, title?: string): void;
-    info(message: string, title?: string): void;
-    warning(message: string, title?: string): void;
-    error(message: string, title?: string): void;
+    success(message: string, title?: string, options?: ToastrOptions): void;
+    info(message: string, title?: string, options?: ToastrOptions): void;
+    warning(message: string, title?: string, options?: ToastrOptions): void;
+    error(message: string, title?: string, options?: ToastrOptions): void;
   }
 
   const toastr: Toastr;

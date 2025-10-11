@@ -81,6 +81,8 @@
   "toast.cannotDeletePredefined": "Cannot delete predefined presets",
   "toast.presetDeleted": "Preset '{name}' deleted",
   "toast.streamingFailed": "{count} image(s) failed to generate during streaming",
+  "toast.streamingSuccess": "Successfully generated {count} image(s) during streaming",
+  "toast.streamingNoPrompts": "No image generation prompts detected during streaming",
   "toast.promptNotFoundForImage": "Could not find prompt for this image",
   "toast.generatingNewImage": "Generating new image...",
   "toast.failedToGenerateImage": "Failed to generate image",
