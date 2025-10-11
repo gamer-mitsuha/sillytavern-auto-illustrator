@@ -227,7 +227,9 @@ export class QueueProcessor {
     // Signal barrier FIRST before waiting, since we're done queueing new work
     // This prevents barrier timeout while waiting for active generations
     if (this.barrier && 'arrive' in this.barrier) {
-      logger.info('Signaling genDone to barrier (before waiting for completions)');
+      logger.info(
+        'Signaling genDone to barrier (before waiting for completions)'
+      );
       this.barrier.arrive('genDone');
     }
 

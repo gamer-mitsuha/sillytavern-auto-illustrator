@@ -136,18 +136,32 @@ export function addMessageProgress(
   // Ensure widget exists
   getOrCreateGlobalWidget();
 
-  // Add or update progress
-  messageProgress.set(messageId, {
-    current,
-    total,
-    startTime: messageProgress.get(messageId)?.startTime || Date.now(),
-  });
+  const existing = messageProgress.get(messageId);
+
+  // If progress already exists, preserve the current count
+  // Only update if the new current is higher (actual progress) or if total changed
+  if (existing) {
+    messageProgress.set(messageId, {
+      current: Math.max(existing.current, current), // Use higher of existing or new
+      total,
+      startTime: existing.startTime,
+    });
+    logger.info(
+      `Updated progress for message ${messageId}: ${Math.max(existing.current, current)}/${total} (preserved current: ${existing.current}, new total: ${total})`
+    );
+  } else {
+    // New progress tracking
+    messageProgress.set(messageId, {
+      current,
+      total,
+      startTime: Date.now(),
+    });
+    logger.info(
+      `Added new progress for message ${messageId}: ${current}/${total}`
+    );
+  }
 
   updateGlobalWidgetDisplay();
-
-  logger.info(
-    `Added/updated progress for message ${messageId}: ${current}/${total}`
-  );
 }
 
 /**

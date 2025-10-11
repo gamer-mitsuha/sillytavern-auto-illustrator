@@ -8,7 +8,6 @@ import {createMessageHandler} from './message_handler';
 import {pruneGeneratedImages} from './chat_history_pruner';
 import {SessionManager} from './session_manager';
 import {insertDeferredImages} from './image_generator';
-import {scheduleDomOperation} from './dom_queue';
 import {
   loadSettings,
   saveSettings,
