@@ -105,5 +105,6 @@
   "toast.generatingImagesProgressWithMessage": "Message #{messageId}: Generating {current} of {total} images",
   "prompt.enterPresetName": "Enter name for new preset:",
   "prompt.overwritePreset": "Overwrite existing preset '{name}'?",
+  "prompt.deletePresetConfirm": "Delete preset '{name}'?",
   "button.manualGenerate": "Generate images from prompts"
 }

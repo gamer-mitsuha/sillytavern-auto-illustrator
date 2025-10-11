@@ -36,6 +36,18 @@ import {scheduleDomOperation} from './dom_queue';
 const logger = createLogger('ManualGen');
 
 /**
+ * Escapes HTML attribute values to prevent XSS and rendering issues
+ * @param str - String to escape
+ * @returns Escaped string safe for HTML attributes
+ */
+export function escapeHtmlAttr(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Checks if a prompt already has an image after it
  * @param text - Message text
  * @param promptText - The prompt to check
@@ -273,9 +285,8 @@ export async function generateImagesForMessage(
             }
 
             // Create image tag with index
-            // TODO: Add HTML attribute escaping for imageUrl and imageTitle (security)
             const imageTitle = `AI generated image #${originalIndex + 1}`;
-            const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
+            const imageTag = `\n<img src="${escapeHtmlAttr(imageUrl)}" title="${escapeHtmlAttr(imageTitle)}" alt="${escapeHtmlAttr(imageTitle)}">`;
             text =
               text.substring(0, insertPos) +
               imageTag +
@@ -869,9 +880,8 @@ export async function regenerateImage(
         const nextRegenNumber = regenCount + 1;
 
         // Create image tag with meaningful name (without prompt text to avoid display issues)
-        // TODO: Add HTML attribute escaping for imageUrl and imageTitle (security)
         const imageTitle = `AI generated image #${imageIndex} (Regenerated ${nextRegenNumber})`;
-        const imageTag = `\n<img src="${imageUrl}" title="${imageTitle}" alt="${imageTitle}">`;
+        const imageTag = `\n<img src="${escapeHtmlAttr(imageUrl)}" title="${escapeHtmlAttr(imageTitle)}" alt="${escapeHtmlAttr(imageTitle)}">`;
         text =
           text.substring(0, insertPos) + imageTag + text.substring(insertPos);
 
@@ -1576,8 +1586,7 @@ export function addManualGenerationButton(
   }
 
   // Only add button if message has prompts
-  // TODO: Pass settings.promptDetectionPatterns for consistency with other functions
-  if (!hasImagePrompts(message.mes)) {
+  if (!hasImagePrompts(message.mes, settings.promptDetectionPatterns)) {
     return;
   }
 

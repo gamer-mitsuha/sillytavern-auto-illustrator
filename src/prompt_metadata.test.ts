@@ -57,6 +57,67 @@ describe('PromptMetadata', () => {
         '<!--img-prompt="a"--> <!--img-prompt="B"--> <!--img-prompt="c"-->'
       );
     });
+
+    it('should handle $ characters in replacement prompt without interpretation', () => {
+      const text = '<!--img-prompt="old prompt"-->';
+      const result = replacePromptAtIndex(text, 0, 'price: $10 and $20');
+      expect(result).toBe('<!--img-prompt="price: $10 and $20"-->');
+    });
+
+    it('should handle $& special sequence without interpretation', () => {
+      const text = '<!--img-prompt="test"-->';
+      // $& would insert the matched string if interpreted as replacement pattern
+      const result = replacePromptAtIndex(text, 0, 'test $& test');
+      expect(result).toBe('<!--img-prompt="test $& test"-->');
+    });
+
+    it('should handle $` special sequence without interpretation', () => {
+      const text = '<!--img-prompt="test"-->';
+      // $` would insert the string before the match if interpreted
+      const result = replacePromptAtIndex(text, 0, 'before: $` after');
+      expect(result).toBe('<!--img-prompt="before: $` after"-->');
+    });
+
+    it("should handle $' special sequence without interpretation", () => {
+      const text = '<!--img-prompt="test"-->';
+      // $' would insert the string after the match if interpreted
+      const result = replacePromptAtIndex(text, 0, "before: $' after");
+      expect(result).toBe('<!--img-prompt="before: $\' after"-->');
+    });
+
+    it('should handle $n capture group references without interpretation', () => {
+      const text = '<!--img-prompt="test"-->';
+      // $1, $2, etc. would insert capture groups if interpreted
+      const result = replacePromptAtIndex(text, 0, 'group $1 and $2');
+      expect(result).toBe('<!--img-prompt="group $1 and $2"-->');
+    });
+
+    it('should handle $$ without interpretation', () => {
+      const text = '<!--img-prompt="test"-->';
+      // $$ would insert a single $ if interpreted
+      const result = replacePromptAtIndex(text, 0, 'price: $$ symbol');
+      expect(result).toBe('<!--img-prompt="price: $$ symbol"-->');
+    });
+
+    it('should handle realistic prompt with $ characters', () => {
+      const text = '<!--img-prompt="old prompt"-->';
+      const newPrompt =
+        '1girl, holding sign that says "$100 Sale!", dollar bills flying, money background';
+      const result = replacePromptAtIndex(text, 0, newPrompt);
+      expect(result).toBe(`<!--img-prompt="${newPrompt}"-->`);
+    });
+
+    it('should handle multiple $ sequences in one prompt', () => {
+      const text = '<!--img-prompt="test"-->';
+      const result = replacePromptAtIndex(
+        text,
+        0,
+        "$1 $2 $& $` $' $$ regular text"
+      );
+      expect(result).toBe(
+        '<!--img-prompt="$1 $2 $& $` $\' $$ regular text"-->'
+      );
+    });
   });
 
   describe('Position key helpers', () => {

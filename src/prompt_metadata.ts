@@ -135,6 +135,7 @@ export function replacePromptAtIndex(
     count++;
 
     if (currentIndex === promptIndex) {
+      // Callback form doesn't interpret $ sequences in replacement string
       return `<!--img-prompt="${newPrompt}"-->`;
     }
     return match;

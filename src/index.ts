@@ -674,7 +674,7 @@ function handlePresetDelete(): void {
   }
 
   const confirmDelete = confirm(
-    t('prompt.overwritePreset', {name: preset.name})
+    t('prompt.deletePresetConfirm', {name: preset.name})
   );
   if (!confirmDelete) {
     return;

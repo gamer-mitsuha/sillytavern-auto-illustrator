@@ -8,6 +8,7 @@ import {
   removeExistingImages,
   findPromptForImage,
   addManualGenerationButton,
+  escapeHtmlAttr,
 } from './manual_generation';
 import {initializeI18n, t} from './i18n';
 
@@ -629,6 +630,90 @@ Some text here
 <img src="1.jpg">`;
       const result = deleteImageFromText(text, '1.jpg');
       expect(result).toBe('<img-prompt="test">');
+    });
+  });
+
+  describe('escapeHtmlAttr', () => {
+    it('should escape ampersands', () => {
+      expect(escapeHtmlAttr('test & test')).toBe('test &amp; test');
+    });
+
+    it('should escape double quotes', () => {
+      expect(escapeHtmlAttr('test "quoted" text')).toBe(
+        'test &quot;quoted&quot; text'
+      );
+    });
+
+    it('should escape single quotes', () => {
+      expect(escapeHtmlAttr("test 'quoted' text")).toBe(
+        'test &#39;quoted&#39; text'
+      );
+    });
+
+    it('should escape all special characters together', () => {
+      expect(escapeHtmlAttr('test & "quotes" and \'apostrophes\'')).toBe(
+        'test &amp; &quot;quotes&quot; and &#39;apostrophes&#39;'
+      );
+    });
+
+    it('should handle empty string', () => {
+      expect(escapeHtmlAttr('')).toBe('');
+    });
+
+    it('should handle string without special characters', () => {
+      expect(escapeHtmlAttr('normal text')).toBe('normal text');
+    });
+
+    it('should handle multiple ampersands in sequence', () => {
+      expect(escapeHtmlAttr('test && test')).toBe('test &amp;&amp; test');
+    });
+
+    it('should handle multiple quotes in sequence', () => {
+      expect(escapeHtmlAttr('test "" test')).toBe('test &quot;&quot; test');
+    });
+
+    it('should escape URL with query parameters', () => {
+      const url = 'https://example.com/image.jpg?token=abc&id=123';
+      expect(escapeHtmlAttr(url)).toBe(
+        'https://example.com/image.jpg?token=abc&amp;id=123'
+      );
+    });
+
+    it('should handle prompt with special characters', () => {
+      const prompt = 'A character saying "Hello!" & waving';
+      expect(escapeHtmlAttr(prompt)).toBe(
+        'A character saying &quot;Hello!&quot; &amp; waving'
+      );
+    });
+
+    it('should handle mixed special characters in realistic image title', () => {
+      const title = 'AI generated image #1 - "Scene" & \'Details\'';
+      expect(escapeHtmlAttr(title)).toBe(
+        'AI generated image #1 - &quot;Scene&quot; &amp; &#39;Details&#39;'
+      );
+    });
+
+    it('should prevent XSS attempt in image source', () => {
+      const maliciousUrl = 'test.jpg" onerror="alert(\'XSS\')';
+      expect(escapeHtmlAttr(maliciousUrl)).toBe(
+        'test.jpg&quot; onerror=&quot;alert(&#39;XSS&#39;)'
+      );
+    });
+
+    it('should prevent XSS attempt in title attribute', () => {
+      const maliciousTitle = 'Test" onload="alert(\'XSS\')';
+      expect(escapeHtmlAttr(maliciousTitle)).toBe(
+        'Test&quot; onload=&quot;alert(&#39;XSS&#39;)'
+      );
+    });
+
+    it('should escape HTML entities that could break attributes', () => {
+      const text = '<script>alert("XSS")</script>';
+      // Note: < and > are not escaped by escapeHtmlAttr, only & " '
+      // This is correct because these chars cannot break out of quoted attributes
+      expect(escapeHtmlAttr(text)).toBe(
+        '<script>alert(&quot;XSS&quot;)</script>'
+      );
     });
   });
 

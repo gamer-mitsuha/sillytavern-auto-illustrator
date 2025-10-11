@@ -105,5 +105,6 @@
   "toast.generatingImagesProgressWithMessage": "消息 #{messageId}：正在生成 {current}/{total} 图片",
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
+  "prompt.deletePresetConfirm": "删除预设 '{name}'？",
   "button.manualGenerate": "从提示词生成图像"
 }

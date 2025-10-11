@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- HTML attribute escaping for image tags to prevent XSS and rendering issues (#40)
+  - Added `escapeHtmlAttr()` function to escape special characters (&, ", ') in HTML attributes
+  - Applied escaping to `src`, `title`, and `alt` attributes in generated image tags
+  - Prevents XSS attacks and rendering issues from malicious or special characters in image URLs/titles
+- Custom prompt detection patterns now passed to `hasImagePrompts()` for consistency (#40)
+- Preset deletion confirmation dialog now shows correct "Delete preset" message instead of "Overwrite preset" (#40)
 - Image generation now works correctly when LLM streaming is disabled (#26)
   - Extension now auto-detects whether LLM is actually streaming at runtime
   - Automatically falls back to immediate processing when LLM streaming is off
