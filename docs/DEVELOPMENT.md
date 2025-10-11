@@ -90,6 +90,8 @@ sillytavern-auto-illustrator/
 
 ### Testing
 
+#### Automated Testing
+
 The extension uses Vitest for unit testing with jsdom environment:
 
 ```bash
@@ -115,6 +117,24 @@ npm run test:coverage
 - Queue processor
 - Chat history pruning
 - Message handling
+- Barrier coordination and session lifecycle
+
+#### Manual Testing
+
+**Critical**: Before merging feature branches to `main`, perform manual testing in a live SillyTavern environment.
+
+See **[MANUAL_TESTING.md](MANUAL_TESTING.md)** for a comprehensive checklist covering:
+- Streaming mode image generation
+- Manual generation and regeneration
+- Concurrency control
+- Session management
+- Error handling
+- Settings persistence
+- Progress widget behavior
+- Performance tests
+- Edge cases
+
+**Time estimate**: 30-45 minutes for full manual test suite before each major merge.
 
 ### Making Changes
 

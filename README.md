@@ -182,10 +182,11 @@ Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
-3. Follow the development workflow mentioned in the [Development Guide](docs/DEVELOPMENT.md).
+3. Follow the development workflow in [Development Guide](docs/DEVELOPMENT.md)
 4. Write tests for new functionality
 5. Ensure all tests pass and code is linted
-6. Submit a pull request
+6. **Before merging to main**: Complete the [Manual Testing Checklist](docs/MANUAL_TESTING.md)
+7. Submit a pull request
 
 ## License
 

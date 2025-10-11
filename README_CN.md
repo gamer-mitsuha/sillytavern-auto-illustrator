@@ -177,10 +177,11 @@
 
 1. Fork 仓库
 2. 创建功能分支
-3. 遵循[开发指南](docs/DEVELOPMENT.md)中提到的开发工作流
+3. 遵循[开发指南](docs/DEVELOPMENT.md)中的开发工作流
 4. 为新功能编写测试
 5. 确保所有测试通过且代码已 lint
-6. 提交 pull request
+6. **合并到 main 之前**：完成[手动测试清单](docs/MANUAL_TESTING.md)
+7. 提交 pull request
 
 ## 许可证
 
