@@ -6,10 +6,9 @@
 import './style.css';
 import {createMessageHandler} from './message_handler';
 import {pruneGeneratedImages} from './chat_history_pruner';
-import {ImageGenerationQueue} from './streaming_image_queue';
-import {StreamingMonitor} from './streaming_monitor';
-import {QueueProcessor} from './queue_processor';
-import type {DeferredImage} from './types';
+import {SessionManager} from './session_manager';
+import {insertDeferredImages} from './image_generator';
+import {scheduleDomOperation} from './dom_queue';
 import {
   loadSettings,
   saveSettings,
@@ -51,13 +50,8 @@ let isEditingPreset = false; // Track if user is currently editing a preset
 // Generation state
 let currentGenerationType: string | null = null; // Track generation type for filtering
 
-// Streaming state
-let pendingDeferredImages: {images: DeferredImage[]; messageId: number} | null =
-  null;
-let messageReceivedFired = false; // Track if MESSAGE_RECEIVED has fired
-let streamingQueue: ImageGenerationQueue | null = null;
-let streamingMonitor: StreamingMonitor | null = null;
-let queueProcessor: QueueProcessor | null = null;
+// Streaming state - managed by SessionManager
+let sessionManager: SessionManager;
 
 /**
  * Checks if streaming generation is currently active
@@ -66,18 +60,8 @@ let queueProcessor: QueueProcessor | null = null;
  * @returns True if streaming is in progress
  */
 export function isStreamingActive(messageId?: number): boolean {
-  const monitorActive = streamingMonitor?.isActive() ?? false;
-
-  if (messageId === undefined) {
-    // Check if any streaming is active
-    return monitorActive;
-  }
-
-  // Check if THIS specific message is being streamed
-  return monitorActive && currentStreamingMessageId === messageId;
+  return sessionManager?.isActive(messageId) ?? false;
 }
-
-let currentStreamingMessageId: number | null = null; // Track which message is being streamed
 
 /**
  * Checks if a specific message is currently being streamed
@@ -85,7 +69,7 @@ let currentStreamingMessageId: number | null = null; // Track which message is b
  * @returns True if this message is being streamed
  */
 export function isMessageBeingStreamed(messageId: number): boolean {
-  return currentStreamingMessageId === messageId;
+  return sessionManager?.isActive(messageId) ?? false;
 }
 
 /**
@@ -723,173 +707,157 @@ function handlePresetDelete(): void {
  * This is more reliable than GENERATION_STARTED which fires before message creation
  */
 function handleFirstStreamToken(): void {
-  // Only initialize once per stream
-  if (streamingMonitor?.isActive()) {
-    return;
-  }
-
-  if (!settings.streamingEnabled || !settings.enabled) {
-    return;
-  }
-
-  // Find the last assistant message - this is the one being streamed
-  if (!context.chat || context.chat.length === 0) {
-    return;
-  }
-
   const messageId = context.chat.length - 1;
-  const message = context.chat[messageId];
 
-  // Verify it's an assistant message
+  if (!settings.streamingEnabled) {
+    logger.debug('Streaming disabled, skipping');
+    return;
+  }
+
+  if (!settings.enabled) {
+    logger.debug('Extension disabled, skipping streaming');
+    return;
+  }
+
+  const message = context.chat?.[messageId];
+  if (!message) {
+    logger.error('Message not found:', messageId);
+    return;
+  }
+
   if (message.is_user || message.is_system) {
     return;
   }
 
   // Note: DOM queue will automatically serialize with any manual generation operations
 
-  // Don't restart if already monitoring this message
-  // This prevents recreating the processor and losing deferred images
-  if (streamingMonitor && currentStreamingMessageId === messageId) {
-    logger.debug(
-      `Already monitoring message ${messageId}, skipping reinitialization`
-    );
+  // Check if already streaming this message
+  if (sessionManager.isActive(messageId)) {
+    logger.debug('Already streaming this message, ignoring duplicate token');
     return;
   }
 
   logger.info(
-    `First stream token received, starting streaming for message ${messageId}`
+    `First token received for message ${messageId}, starting streaming`
   );
+  currentGenerationType = 'streaming';
 
-  // Clean up any previous streaming state (different message)
-  if (streamingMonitor) {
-    streamingMonitor.stop();
-  }
-  if (queueProcessor) {
-    queueProcessor.stop();
-  }
+  // Start new session (cancels existing if any)
+  const session = sessionManager.startSession(messageId, context, settings);
 
-  // Initialize streaming
-  streamingQueue = new ImageGenerationQueue();
-  queueProcessor = new QueueProcessor(
-    streamingQueue,
-    context,
-    settings,
-    settings.maxConcurrentGenerations
+  logger.info(
+    `Streaming monitor and processor started for session ${session.sessionId}`
   );
-
-  streamingMonitor = new StreamingMonitor(
-    streamingQueue,
-    context,
-    settings,
-    settings.streamingPollInterval,
-    () => queueProcessor?.trigger()
-  );
-
-  currentStreamingMessageId = messageId;
-  messageReceivedFired = false; // Reset flag for new streaming session
-  pendingDeferredImages = null;
-
-  streamingMonitor.start(messageId);
-  // Start processor (images generated during streaming, inserted in batch after completion)
-  queueProcessor.start(messageId);
-
-  logger.info('Streaming monitor and processor started');
 }
 
 /**
  * Handles MESSAGE_RECEIVED event when in streaming mode
- * Signals that the message has been finalized and attempts to insert deferred images
+ * Signals that the message has been finalized and deferred images can be inserted
  */
 export function handleMessageReceivedForStreaming(): void {
-  logger.info('MESSAGE_RECEIVED fired for streaming, setting flag');
-  messageReceivedFired = true;
-  tryInsertDeferredImages();
-}
-
-/**
- * Attempts to insert deferred images if both conditions are met:
- * 1. All images have been generated (pendingDeferredImages exists)
- * 2. MESSAGE_RECEIVED has fired (messageReceivedFired is true)
- */
-async function tryInsertDeferredImages(): Promise<void> {
-  if (pendingDeferredImages && messageReceivedFired) {
-    const {images, messageId} = pendingDeferredImages;
-    logger.info(
-      `Both conditions met, inserting ${images.length} deferred images`
-    );
-
-    // Clear flags before insertion
-    pendingDeferredImages = null;
-    messageReceivedFired = false;
-
-    // Import and call insertDeferredImages
-    const {insertDeferredImages} = await import('./image_generator');
-    await insertDeferredImages(images, messageId, context);
+  const session = sessionManager.getCurrentSession();
+  if (!session) {
+    logger.debug('No active session, ignoring MESSAGE_RECEIVED');
+    return;
   }
+
+  logger.info('MESSAGE_RECEIVED fired, signaling barrier');
+  session.barrier.arrive('messageReceived');
 }
 
 /**
  * Handles GENERATION_ENDED event
  */
 async function handleGenerationEnded(): Promise<void> {
-  // Clear generation type to prevent stale state
   currentGenerationType = null;
-  logger.debug('Generation ended, cleared generation type');
 
-  if (!streamingMonitor || !queueProcessor || !streamingQueue) {
+  const session = sessionManager.getCurrentSession();
+  if (!session) {
+    logger.debug('No active session, ignoring GENERATION_ENDED');
     return;
   }
 
-  logger.info('GENERATION_ENDED, cleaning up streaming');
+  logger.info('GENERATION_ENDED, finalizing streaming session');
 
-  // Do one final scan to catch any prompts added at the very end
-  streamingMonitor.finalScan();
+  const {sessionId, messageId, barrier, monitor, processor, queue} = session;
+
+  // Final scan for any remaining prompts
+  monitor.finalScan();
 
   // Stop monitoring (no more new prompts)
-  streamingMonitor.stop();
+  monitor.stop();
 
-  // Process any remaining queued prompts
-  await queueProcessor.processRemaining();
+  // Process remaining prompts and signal barrier
+  await processor.processRemaining();
+  // Note: processor.processRemaining() calls barrier.arrive('genDone')
 
-  // Get deferred images and message ID before clearing state
-  const deferredImages = queueProcessor.getDeferredImages();
-  const messageId = currentStreamingMessageId;
-
-  // Log final statistics
-  const stats = streamingQueue.getStats();
-  logger.info('Final streaming stats:', stats);
-  logger.info(
-    `Deferred images count: ${deferredImages.length} for message ${messageId}`
-  );
+  // Get deferred images
+  const deferredImages = processor.getDeferredImages();
+  logger.info(`${deferredImages.length} images ready for insertion`);
 
   // Stop processor
-  queueProcessor.stop();
+  processor.stop();
 
-  // Store deferred images
-  if (deferredImages.length > 0 && messageId !== null) {
-    pendingDeferredImages = {images: deferredImages, messageId};
-    logger.info(
-      `${deferredImages.length} images ready, checking if MESSAGE_RECEIVED fired`
-    );
+  // Log stats
+  const stats = queue.getStats();
+  logger.info('Final stats:', stats);
+
+  // Wait for barrier and insert deferred images
+  if (deferredImages.length > 0) {
+    // Don't wrap in scheduleDomOperation - insertDeferredImages does that internally
+    // Wrapping would cause deadlock since DOM ops for same message are serialized
+    (async () => {
+      logger.info('Waiting for barrier (genDone + messageReceived)...');
+
+      try {
+        await barrier.whenReady;
+        logger.info('Barrier resolved, inserting deferred images');
+
+        // Check session still current (not cancelled)
+        const currentSession = sessionManager.getCurrentSession();
+        logger.info(
+          `Session check: current=${currentSession?.sessionId}, expected=${sessionId}`
+        );
+
+        if (currentSession?.sessionId !== sessionId) {
+          logger.warn(
+            `Session changed, skipping insertion (current: ${currentSession?.sessionId}, expected: ${sessionId})`
+          );
+          return;
+        }
+
+        // Insert images (this internally uses scheduleDomOperation)
+        logger.info(
+          `Inserting ${deferredImages.length} deferred images for message ${messageId}`
+        );
+        await insertDeferredImages(deferredImages, messageId, context);
+
+        logger.info('Deferred images inserted successfully');
+
+        // End session after successful insertion
+        sessionManager.endSession();
+        logger.info('Session ended after successful insertion');
+      } catch (error) {
+        logger.error('Barrier failed or insertion error:', error);
+        toastr.error('Failed to insert generated images', t('extensionName'));
+
+        // End session even on error
+        sessionManager.endSession();
+        logger.info('Session ended after error');
+      }
+    })();
+  } else {
+    // No deferred images, end session immediately
+    sessionManager.endSession();
   }
 
-  // Clear state
-  streamingQueue = null;
-  streamingMonitor = null;
-  queueProcessor = null;
-  currentStreamingMessageId = null;
-
-  // Show notification if there were issues
-  const failedCount = stats.FAILED;
-  if (failedCount > 0) {
+  // Show notification if failures
+  if (stats.FAILED > 0) {
     toastr.warning(
-      t('toast.streamingFailed', {count: failedCount}),
+      t('toast.streamingFailed', {count: stats.FAILED}),
       t('extensionName')
     );
   }
-
-  // Try to insert if MESSAGE_RECEIVED already fired
-  await tryInsertDeferredImages();
 }
 
 /**
@@ -917,6 +885,10 @@ function initialize(): void {
 
   // Apply log level from settings
   setLogLevel(settings.logLevel);
+
+  // Initialize SessionManager
+  sessionManager = new SessionManager();
+  logger.info('Initialized SessionManager');
 
   // Initialize concurrency limiter with settings
   initializeConcurrencyLimiter(

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase 3: Complete streaming coordination refactor with SessionManager (#41)
+  - Replaced 6 scattered module-level state variables with single SessionManager
+  - Replaced manual flag-based coordination with explicit Barrier pattern
+  - Simplified streaming event handlers (handleFirstStreamToken, handleMessageReceivedForStreaming, handleGenerationEnded)
+  - Removed ~60 lines of complex state management code
+  - Better encapsulation: all session state now in one place
+  - Easier to maintain and extend
+
 - Image loading progress indicators (#19)
   - Real-time progress widget showing "Generating images: X of N"
   - Animated spinner with visual feedback

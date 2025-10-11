@@ -6,6 +6,7 @@
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {generateImage} from './image_generator';
 import type {QueuedPrompt, DeferredImage} from './types';
+import type {Barrier} from './barrier';
 import {createLogger} from './logger';
 import {
   tryInsertProgressWidgetWithRetry,
@@ -29,6 +30,7 @@ export class QueueProcessor {
   private activeGenerations = 0;
   private processPromise: Promise<void> | null = null;
   private deferredImages: DeferredImage[] = [];
+  private barrier: Barrier | null = null;
 
   /**
    * Creates a new queue processor
@@ -53,8 +55,9 @@ export class QueueProcessor {
    * Starts processing the queue with deferred insertions
    * Images are generated during processing but inserted in batch after completion
    * @param messageId - Message being generated
+   * @param barrier - Optional barrier for coordinating with streaming events
    */
-  start(messageId: number): void {
+  start(messageId: number, barrier?: Barrier): void {
     if (this.isRunning) {
       logger.warn('Already running, stopping previous processor');
       this.stop();
@@ -64,9 +67,10 @@ export class QueueProcessor {
     this.isRunning = true;
     this.activeGenerations = 0;
     this.deferredImages = [];
+    this.barrier = barrier ?? null;
 
     logger.info(
-      `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
+      `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent}) ${barrier ? 'with barrier' : 'without barrier'}`
     );
 
     // Initialize progress widget for this message
@@ -220,6 +224,13 @@ export class QueueProcessor {
   async processRemaining(): Promise<void> {
     logger.info('Processing remaining prompts...');
 
+    // Signal barrier FIRST before waiting, since we're done queueing new work
+    // This prevents barrier timeout while waiting for active generations
+    if (this.barrier && 'arrive' in this.barrier) {
+      logger.info('Signaling genDone to barrier (before waiting for completions)');
+      this.barrier.arrive('genDone');
+    }
+
     // Wait for any active generations to complete first
     // This prevents concurrent execution beyond maxConcurrent limit
     if (this.activeGenerations > 0) {
@@ -235,17 +246,14 @@ export class QueueProcessor {
     const pending = this.queue.getPromptsByState('QUEUED');
     logger.info(`${pending.length} prompts remaining`);
 
-    if (pending.length === 0) {
-      return;
+    if (pending.length > 0) {
+      // Process remaining prompts sequentially to respect maxConcurrent
+      // This prevents 429 "Too Many Requests" errors from NovelAI
+      for (const prompt of pending) {
+        await this.generateImageForPrompt(prompt);
+      }
+      logger.info('Finished processing remaining prompts');
     }
-
-    // Process remaining prompts sequentially to respect maxConcurrent
-    // This prevents 429 "Too Many Requests" errors from NovelAI
-    for (const prompt of pending) {
-      await this.generateImageForPrompt(prompt);
-    }
-
-    logger.info('Finished processing remaining prompts');
   }
 
   /**

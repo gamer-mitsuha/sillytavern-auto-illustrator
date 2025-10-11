@@ -88,7 +88,7 @@ export class SessionManager {
 
     // Start monitor and processor
     monitor.start(messageId);
-    processor.start(messageId);
+    processor.start(messageId, barrier);
 
     return session;
   }
