@@ -3,10 +3,10 @@
  * Handles image generation using the SD slash command and replacing prompts with images
  */
 
+import Bottleneck from 'bottleneck';
 import {extractImagePrompts} from './image_extractor';
 import type {DeferredImage, PromptPosition} from './types';
 import {createLogger} from './logger';
-import {ConcurrencyLimiter} from './concurrency_limiter';
 import {t, tCount} from './i18n';
 import {
   getCurrentPromptId,
@@ -19,14 +19,15 @@ import {
   updateProgressWidget,
   removeProgressWidget,
 } from './progress_widget';
+import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('Generator');
 
-// Global concurrency limiter for image generation
-let concurrencyLimiter: ConcurrencyLimiter | null = null;
+// Global Bottleneck limiter for image generation
+let imageLimiter: Bottleneck | null = null;
 
 /**
- * Initializes the concurrency limiter
+ * Initializes the global image generation limiter
  * @param maxConcurrent - Maximum concurrent generations
  * @param minInterval - Minimum interval between generations (milliseconds)
  */
@@ -35,9 +36,27 @@ export function initializeConcurrencyLimiter(
   minInterval = 0
 ): void {
   logger.info(
-    `Initializing concurrency limiter (max: ${maxConcurrent}, minInterval: ${minInterval}ms)`
+    `Initializing Bottleneck limiter (maxConcurrent: ${maxConcurrent}, minTime: ${minInterval}ms)`
   );
-  concurrencyLimiter = new ConcurrencyLimiter(maxConcurrent, minInterval);
+
+  imageLimiter = new Bottleneck({
+    maxConcurrent,
+    minTime: minInterval,
+    trackDoneStatus: true,
+  });
+
+  // Log events for debugging
+  imageLimiter.on('depleted', () => {
+    logger.debug('Image generation queue depleted (all jobs complete)');
+  });
+
+  imageLimiter.on('idle', () => {
+    logger.debug('Image generation queue idle (no pending jobs)');
+  });
+
+  imageLimiter.on('error', (error: Error) => {
+    logger.error('Bottleneck error:', error);
+  });
 }
 
 /**
@@ -45,12 +64,14 @@ export function initializeConcurrencyLimiter(
  * @param maxConcurrent - New max concurrent limit
  */
 export function updateMaxConcurrent(maxConcurrent: number): void {
-  if (concurrencyLimiter) {
-    concurrencyLimiter.setMaxConcurrent(maxConcurrent);
-  } else {
-    logger.warn('Concurrency limiter not initialized, initializing now');
+  if (!imageLimiter) {
+    logger.warn('Image limiter not initialized, initializing now');
     initializeConcurrencyLimiter(maxConcurrent);
+    return;
   }
+
+  logger.info(`Updating maxConcurrent: ${maxConcurrent}`);
+  imageLimiter.updateSettings({maxConcurrent});
 }
 
 /**
@@ -58,12 +79,14 @@ export function updateMaxConcurrent(maxConcurrent: number): void {
  * @param minInterval - New minimum interval (milliseconds)
  */
 export function updateMinInterval(minInterval: number): void {
-  if (concurrencyLimiter) {
-    concurrencyLimiter.setMinInterval(minInterval);
-  } else {
-    logger.warn('Concurrency limiter not initialized, initializing now');
+  if (!imageLimiter) {
+    logger.warn('Image limiter not initialized, initializing now');
     initializeConcurrencyLimiter(1, minInterval);
+    return;
   }
+
+  logger.info(`Updating minTime: ${minInterval}ms`);
+  imageLimiter.updateSettings({minTime: minInterval});
 }
 
 /**
@@ -120,26 +143,46 @@ function insertImageAfterPrompt(
 
 /**
  * Generates an image using the SD slash command
+ * All image generation goes through the global rate limiter
  * @param prompt - Image generation prompt
  * @param context - SillyTavern context
  * @param commonTags - Optional common style tags to apply
  * @param tagsPosition - Position for common tags ('prefix' or 'suffix')
+ * @param signal - Optional AbortSignal for cancellation
  * @returns URL of generated image or null on failure
  */
 export async function generateImage(
   prompt: string,
   context: SillyTavernContext,
   commonTags?: string,
-  tagsPosition?: 'prefix' | 'suffix'
+  tagsPosition?: 'prefix' | 'suffix',
+  signal?: AbortSignal
 ): Promise<string | null> {
   // If limiter not initialized, create with default values
-  if (!concurrencyLimiter) {
-    logger.warn('Concurrency limiter not initialized, using defaults (1, 0ms)');
-    concurrencyLimiter = new ConcurrencyLimiter(1, 0);
+  if (!imageLimiter) {
+    logger.warn('Image limiter not initialized, using defaults (1, 0ms)');
+    imageLimiter = new Bottleneck({
+      maxConcurrent: 1,
+      minTime: 0,
+      trackDoneStatus: true,
+    });
   }
 
-  // Wrap the actual generation in the limiter
-  return concurrencyLimiter.run(async () => {
+  // Check if aborted before even scheduling
+  if (signal?.aborted) {
+    logger.info('Generation aborted before scheduling:', prompt);
+    return null;
+  }
+
+  // Schedule through Bottleneck (use unique ID to avoid collisions)
+  const jobId = `${prompt}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  return imageLimiter.schedule({id: jobId}, async () => {
+    // Check again after acquiring slot
+    if (signal?.aborted) {
+      logger.info('Generation aborted after scheduling:', prompt);
+      return null;
+    }
+
     // Apply common tags if provided
     const enhancedPrompt =
       commonTags && tagsPosition
@@ -427,6 +470,7 @@ export async function replacePromptsWithImages(
 
 /**
  * Inserts all deferred images into a message after streaming completes
+ * Scheduled through DOM queue to prevent races with other operations
  * Builds complete final text with all images, then sets message.mes once
  * This avoids race conditions with SillyTavern's streaming finalization
  * @param deferredImages - Array of deferred images to insert
@@ -443,101 +487,108 @@ export async function insertDeferredImages(
     return 0;
   }
 
-  logger.info(
-    `Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
-  );
-
-  // Get current message
-  const message = context.chat?.[messageId];
-  if (!message) {
-    logger.warn('Message not found for batch insertion:', messageId);
-    return 0;
-  }
-
-  // Read message text ONCE at start
-  let finalText = message.mes || '';
-  const originalLength = finalText.length;
-
-  // Sort images by position (first to last)
-  const sortedImages = [...deferredImages].sort(
-    (a, b) => a.prompt.startIndex - b.prompt.startIndex
-  );
-
-  let successCount = 0;
-
-  // Insert images in reverse order to preserve positions
-  // (inserting from end backwards keeps earlier positions valid)
-  for (let i = sortedImages.length - 1; i >= 0; i--) {
-    const {prompt, imageUrl} = sortedImages[i];
-
-    // Use helper to insert image
-    const insertion = insertImageAfterPrompt(
-      finalText,
-      prompt.fullMatch,
-      imageUrl,
-      i
-    );
-
-    if (insertion.success) {
-      finalText = insertion.text;
-      successCount++;
-
-      // Record image-prompt association in metadata
-      // Extract all prompts from current message to determine index
-      const allPrompts = extractImagePrompts(finalText);
-      const promptIndex = allPrompts.findIndex(
-        p =>
-          p.startIndex === prompt.startIndex &&
-          p.endIndex === prompt.endIndex &&
-          p.prompt === prompt.prompt
+  // Schedule through DOM queue to serialize with other operations
+  return scheduleDomOperation(
+    messageId,
+    async () => {
+      logger.info(
+        `Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
       );
 
-      if (promptIndex >= 0) {
-        const position: PromptPosition = {messageId, promptIndex};
-        const promptId = getCurrentPromptId(position, context);
-        if (promptId) {
-          recordImagePrompt(imageUrl, promptId, context);
-          logger.debug(
-            `Recorded image-prompt association: ${imageUrl} -> ${promptId}`
-          );
-        } else {
-          logger.warn(
-            `No promptId found for position ${messageId}_${promptIndex}`
-          );
-        }
-      } else {
-        logger.warn('Could not find prompt index after insertion');
+      // Get current message
+      const message = context.chat?.[messageId];
+      if (!message) {
+        logger.warn('Message not found for batch insertion:', messageId);
+        return 0;
       }
-    }
-  }
 
-  // Set message.mes ONCE with all images inserted
-  message.mes = finalText;
+      // Read message text ONCE at start
+      let finalText = message.mes || '';
+      const originalLength = finalText.length;
 
-  logger.info(
-    `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
+      // Sort images by position (first to last)
+      const sortedImages = [...deferredImages].sort(
+        (a, b) => a.prompt.startIndex - b.prompt.startIndex
+      );
+
+      let successCount = 0;
+
+      // Insert images in reverse order to preserve positions
+      // (inserting from end backwards keeps earlier positions valid)
+      for (let i = sortedImages.length - 1; i >= 0; i--) {
+        const {prompt, imageUrl} = sortedImages[i];
+
+        // Use helper to insert image
+        const insertion = insertImageAfterPrompt(
+          finalText,
+          prompt.fullMatch,
+          imageUrl,
+          i
+        );
+
+        if (insertion.success) {
+          finalText = insertion.text;
+          successCount++;
+
+          // Record image-prompt association in metadata
+          // Extract all prompts from current message to determine index
+          const allPrompts = extractImagePrompts(finalText);
+          const promptIndex = allPrompts.findIndex(
+            p =>
+              p.startIndex === prompt.startIndex &&
+              p.endIndex === prompt.endIndex &&
+              p.prompt === prompt.prompt
+          );
+
+          if (promptIndex >= 0) {
+            const position: PromptPosition = {messageId, promptIndex};
+            const promptId = getCurrentPromptId(position, context);
+            if (promptId) {
+              recordImagePrompt(imageUrl, promptId, context);
+              logger.debug(
+                `Recorded image-prompt association: ${imageUrl} -> ${promptId}`
+              );
+            } else {
+              logger.warn(
+                `No promptId found for position ${messageId}_${promptIndex}`
+              );
+            }
+          } else {
+            logger.warn('Could not find prompt index after insertion');
+          }
+        }
+      }
+
+      // Set message.mes ONCE with all images inserted
+      message.mes = finalText;
+
+      logger.info(
+        `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
+      );
+
+      // Emit MESSAGE_EDITED first to trigger regex "Run on Edit"
+      // This allows regex scripts to modify message.mes before rendering
+      const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+      await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+      // Re-render the message block to display images in DOM
+      // This calls messageFormatting() which processes <img> tags into rendered HTML
+      // Same approach used by updateMessageBlock in reasoning.js and translate extension
+      context.updateMessageBlock(messageId, message);
+
+      // Emit MESSAGE_UPDATED to notify other extensions
+      const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+      await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+      // Save the chat to persist the inserted images
+      await context.saveChat();
+      logger.debug('Chat saved after inserting deferred images');
+
+      // Remove progress widget
+      removeProgressWidget(messageId);
+
+      return successCount;
+    },
+    'batch deferred image insertion'
   );
-
-  // Emit MESSAGE_EDITED first to trigger regex "Run on Edit"
-  // This allows regex scripts to modify message.mes before rendering
-  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-  await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-  // Re-render the message block to display images in DOM
-  // This calls messageFormatting() which processes <img> tags into rendered HTML
-  // Same approach used by updateMessageBlock in reasoning.js and translate extension
-  context.updateMessageBlock(messageId, message);
-
-  // Emit MESSAGE_UPDATED to notify other extensions
-  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
-
-  // Save the chat to persist the inserted images
-  await context.saveChat();
-  logger.debug('Chat saved after inserting deferred images');
-
-  // Remove progress widget
-  removeProgressWidget(messageId);
-
-  return successCount;
 }
