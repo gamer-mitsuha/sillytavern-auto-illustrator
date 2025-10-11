@@ -27,9 +27,9 @@ import {
 } from './prompt_metadata';
 import {updatePromptForPosition} from './prompt_updater';
 import {
-  tryInsertProgressWidgetWithRetry,
-  updateProgressWidget,
-  removeProgressWidget,
+  addMessageProgress,
+  updateMessageProgress,
+  removeMessageProgress,
 } from './progress_widget';
 import {scheduleDomOperation} from './dom_queue';
 
@@ -214,7 +214,7 @@ export async function generateImagesForMessage(
         );
 
         // Insert progress widget
-        tryInsertProgressWidgetWithRetry(messageId, promptsToGenerate.length);
+        addMessageProgress(messageId, 0, promptsToGenerate.length);
 
         // Generate images sequentially
         const startTime = performance.now();
@@ -242,7 +242,7 @@ export async function generateImagesForMessage(
           }
 
           // Update progress widget after each image (success or failure)
-          updateProgressWidget(messageId, i + 1, promptsToGenerate.length);
+          updateMessageProgress(messageId, i + 1, promptsToGenerate.length);
         }
 
         // Step 2: Sort by prompt position (end to start) and insert in reverse order
@@ -327,7 +327,7 @@ export async function generateImagesForMessage(
         logger.debug('Chat saved after manual generation');
 
         // Remove progress widget
-        removeProgressWidget(messageId);
+        removeMessageProgress(messageId);
 
         // Show completion notification
         if (successCount === promptsToGenerate.length) {
@@ -352,7 +352,7 @@ export async function generateImagesForMessage(
         logger.error('Error during manual image generation:', error);
         toastr.error(t('toast.failedToGenerate'), t('extensionName'));
         // Remove progress widget on error
-        removeProgressWidget(messageId);
+        removeMessageProgress(messageId);
         return 0;
       }
     },
@@ -739,10 +739,10 @@ export async function regenerateImage(
   // Update progress widget IMMEDIATELY so user sees the total count update as they click
   if (tracking.pending === 1) {
     // First click - initialize widget
-    tryInsertProgressWidgetWithRetry(messageId, tracking.pending);
+    addMessageProgress(messageId, 0, tracking.pending);
   } else {
     // Subsequent clicks - update existing widget with new total
-    updateProgressWidget(messageId, tracking.completed, tracking.pending);
+    updateMessageProgress(messageId, tracking.completed, tracking.pending);
   }
 
   // Wrap in scheduleDomOperation to serialize with other message operations
@@ -765,7 +765,7 @@ export async function regenerateImage(
             tracking.pending--;
             if (tracking.pending === 0) {
               regenerationTracking.delete(messageId);
-              removeProgressWidget(messageId);
+              removeMessageProgress(messageId);
             }
           }
           return 0;
@@ -782,7 +782,7 @@ export async function regenerateImage(
             tracking.pending--;
             if (tracking.pending === 0) {
               regenerationTracking.delete(messageId);
-              removeProgressWidget(messageId);
+              removeMessageProgress(messageId);
             }
           }
           return 0;
@@ -802,7 +802,7 @@ export async function regenerateImage(
             tracking.pending--;
             if (tracking.pending === 0) {
               regenerationTracking.delete(messageId);
-              removeProgressWidget(messageId);
+              removeMessageProgress(messageId);
             }
           }
           return 0;
@@ -832,7 +832,7 @@ export async function regenerateImage(
           const currentCompleted = trackingAfterGen.completed;
 
           // Update progress widget with cumulative progress
-          updateProgressWidget(messageId, currentCompleted, totalRemaining);
+          updateMessageProgress(messageId, currentCompleted, totalRemaining);
           logger.debug(
             `Regeneration progress for message ${messageId}: ${currentCompleted}/${totalRemaining}`
           );
@@ -844,7 +844,7 @@ export async function regenerateImage(
           const tracking = regenerationTracking.get(messageId);
           if (tracking && tracking.completed === tracking.pending) {
             regenerationTracking.delete(messageId);
-            removeProgressWidget(messageId);
+            removeMessageProgress(messageId);
           }
           return 0;
         }
@@ -859,7 +859,7 @@ export async function regenerateImage(
           const tracking = regenerationTracking.get(messageId);
           if (tracking && tracking.completed === tracking.pending) {
             regenerationTracking.delete(messageId);
-            removeProgressWidget(messageId);
+            removeMessageProgress(messageId);
           }
           return 0;
         }
@@ -880,7 +880,7 @@ export async function regenerateImage(
           const tracking = regenerationTracking.get(messageId);
           if (tracking && tracking.completed === tracking.pending) {
             regenerationTracking.delete(messageId);
-            removeProgressWidget(messageId);
+            removeMessageProgress(messageId);
           }
           return 0;
         }
@@ -899,7 +899,7 @@ export async function regenerateImage(
           const tracking = regenerationTracking.get(messageId);
           if (tracking && tracking.completed === tracking.pending) {
             regenerationTracking.delete(messageId);
-            removeProgressWidget(messageId);
+            removeMessageProgress(messageId);
           }
           return 0;
         }
@@ -1002,7 +1002,7 @@ export async function regenerateImage(
           trackingFinal.completed === trackingFinal.pending
         ) {
           regenerationTracking.delete(messageId);
-          removeProgressWidget(messageId);
+          removeMessageProgress(messageId);
           logger.debug(
             `All ${trackingFinal.pending} regenerations complete for message ${messageId}`
           );
@@ -1021,7 +1021,7 @@ export async function regenerateImage(
         const tracking = regenerationTracking.get(messageId);
         if (tracking && tracking.completed === tracking.pending) {
           regenerationTracking.delete(messageId);
-          removeProgressWidget(messageId);
+          removeMessageProgress(messageId);
         }
         return 0;
       }
