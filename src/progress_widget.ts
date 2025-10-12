@@ -190,41 +190,82 @@ class ProgressWidgetView {
     // Show widget
     widget.style.display = 'flex';
 
-    // Add spinner
+    // Add header with spinner and title
+    const header = document.createElement('div');
+    header.className = 'ai-img-progress-header';
+
     const spinner = document.createElement('div');
     spinner.className = 'ai-img-progress-spinner';
-    widget.appendChild(spinner);
+    header.appendChild(spinner);
 
-    // Add progress text for each message
+    const title = document.createElement('div');
+    title.className = 'ai-img-progress-title';
+    title.textContent = t('progress.generatingImages');
+    header.appendChild(title);
+
+    widget.appendChild(header);
+
+    // Add progress content for each message
     const container = document.createElement('div');
     container.className = 'ai-img-progress-text-container';
 
     for (const [messageId, progress] of this.messageProgress.entries()) {
-      const text = document.createElement('div');
-      text.className = 'ai-img-progress-text';
+      const messageSection = document.createElement('div');
+      messageSection.className = 'ai-img-progress-text';
 
-      // Show detailed breakdown: "Message 123: 5 ok, 2 failed, 3 pending"
+      // Message label
+      const label = document.createElement('div');
+      label.className = 'ai-img-progress-message-label';
+      label.textContent = t('progress.message', {
+        messageId: String(messageId),
+      });
+      messageSection.appendChild(label);
+
+      // Status badges
+      const badgesContainer = document.createElement('div');
+      badgesContainer.className = 'ai-img-progress-status-badges';
+
       const pending = progress.total - progress.current;
-      const parts: string[] = [];
 
       if (progress.succeeded > 0) {
-        parts.push(
-          `<span class="ai-img-progress-success">${progress.succeeded} ${t('progress.succeeded')}</span>`
+        const badge = this.createStatusBadge(
+          '✓',
+          progress.succeeded,
+          t('progress.succeeded'),
+          'success'
         );
-      }
-      if (progress.failed > 0) {
-        parts.push(
-          `<span class="ai-img-progress-failed">${progress.failed} ${t('progress.failed')}</span>`
-        );
-      }
-      if (pending > 0) {
-        parts.push(
-          `<span class="ai-img-progress-pending">${pending} ${t('progress.pending')}</span>`
-        );
+        badgesContainer.appendChild(badge);
       }
 
-      text.innerHTML = `${t('progress.message', {messageId: String(messageId)})}: ${parts.join(', ')}`;
-      container.appendChild(text);
+      if (progress.failed > 0) {
+        const badge = this.createStatusBadge(
+          '✗',
+          progress.failed,
+          t('progress.failed'),
+          'failed'
+        );
+        badgesContainer.appendChild(badge);
+      }
+
+      if (pending > 0) {
+        const badge = this.createStatusBadge(
+          '⏳',
+          pending,
+          t('progress.pending'),
+          'pending'
+        );
+        badgesContainer.appendChild(badge);
+      }
+
+      messageSection.appendChild(badgesContainer);
+
+      // Progress bar
+      const progressPercent =
+        progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+      const progressBar = this.createProgressBar(progressPercent);
+      messageSection.appendChild(progressBar);
+
+      container.appendChild(messageSection);
 
       // Add thumbnail gallery if there are completed images
       if (progress.completedImages.length > 0) {
@@ -257,6 +298,52 @@ class ProgressWidgetView {
   }
 
   /**
+   * Creates a status badge element
+   * @param icon - Icon character (✓, ✗, ⏳)
+   * @param count - Number to display
+   * @param label - Text label
+   * @param variant - Badge variant (success, failed, pending)
+   * @returns Badge element
+   */
+  private createStatusBadge(
+    icon: string,
+    count: number,
+    label: string,
+    variant: string
+  ): HTMLElement {
+    const badge = document.createElement('div');
+    badge.className = `ai-img-progress-badge ${variant}`;
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'ai-img-progress-badge-icon';
+    iconSpan.textContent = icon;
+    badge.appendChild(iconSpan);
+
+    const text = document.createElement('span');
+    text.textContent = `${count} ${label}`;
+    badge.appendChild(text);
+
+    return badge;
+  }
+
+  /**
+   * Creates a progress bar element
+   * @param percent - Progress percentage (0-100)
+   * @returns Progress bar container element
+   */
+  private createProgressBar(percent: number): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'ai-img-progress-bar-container';
+
+    const bar = document.createElement('div');
+    bar.className = 'ai-img-progress-bar';
+    bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+
+    container.appendChild(bar);
+    return container;
+  }
+
+  /**
    * Creates thumbnail gallery for completed images
    * @param messageId - Message ID (for logging)
    * @param images - Array of completed images
@@ -281,24 +368,39 @@ class ProgressWidgetView {
 
     // Limit to max 5 thumbnails to avoid clutter
     const displayImages = images.slice(0, 5);
+    const totalImages = images.length;
 
-    for (const image of displayImages) {
+    for (let i = 0; i < displayImages.length; i++) {
+      const image = displayImages[i];
       const thumbnail = document.createElement('div');
       thumbnail.className = 'ai-img-progress-thumbnail';
       thumbnail.title = image.promptText; // Full prompt on hover
+
+      // Add index badge
+      const indexBadge = document.createElement('div');
+      indexBadge.className = 'ai-img-progress-thumbnail-index';
+      indexBadge.textContent = t('progress.imageIndex', {
+        current: String(i + 1),
+        total: String(totalImages),
+      });
+      thumbnail.appendChild(indexBadge);
 
       // Create img element
       const img = document.createElement('img');
       img.src = image.imageUrl;
       img.alt = image.promptPreview;
       img.loading = 'lazy';
+      thumbnail.appendChild(img);
 
-      // Add click handler to show full-size modal
+      // Add click handler to show full-size modal with image index
       thumbnail.addEventListener('click', () => {
-        this.showImageModal(image.imageUrl, image.promptText);
+        this.showImageModal(
+          messageId,
+          i,
+          images // Pass all images for navigation
+        );
       });
 
-      thumbnail.appendChild(img);
       thumbnailsContainer.appendChild(thumbnail);
     }
 
@@ -318,55 +420,208 @@ class ProgressWidgetView {
   }
 
   /**
-   * Shows full-size image in modal overlay
-   * @param imageUrl - URL of the image to display
-   * @param promptText - Prompt text for title
+   * Shows full-size image in modal overlay with navigation
+   * @param messageId - Message ID (for logging)
+   * @param initialIndex - Index of image to show initially
+   * @param images - Array of all completed images
    */
-  private showImageModal(imageUrl: string, promptText: string): void {
-    logger.debug('Showing image modal');
+  private showImageModal(
+    messageId: number,
+    initialIndex: number,
+    images: CompletedImage[]
+  ): void {
+    logger.debug(
+      `Showing image modal for message ${messageId}, image ${initialIndex + 1}/${images.length}`
+    );
+
+    let currentIndex = initialIndex;
+    let isZoomed = false;
 
     // Create modal backdrop
     const backdrop = document.createElement('div');
     backdrop.className = 'ai-img-modal-backdrop';
 
     // Create modal container
-    const modal = document.createElement('div');
-    modal.className = 'ai-img-modal';
+    const container = document.createElement('div');
+    container.className = 'ai-img-modal-container';
 
-    // Create image
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ai-img-modal-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.title = t('modal.close');
+    container.appendChild(closeBtn);
+
+    // Content area with navigation
+    const content = document.createElement('div');
+    content.className = 'ai-img-modal-content';
+
+    // Previous button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'ai-img-modal-nav prev';
+    prevBtn.innerHTML = '▶';
+    prevBtn.title = t('modal.previous');
+    content.appendChild(prevBtn);
+
+    // Image container
+    const imageContainer = document.createElement('div');
+    imageContainer.className = 'ai-img-modal-image-container';
+
     const img = document.createElement('img');
-    img.src = imageUrl;
-    img.alt = promptText;
     img.className = 'ai-img-modal-image';
+    imageContainer.appendChild(img);
 
-    // Create prompt text
-    const prompt = document.createElement('div');
-    prompt.className = 'ai-img-modal-prompt';
-    prompt.textContent = promptText;
+    content.appendChild(imageContainer);
 
-    modal.appendChild(img);
-    modal.appendChild(prompt);
-    backdrop.appendChild(modal);
+    // Next button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'ai-img-modal-nav next';
+    nextBtn.innerHTML = '▶';
+    nextBtn.title = t('modal.next');
+    content.appendChild(nextBtn);
 
-    // Close on backdrop click
-    backdrop.addEventListener('click', event => {
-      if (event.target === backdrop) {
-        backdrop.remove();
-        logger.debug('Image modal closed');
+    container.appendChild(content);
+
+    // Info bar
+    const info = document.createElement('div');
+    info.className = 'ai-img-modal-info';
+
+    const meta = document.createElement('div');
+    meta.className = 'ai-img-modal-meta';
+    info.appendChild(meta);
+
+    const promptDiv = document.createElement('div');
+    promptDiv.className = 'ai-img-modal-prompt';
+    info.appendChild(promptDiv);
+
+    container.appendChild(info);
+
+    backdrop.appendChild(container);
+
+    // Update display function
+    const updateDisplay = () => {
+      const currentImage = images[currentIndex];
+      img.src = currentImage.imageUrl;
+      img.alt = currentImage.promptPreview;
+
+      // Update metadata
+      meta.innerHTML = `
+        <div class="ai-img-modal-meta-item">
+          <span class="ai-img-modal-meta-label">${t('progress.imageIndex', {current: String(currentIndex + 1), total: String(images.length)})}</span>
+        </div>
+        <div class="ai-img-modal-actions">
+          <button class="ai-img-modal-action-btn zoom-btn" title="${t('modal.zoom')}">
+            🔍 ${t('modal.zoom')}
+          </button>
+          <button class="ai-img-modal-action-btn download-btn" title="${t('modal.download')}">
+            💾 ${t('modal.download')}
+          </button>
+        </div>
+      `;
+
+      promptDiv.textContent = currentImage.promptText;
+
+      // Update button states
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === images.length - 1;
+
+      // Re-attach action button handlers
+      const zoomBtn = meta.querySelector('.zoom-btn');
+      const downloadBtn = meta.querySelector('.download-btn');
+
+      zoomBtn?.addEventListener('click', () => {
+        isZoomed = !isZoomed;
+        img.classList.toggle('zoomed', isZoomed);
+      });
+
+      downloadBtn?.addEventListener('click', () => {
+        this.downloadImage(
+          currentImage.imageUrl,
+          `image-${currentIndex + 1}.png`
+        );
+      });
+    };
+
+    // Initial display
+    updateDisplay();
+
+    // Navigation handlers
+    prevBtn.addEventListener('click', () => {
+      if (currentIndex > 0) {
+        currentIndex--;
+        isZoomed = false;
+        img.classList.remove('zoomed');
+        updateDisplay();
       }
     });
 
-    // Close on Escape key
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        backdrop.remove();
-        document.removeEventListener('keydown', handleEscape);
-        logger.debug('Image modal closed via Escape');
+    nextBtn.addEventListener('click', () => {
+      if (currentIndex < images.length - 1) {
+        currentIndex++;
+        isZoomed = false;
+        img.classList.remove('zoomed');
+        updateDisplay();
+      }
+    });
+
+    // Zoom on image click
+    img.addEventListener('click', () => {
+      isZoomed = !isZoomed;
+      img.classList.toggle('zoomed', isZoomed);
+    });
+
+    // Close handlers
+    const closeModal = () => {
+      backdrop.remove();
+      document.removeEventListener('keydown', handleKeyboard);
+      logger.debug('Image modal closed');
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop) {
+        closeModal();
+      }
+    });
+
+    // Keyboard navigation
+    const handleKeyboard = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'Escape':
+          closeModal();
+          break;
+        case 'ArrowLeft':
+          if (currentIndex > 0) {
+            prevBtn.click();
+          }
+          break;
+        case 'ArrowRight':
+          if (currentIndex < images.length - 1) {
+            nextBtn.click();
+          }
+          break;
       }
     };
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKeyboard);
 
     document.body.appendChild(backdrop);
+  }
+
+  /**
+   * Downloads an image
+   * @param imageUrl - URL of the image to download
+   * @param filename - Suggested filename
+   */
+  private downloadImage(imageUrl: string, filename: string): void {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    logger.debug(`Downloaded image: ${filename}`);
   }
 
   /**
