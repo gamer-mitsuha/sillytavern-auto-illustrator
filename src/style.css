@@ -605,14 +605,39 @@
   }
 
   .ai-img-modal-backdrop {
-    padding: 1rem;
+    padding: 0.25rem;
+    padding-top: 3rem; /* Space for fixed close button */
+    padding-bottom: 0.5rem;
+    /* Ensure it takes full viewport */
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .ai-img-modal-container {
+    max-height: calc(100vh - 3.5rem);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .ai-img-modal-content {
+    /* Allow content to grow and shrink */
+    flex: 1 1 auto;
+    min-height: 0; /* Important for flex children with overflow */
+    overflow: hidden;
   }
 
   .ai-img-modal-close {
-    top: 1rem;
-    right: 1rem;
-    width: 36px;
-    height: 36px;
+    /* Fixed positioning for always-visible close button */
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 40px;
+    height: 40px;
+    z-index: 10002;
+    /* Ensure it's above everything */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
   }
 
   .ai-img-modal-content {
@@ -626,6 +651,14 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
+    z-index: 10;
+    /* Semi-transparent on mobile to not obstruct image */
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(12px);
+  }
+
+  .ai-img-modal-nav:hover:not(:disabled) {
+    background: rgba(155, 89, 182, 0.7);
   }
 
   .ai-img-modal-nav.prev {
@@ -639,27 +672,97 @@
 
   .ai-img-modal-image-container {
     max-width: 100%;
-    max-height: 60vh;
+    width: 100%;
+    /* Increased from 60vh to prioritize image visibility */
+    max-height: 70vh;
+    min-height: 50vh;
+    /* Ensure container takes full allocated height */
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-img-modal-image {
+    /* Ensure image uses full container height */
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
   }
 
   .ai-img-modal-info {
-    padding: 0.85rem 1rem;
+    padding: 0.75rem 0.85rem;
     font-size: 0.8rem;
+    /* Compact by default when prompt is hidden */
+    max-height: 15vh;
+    overflow-y: visible;
+    flex-shrink: 0;
+    transition: max-height 0.3s ease-out;
+    cursor: pointer;
+  }
+
+  /* Expand when showing prompt */
+  .ai-img-modal-info.expanded {
+    max-height: 35vh;
+    overflow-y: auto;
   }
 
   .ai-img-modal-meta {
     font-size: 0.75rem;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    /* Stack meta items vertically on very small screens */
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ai-img-modal-actions {
+    /* Ensure actions stay on same line */
+    flex-direction: row;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .ai-img-modal-prompt {
-    font-size: 0.85rem;
-    padding: 0.65rem;
+    /* Hide prompt by default on mobile to prioritize image */
+    display: none;
+  }
+
+  /* Show prompt when user taps to expand */
+  .ai-img-modal-info.expanded .ai-img-modal-prompt {
+    display: block;
+    font-size: 0.8rem;
+    padding: 0.6rem;
+    max-height: 15vh;
+    overflow-y: auto;
+    line-height: 1.4;
+  }
+
+  /* Add expand/collapse indicator */
+  .ai-img-modal-meta::after {
+    content: '▼ Tap to view prompt';
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(155, 89, 182, 0.8);
+    margin-top: 0.5rem;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .ai-img-modal-info.expanded .ai-img-modal-meta::after {
+    content: '▲ Tap to hide prompt';
   }
 
   .ai-img-modal-action-btn {
-    font-size: 0.8rem;
-    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    white-space: nowrap;
+  }
+
+  /* Prevent zoom from being too large on mobile */
+  .ai-img-modal-image.zoomed {
+    transform: scale(1.3);
   }
 }
 

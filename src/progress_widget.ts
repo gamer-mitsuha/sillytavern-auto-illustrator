@@ -368,8 +368,8 @@ class ProgressWidgetView {
     const thumbnailsContainer = document.createElement('div');
     thumbnailsContainer.className = 'ai-img-progress-thumbnails';
 
-    // Limit to max 5 thumbnails to avoid clutter
-    const displayImages = images.slice(0, 5);
+    // Show all thumbnails in a scrollable container
+    const displayImages = images;
     const totalImages = images.length;
 
     for (let i = 0; i < displayImages.length; i++) {
@@ -544,6 +544,18 @@ class ProgressWidgetView {
 
     // Initial display
     updateDisplay();
+
+    // Toggle prompt visibility on mobile (tap on info bar)
+    info.addEventListener('click', event => {
+      // Only toggle if clicking on the info bar itself, not the action buttons
+      const target = event.target as HTMLElement;
+      if (
+        !target.closest('.ai-img-modal-action-btn') &&
+        window.innerWidth <= 768
+      ) {
+        info.classList.toggle('expanded');
+      }
+    });
 
     // Listen for new images completing while modal is open
     const handleImageCompleted = ((
