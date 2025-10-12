@@ -26,7 +26,7 @@ import {
   initializePromptPosition,
 } from './prompt_metadata';
 import {updatePromptForPosition} from './prompt_updater';
-import {progressManager} from './progress_manager';
+import {progressManager, failTaskAndClearIfComplete} from './progress_manager';
 import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('ManualGen');
@@ -798,10 +798,7 @@ export async function regenerateImage(
         if (!message) {
           logger.error('Message not found:', messageId);
           toastr.error(t('toast.messageNotFound'), t('extensionName'));
-          progressManager.failTask(messageId);
-          if (progressManager.isComplete(messageId)) {
-            progressManager.clear(messageId);
-          }
+          failTaskAndClearIfComplete(messageId);
           return 0;
         }
 
@@ -813,10 +810,7 @@ export async function regenerateImage(
         );
         if (!promptText) {
           toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-          progressManager.failTask(messageId);
-          if (progressManager.isComplete(messageId)) {
-            progressManager.clear(messageId);
-          }
+          failTaskAndClearIfComplete(messageId);
           return 0;
         }
 
@@ -834,10 +828,7 @@ export async function regenerateImage(
         if (!imageIndex) {
           logger.error('Could not determine image index for regeneration');
           toastr.error(t('toast.failedToDetermineIndex'), t('extensionName'));
-          progressManager.failTask(messageId);
-          if (progressManager.isComplete(messageId)) {
-            progressManager.clear(messageId);
-          }
+          failTaskAndClearIfComplete(messageId);
           return 0;
         }
 
@@ -850,10 +841,7 @@ export async function regenerateImage(
         if (!matchingPrompt) {
           logger.error('Prompt tag not found in text');
           toastr.error(t('toast.failedToFindPromptTag'), t('extensionName'));
-          progressManager.failTask(messageId);
-          if (progressManager.isComplete(messageId)) {
-            progressManager.clear(messageId);
-          }
+          failTaskAndClearIfComplete(messageId);
           return 0;
         }
 
@@ -873,10 +861,7 @@ export async function regenerateImage(
 
         if (!success) {
           toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
-          progressManager.failTask(messageId);
-          if (progressManager.isComplete(messageId)) {
-            progressManager.clear(messageId);
-          }
+          failTaskAndClearIfComplete(messageId);
           return 0;
         }
 
@@ -898,10 +883,7 @@ export async function regenerateImage(
       } catch (error) {
         logger.error('Error during image regeneration:', error);
         toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
-        progressManager.failTask(messageId);
-        if (progressManager.isComplete(messageId)) {
-          progressManager.clear(messageId);
-        }
+        failTaskAndClearIfComplete(messageId);
         return 0;
       }
     },

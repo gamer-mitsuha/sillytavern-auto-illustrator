@@ -4,7 +4,7 @@
  * Shows progress for all messages in a fixed position above the user input area
  *
  * Architecture: View layer that subscribes to ProgressManager events
- * - Listens to progress:started, progress:updated, progress:cancelled
+ * - Listens to progress:started, progress:updated, progress:cleared
  * - Throttles DOM updates to prevent thrashing
  * - Shows success/failure breakdown
  * - No business logic, purely presentational
@@ -16,7 +16,7 @@ import type {
   ProgressManager,
   ProgressStartedEventDetail,
   ProgressUpdatedEventDetail,
-  ProgressCancelledEventDetail,
+  ProgressClearedEventDetail,
 } from './progress_manager';
 
 const logger = createLogger('ProgressWidget');
@@ -54,10 +54,9 @@ class ProgressWidgetView {
       this.handleUpdated(detail);
     });
 
-    manager.addEventListener('progress:cancelled', event => {
-      const detail = (event as CustomEvent<ProgressCancelledEventDetail>)
-        .detail;
-      this.handleCancelled(detail);
+    manager.addEventListener('progress:cleared', event => {
+      const detail = (event as CustomEvent<ProgressClearedEventDetail>).detail;
+      this.handleCleared(detail);
     });
 
     logger.debug('ProgressWidget initialized and subscribed to manager events');
@@ -97,10 +96,11 @@ class ProgressWidgetView {
   }
 
   /**
-   * Handles progress:cancelled event
+   * Handles progress:cleared event
+   * This is when the operation is finished and widget should hide
    */
-  private handleCancelled(detail: ProgressCancelledEventDetail): void {
-    logger.debug(`Cancelled tracking message ${detail.messageId}`);
+  private handleCleared(detail: ProgressClearedEventDetail): void {
+    logger.debug(`Cleared tracking for message ${detail.messageId}`);
     this.messageProgress.delete(detail.messageId);
     this.scheduleUpdate();
   }

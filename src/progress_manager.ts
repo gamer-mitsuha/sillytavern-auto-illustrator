@@ -45,9 +45,11 @@ export interface ProgressUpdatedEventDetail {
 }
 
 /**
- * Event detail for progress:ended event
+ * Event detail for progress:all-tasks-complete event
+ * Emitted when all currently registered tasks are complete (completed === total)
+ * NOTE: More tasks may still be added! This does NOT mean the operation is finished.
  */
-export interface ProgressEndedEventDetail {
+export interface ProgressAllTasksCompleteEventDetail {
   messageId: number;
   total: number;
   succeeded: number;
@@ -56,9 +58,11 @@ export interface ProgressEndedEventDetail {
 }
 
 /**
- * Event detail for progress:cancelled event
+ * Event detail for progress:cleared event
+ * Emitted when tracking is cleared (operation finished, no more tasks coming)
+ * This is when the widget should hide.
  */
-export interface ProgressCancelledEventDetail {
+export interface ProgressClearedEventDetail {
   messageId: number;
 }
 
@@ -73,10 +77,10 @@ export interface ProgressCancelledEventDetail {
  * - Success/failure tracking for detailed progress reporting
  *
  * Events emitted:
- * - progress:started - When tracking begins for a message
- * - progress:updated - When task completed/failed or total changed
- * - progress:ended - When all tasks complete
- * - progress:cancelled - When tracking is cancelled
+ * - progress:started - When tracking begins (first task registered)
+ * - progress:updated - When task state changes or total changes
+ * - progress:all-tasks-complete - When all CURRENT tasks complete (more may be added)
+ * - progress:cleared - When tracking is cleared (operation finished, widget can hide)
  */
 export class ProgressManager extends EventTarget {
   private states: Map<number, TaskState> = new Map();
@@ -139,6 +143,16 @@ export class ProgressManager extends EventTarget {
       return;
     }
 
+    // Boundary validation: prevent over-completion
+    if (state.completed >= state.total) {
+      logger.warn(
+        `Attempted to complete beyond total for message ${messageId}: ` +
+          `${state.completed}/${state.total}. This indicates a bug in the calling code ` +
+          '(double completion or missing registerTask).'
+      );
+      return; // Don't increment further
+    }
+
     state.completed++;
     state.succeeded++;
     logger.debug(
@@ -147,9 +161,9 @@ export class ProgressManager extends EventTarget {
 
     this.emitUpdated(messageId, state);
 
-    // Check if all complete and emit ended event
+    // Check if all complete and emit all-tasks-complete event
     if (state.completed >= state.total) {
-      this.emitEnded(messageId, state);
+      this.emitAllTasksComplete(messageId, state);
     }
   }
 
@@ -169,6 +183,16 @@ export class ProgressManager extends EventTarget {
       return;
     }
 
+    // Boundary validation: prevent over-completion
+    if (state.completed >= state.total) {
+      logger.warn(
+        `Attempted to fail beyond total for message ${messageId}: ` +
+          `${state.completed}/${state.total}. This indicates a bug in the calling code ` +
+          '(double completion or missing registerTask).'
+      );
+      return; // Don't increment further
+    }
+
     state.completed++;
     state.failed++;
     logger.debug(
@@ -177,9 +201,9 @@ export class ProgressManager extends EventTarget {
 
     this.emitUpdated(messageId, state);
 
-    // Check if all complete and emit ended event
+    // Check if all complete and emit all-tasks-complete event
     if (state.completed >= state.total) {
-      this.emitEnded(messageId, state);
+      this.emitAllTasksComplete(messageId, state);
     }
   }
 
@@ -209,14 +233,28 @@ export class ProgressManager extends EventTarget {
 
   /**
    * Clears all tracking for a message
-   * Emits progress:cancelled event
+   * Emits progress:cleared event (widget will hide)
    *
-   * @param messageId - Message ID
+   * WHEN TO CALL (Operation Boundaries):
+   * 1. Streaming operations: Call after LLM streaming completes/fails/cancels
+   *    - NOT after each individual task completes during streaming
+   *    - More tasks may be added dynamically during streaming
+   * 2. Batch operations: Call after the entire batch completes
+   *    - After all images in a batch have been generated
+   * 3. Manual operations: Call only if isComplete() returns true
+   *    - Multiple regeneration tasks may be queued
+   *    - Check completion before clearing
+   *
+   * WHY: Tasks may be registered dynamically (streaming mode) or queued
+   * (manual regeneration). Clearing should respect operation boundaries,
+   * not task boundaries.
+   *
+   * @param messageId - Message ID to clear tracking for
    */
   clear(messageId: number): void {
     const removed = this.states.delete(messageId);
     if (removed) {
-      this.emitCancelled(messageId);
+      this.emitCleared(messageId);
       logger.debug(`Cleared tracking for message ${messageId}`);
     }
   }
@@ -340,12 +378,12 @@ export class ProgressManager extends EventTarget {
   }
 
   /**
-   * Emits progress:ended event
+   * Emits progress:all-tasks-complete event
    * @private
    */
-  private emitEnded(messageId: number, state: TaskState): void {
+  private emitAllTasksComplete(messageId: number, state: TaskState): void {
     const duration = Date.now() - state.startTime;
-    const detail: ProgressEndedEventDetail = {
+    const detail: ProgressAllTasksCompleteEventDetail = {
       messageId,
       total: state.total,
       succeeded: state.succeeded,
@@ -353,25 +391,39 @@ export class ProgressManager extends EventTarget {
       duration,
     };
     this.dispatchEvent(
-      new CustomEvent('progress:ended', {detail, bubbles: false})
+      new CustomEvent('progress:all-tasks-complete', {detail, bubbles: false})
     );
     logger.trace(
-      `Emitted progress:ended for message ${messageId} (duration: ${duration}ms)`
+      `Emitted progress:all-tasks-complete for message ${messageId} (duration: ${duration}ms)`
     );
   }
 
   /**
-   * Emits progress:cancelled event
+   * Emits progress:cleared event
    * @private
    */
-  private emitCancelled(messageId: number): void {
-    const detail: ProgressCancelledEventDetail = {messageId};
+  private emitCleared(messageId: number): void {
+    const detail: ProgressClearedEventDetail = {messageId};
     this.dispatchEvent(
-      new CustomEvent('progress:cancelled', {detail, bubbles: false})
+      new CustomEvent('progress:cleared', {detail, bubbles: false})
     );
-    logger.trace(`Emitted progress:cancelled for message ${messageId}`);
+    logger.trace(`Emitted progress:cleared for message ${messageId}`);
   }
 }
 
 // Export singleton instance
 export const progressManager = new ProgressManager();
+
+/**
+ * Helper function: Marks a task as failed and clears progress if all tasks complete
+ * Use this in manual generation operations where each task is independent.
+ * For streaming operations, use failTask() + manual clear after streaming ends.
+ *
+ * @param messageId - Message ID
+ */
+export function failTaskAndClearIfComplete(messageId: number): void {
+  progressManager.failTask(messageId);
+  if (progressManager.isComplete(messageId)) {
+    progressManager.clear(messageId);
+  }
+}

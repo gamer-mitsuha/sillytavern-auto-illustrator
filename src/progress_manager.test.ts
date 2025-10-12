@@ -8,23 +8,23 @@ import {
   ProgressManager,
   type ProgressStartedEventDetail,
   type ProgressUpdatedEventDetail,
-  type ProgressEndedEventDetail,
-  type ProgressCancelledEventDetail,
+  type ProgressAllTasksCompleteEventDetail,
+  type ProgressClearedEventDetail,
 } from './progress_manager';
 
 describe('ProgressManager', () => {
   let manager: ProgressManager;
   let startedEvents: ProgressStartedEventDetail[];
   let updatedEvents: ProgressUpdatedEventDetail[];
-  let endedEvents: ProgressEndedEventDetail[];
-  let cancelledEvents: ProgressCancelledEventDetail[];
+  let allTasksCompleteEvents: ProgressAllTasksCompleteEventDetail[];
+  let clearedEvents: ProgressClearedEventDetail[];
 
   beforeEach(() => {
     manager = new ProgressManager();
     startedEvents = [];
     updatedEvents = [];
-    endedEvents = [];
-    cancelledEvents = [];
+    allTasksCompleteEvents = [];
+    clearedEvents = [];
 
     // Subscribe to all events
     manager.addEventListener('progress:started', event => {
@@ -37,12 +37,14 @@ describe('ProgressManager', () => {
         (event as CustomEvent<ProgressUpdatedEventDetail>).detail
       );
     });
-    manager.addEventListener('progress:ended', event => {
-      endedEvents.push((event as CustomEvent<ProgressEndedEventDetail>).detail);
+    manager.addEventListener('progress:all-tasks-complete', event => {
+      allTasksCompleteEvents.push(
+        (event as CustomEvent<ProgressAllTasksCompleteEventDetail>).detail
+      );
     });
-    manager.addEventListener('progress:cancelled', event => {
-      cancelledEvents.push(
-        (event as CustomEvent<ProgressCancelledEventDetail>).detail
+    manager.addEventListener('progress:cleared', event => {
+      clearedEvents.push(
+        (event as CustomEvent<ProgressClearedEventDetail>).detail
       );
     });
   });
@@ -138,22 +140,22 @@ describe('ProgressManager', () => {
       });
     });
 
-    it('should emit progress:ended when all tasks complete', () => {
+    it('should emit progress:all-tasks-complete when all tasks complete', () => {
       manager.registerTask(1, 2);
-      endedEvents = [];
+      allTasksCompleteEvents = [];
 
       manager.completeTask(1);
-      expect(endedEvents).toHaveLength(0); // Not done yet
+      expect(allTasksCompleteEvents).toHaveLength(0); // Not done yet
 
       manager.completeTask(1);
-      expect(endedEvents).toHaveLength(1);
-      expect(endedEvents[0]).toMatchObject({
+      expect(allTasksCompleteEvents).toHaveLength(1);
+      expect(allTasksCompleteEvents[0]).toMatchObject({
         messageId: 1,
         total: 2,
         succeeded: 2,
         failed: 0,
       });
-      expect(endedEvents[0].duration).toBeGreaterThanOrEqual(0);
+      expect(allTasksCompleteEvents[0].duration).toBeGreaterThanOrEqual(0);
 
       // Should still be tracking (caller must explicitly clear)
       expect(manager.isTracking(1)).toBe(true);
@@ -199,15 +201,15 @@ describe('ProgressManager', () => {
       });
     });
 
-    it('should emit progress:ended when all tasks done (including failures)', () => {
+    it('should emit progress:all-tasks-complete when all tasks done (including failures)', () => {
       manager.registerTask(1, 2);
-      endedEvents = [];
+      allTasksCompleteEvents = [];
 
       manager.completeTask(1);
       manager.failTask(1);
 
-      expect(endedEvents).toHaveLength(1);
-      expect(endedEvents[0]).toMatchObject({
+      expect(allTasksCompleteEvents).toHaveLength(1);
+      expect(allTasksCompleteEvents[0]).toMatchObject({
         messageId: 1,
         total: 2,
         succeeded: 1,
@@ -267,22 +269,22 @@ describe('ProgressManager', () => {
   });
 
   describe('clear', () => {
-    it('should remove tracking and emit progress:cancelled', () => {
+    it('should remove tracking and emit progress:cleared', () => {
       manager.registerTask(1, 3);
-      cancelledEvents = [];
+      clearedEvents = [];
 
       manager.clear(1);
 
       expect(manager.isTracking(1)).toBe(false);
-      expect(cancelledEvents).toHaveLength(1);
-      expect(cancelledEvents[0]).toEqual({messageId: 1});
+      expect(clearedEvents).toHaveLength(1);
+      expect(clearedEvents[0]).toEqual({messageId: 1});
     });
 
     it('should handle clearing non-tracked message gracefully', () => {
-      cancelledEvents = [];
+      clearedEvents = [];
       manager.clear(999);
 
-      expect(cancelledEvents).toHaveLength(0);
+      expect(clearedEvents).toHaveLength(0);
     });
   });
 
@@ -401,31 +403,31 @@ describe('ProgressManager', () => {
       });
     });
 
-    it('should clear if total becomes zero and emit progress:cancelled', () => {
+    it('should clear if total becomes zero and emit progress:cleared', () => {
       manager.registerTask(1, 2);
-      cancelledEvents = [];
+      clearedEvents = [];
 
       manager.decrementTotal(1, 2);
 
       expect(manager.isTracking(1)).toBe(false);
-      expect(cancelledEvents).toHaveLength(1);
+      expect(clearedEvents).toHaveLength(1);
     });
 
     it('should clear if completed >= total after decrement', () => {
       manager.registerTask(1, 3);
       manager.completeTask(1);
       manager.completeTask(1);
-      cancelledEvents = [];
+      clearedEvents = [];
 
       manager.decrementTotal(1, 1); // total: 3 -> 2, completed: 2
 
       expect(manager.isTracking(1)).toBe(false);
-      expect(cancelledEvents).toHaveLength(1);
+      expect(clearedEvents).toHaveLength(1);
     });
 
     it('should not go below zero', () => {
       manager.registerTask(1, 2);
-      cancelledEvents = [];
+      clearedEvents = [];
 
       manager.decrementTotal(1, 10);
 
