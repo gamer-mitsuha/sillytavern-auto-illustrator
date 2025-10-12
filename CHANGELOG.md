@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Image preview gallery in progress widget during streaming mode (#49)
+  - Shows completed images as thumbnails (100x100px) while streaming continues
+  - Click thumbnails to view full-size images in modal
+  - Modal features: navigation (prev/next), zoom, download, keyboard shortcuts
+  - Solves issue where LLM streaming output overrides inserted image tags
+  - Event-driven architecture: ProgressManager emits image-completed events
+  - Images remain visible in widget until streaming completes
+
+### Changed
+
+- Enhanced progress widget UI with modern glassmorphism design
+  - Changed layout from horizontal to vertical (column)
+  - Added gradient background with enhanced blur effects (backdrop-filter: blur(16px))
+  - Implemented status badge system with icons (✓ success, ✗ failed, ⏳ pending)
+  - Added animated progress bar with shimmer effect
+  - Increased thumbnail size from 80x80px to 100x100px with index badges
+  - Enhanced hover effects with scale and shadow animations
+  - Mobile optimizations with responsive padding and touch-friendly controls
+- Enhanced image modal with comprehensive functionality
+  - Added prev/next navigation buttons with disabled states
+  - Implemented zoom on click (toggle between 1x and 1.5x scale)
+  - Added download button with automatic filename generation
+  - Keyboard navigation: Escape to close, Arrow keys for navigation
+  - Display image index, dimensions, and full prompt text
+
 ### Fixed
 
 - Progress widget now shows cumulative count for sequential image regenerations
