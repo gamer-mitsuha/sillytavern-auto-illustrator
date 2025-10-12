@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Image modal now updates in real-time when new images complete (#49)
+  - Navigation buttons (next/prev) automatically enable when new images finish
+  - Image count updates dynamically without needing to close and reopen modal
+  - Modal now references live progress state instead of snapshot at open time
+  - Provides seamless viewing experience during concurrent image generation
 - Progress widget now shows cumulative count for sequential image regenerations
   - When clicking multiple regenerate buttons rapidly (e.g., 3 images), widget now shows "0/3 → 1/3 → 2/3 → 3/3" instead of "0/1 → 1/1" for each
   - Added regeneration tracking to accumulate pending and completed counts per message
