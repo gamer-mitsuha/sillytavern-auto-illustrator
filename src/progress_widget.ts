@@ -48,11 +48,13 @@ class ProgressWidgetView {
   private messageProgress = new Map<number, MessageProgressState>();
   private updateTimer: number | null = null;
   private readonly THROTTLE_MS = 100; // Max 10 updates per second
+  private readonly progressManager: ProgressManager;
 
   /**
    * Initializes the widget and subscribes to ProgressManager events
    */
   constructor(manager: ProgressManager) {
+    this.progressManager = manager;
     // Subscribe to all progress events
     manager.addEventListener('progress:started', event => {
       const detail = (event as CustomEvent<ProgressStartedEventDetail>).detail;
@@ -394,11 +396,7 @@ class ProgressWidgetView {
 
       // Add click handler to show full-size modal with image index
       thumbnail.addEventListener('click', () => {
-        this.showImageModal(
-          messageId,
-          i,
-          images // Pass all images for navigation
-        );
+        this.showImageModal(messageId, i);
       });
 
       thumbnailsContainer.appendChild(thumbnail);
@@ -421,17 +419,19 @@ class ProgressWidgetView {
 
   /**
    * Shows full-size image in modal overlay with navigation
-   * @param messageId - Message ID (for logging)
+   * @param messageId - Message ID (for logging and fetching live images)
    * @param initialIndex - Index of image to show initially
-   * @param images - Array of all completed images
    */
-  private showImageModal(
-    messageId: number,
-    initialIndex: number,
-    images: CompletedImage[]
-  ): void {
+  private showImageModal(messageId: number, initialIndex: number): void {
+    // Get the live images array from messageProgress
+    const progress = this.messageProgress.get(messageId);
+    if (!progress) {
+      logger.warn(`Cannot show modal: message ${messageId} not found`);
+      return;
+    }
+
     logger.debug(
-      `Showing image modal for message ${messageId}, image ${initialIndex + 1}/${images.length}`
+      `Showing image modal for message ${messageId}, image ${initialIndex + 1}/${progress.completedImages.length}`
     );
 
     let currentIndex = initialIndex;
@@ -500,14 +500,14 @@ class ProgressWidgetView {
 
     // Update display function
     const updateDisplay = () => {
-      const currentImage = images[currentIndex];
+      const currentImage = progress.completedImages[currentIndex];
       img.src = currentImage.imageUrl;
       img.alt = currentImage.promptPreview;
 
       // Update metadata
       meta.innerHTML = `
         <div class="ai-img-modal-meta-item">
-          <span class="ai-img-modal-meta-label">${t('progress.imageIndex', {current: String(currentIndex + 1), total: String(images.length)})}</span>
+          <span class="ai-img-modal-meta-label">${t('progress.imageIndex', {current: String(currentIndex + 1), total: String(progress.completedImages.length)})}</span>
         </div>
         <div class="ai-img-modal-actions">
           <button class="ai-img-modal-action-btn zoom-btn" title="${t('modal.zoom')}">
@@ -523,7 +523,7 @@ class ProgressWidgetView {
 
       // Update button states
       prevBtn.disabled = currentIndex === 0;
-      nextBtn.disabled = currentIndex === images.length - 1;
+      nextBtn.disabled = currentIndex === progress.completedImages.length - 1;
 
       // Re-attach action button handlers
       const zoomBtn = meta.querySelector('.zoom-btn');
@@ -545,6 +545,27 @@ class ProgressWidgetView {
     // Initial display
     updateDisplay();
 
+    // Listen for new images completing while modal is open
+    const handleImageCompleted = ((
+      event: CustomEvent<ProgressImageCompletedEventDetail>
+    ) => {
+      const detail = event.detail;
+      // Only update if the new image is for this message
+      if (detail.messageId === messageId) {
+        logger.debug(
+          `Modal notified of new image for message ${messageId}, now ${progress.completedImages.length} total`
+        );
+        // Refresh the display to update the count and enable navigation
+        // Note: progress.completedImages is updated by handleImageCompleted()
+        updateDisplay();
+      }
+    }) as EventListener;
+
+    this.progressManager.addEventListener(
+      'progress:image-completed',
+      handleImageCompleted
+    );
+
     // Navigation handlers
     prevBtn.addEventListener('click', () => {
       if (currentIndex > 0) {
@@ -556,7 +577,7 @@ class ProgressWidgetView {
     });
 
     nextBtn.addEventListener('click', () => {
-      if (currentIndex < images.length - 1) {
+      if (currentIndex < progress.completedImages.length - 1) {
         currentIndex++;
         isZoomed = false;
         img.classList.remove('zoomed');
@@ -574,6 +595,10 @@ class ProgressWidgetView {
     const closeModal = () => {
       backdrop.remove();
       document.removeEventListener('keydown', handleKeyboard);
+      this.progressManager.removeEventListener(
+        'progress:image-completed',
+        handleImageCompleted
+      );
       logger.debug('Image modal closed');
     };
 
@@ -597,7 +622,7 @@ class ProgressWidgetView {
           }
           break;
         case 'ArrowRight':
-          if (currentIndex < images.length - 1) {
+          if (currentIndex < progress.completedImages.length - 1) {
             nextBtn.click();
           }
           break;
