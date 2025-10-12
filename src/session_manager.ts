@@ -47,7 +47,7 @@ export class SessionManager {
     }
 
     const sessionId = `session_${messageId}_${Date.now()}`;
-    const barrier = new Barrier(['genDone', 'messageReceived'], 300000); // 300s timeout (5 minutes)
+    const barrier = new Barrier(['genDone', 'messageReceived'], 1200000); // 1200s timeout (20 minutes)
     const abortController = new AbortController();
 
     // Create queue
