@@ -2,234 +2,259 @@
  * Progress Widget Module
  * Manages a global loading indicator for image generation
  * Shows progress for all messages in a fixed position above the user input area
+ *
+ * Architecture: View layer that subscribes to ProgressManager events
+ * - Listens to progress:started, progress:updated, progress:cancelled
+ * - Throttles DOM updates to prevent thrashing
+ * - Shows success/failure breakdown
+ * - No business logic, purely presentational
  */
 
-import {t} from './i18n';
 import {createLogger} from './logger';
+import {t} from './i18n';
+import type {
+  ProgressManager,
+  ProgressStartedEventDetail,
+  ProgressUpdatedEventDetail,
+  ProgressCancelledEventDetail,
+} from './progress_manager';
 
 const logger = createLogger('ProgressWidget');
 
-// Global state tracking progress for each message
-const messageProgress = new Map<
-  number,
-  {current: number; total: number; startTime: number}
->();
-
-/**
- * Creates or gets the global progress widget element
- * @returns Widget HTMLElement
- */
-function getOrCreateGlobalWidget(): HTMLElement {
-  const existingWidget = document.getElementById('ai-img-progress-global');
-  if (existingWidget) {
-    return existingWidget;
-  }
-
-  // Create new global widget
-  const widget = document.createElement('div');
-  widget.id = 'ai-img-progress-global';
-  widget.className = 'ai-img-progress-widget-global';
-  widget.style.display = 'none'; // Start hidden, will be shown by updateGlobalWidgetDisplay()
-
-  // Find #sheld and #form_sheld to insert widget in correct position
-  const sheld = document.getElementById('sheld');
-  const formSheld = document.getElementById('form_sheld');
-
-  if (!sheld || !formSheld) {
-    logger.error(
-      'Could not find #sheld or #form_sheld, falling back to body append'
-    );
-    document.body.appendChild(widget);
-    logger.warn(
-      'Widget appended to body as fallback (may have positioning issues)'
-    );
-  } else {
-    // Insert widget BEFORE #form_sheld (just above user input area)
-    // This makes it appear between the chat and the input form
-    sheld.insertBefore(widget, formSheld);
-    logger.debug(
-      'Created global progress widget and inserted into #sheld before #form_sheld'
-    );
-  }
-
-  return widget;
+// State tracking progress for each message
+interface MessageProgressState {
+  current: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+  startTime: number;
 }
 
 /**
- * Updates the global widget display with current progress for all messages
+ * Progress Widget - View layer for progress visualization
+ * Subscribes to ProgressManager events and renders DOM updates
  */
-function updateGlobalWidgetDisplay(): void {
-  const widget = document.getElementById('ai-img-progress-global');
-  if (!widget) {
-    logger.warn('Global widget not found during update');
-    return;
-  }
+class ProgressWidgetView {
+  private messageProgress = new Map<number, MessageProgressState>();
+  private updateTimer: number | null = null;
+  private readonly THROTTLE_MS = 100; // Max 10 updates per second
 
-  logger.debug(
-    `Updating global widget display: ${messageProgress.size} message(s), display will be: ${messageProgress.size === 0 ? 'none' : 'flex'}`
-  );
-
-  // Clear existing content
-  widget.innerHTML = '';
-
-  if (messageProgress.size === 0) {
-    // No active generations - hide widget
-    widget.style.display = 'none';
-    logger.debug('No active messages, hiding widget');
-    return;
-  }
-
-  // Show widget
-  widget.style.display = 'flex';
-
-  // Add spinner
-  const spinner = document.createElement('div');
-  spinner.className = 'ai-img-progress-spinner';
-  widget.appendChild(spinner);
-
-  // Add progress text for each message
-  const container = document.createElement('div');
-  container.className = 'ai-img-progress-text-container';
-
-  for (const [messageId, progress] of messageProgress.entries()) {
-    const text = document.createElement('div');
-    text.className = 'ai-img-progress-text';
-    text.textContent = t('toast.generatingImagesProgressWithMessage', {
-      messageId: String(messageId),
-      current: String(progress.current),
-      total: String(progress.total),
+  /**
+   * Initializes the widget and subscribes to ProgressManager events
+   */
+  constructor(manager: ProgressManager) {
+    // Subscribe to all progress events
+    manager.addEventListener('progress:started', event => {
+      const detail = (event as CustomEvent<ProgressStartedEventDetail>).detail;
+      this.handleStarted(detail);
     });
-    container.appendChild(text);
+
+    manager.addEventListener('progress:updated', event => {
+      const detail = (event as CustomEvent<ProgressUpdatedEventDetail>).detail;
+      this.handleUpdated(detail);
+    });
+
+    manager.addEventListener('progress:cancelled', event => {
+      const detail = (event as CustomEvent<ProgressCancelledEventDetail>)
+        .detail;
+      this.handleCancelled(detail);
+    });
+
+    logger.debug('ProgressWidget initialized and subscribed to manager events');
   }
 
-  widget.appendChild(container);
-
-  // Debug logging AFTER content is added
-  const computedStyle = window.getComputedStyle(widget);
-  const rect = widget.getBoundingClientRect();
-  logger.trace(
-    `Widget rendered - display: ${computedStyle.display}, visibility: ${computedStyle.visibility}, position: ${computedStyle.position}, zIndex: ${computedStyle.zIndex}, bottom: ${computedStyle.bottom}`
-  );
-  logger.trace(
-    `Widget position - top: ${rect.top}px, left: ${rect.left}px, bottom: ${rect.bottom}px, right: ${rect.right}px, width: ${rect.width}px, height: ${rect.height}px`
-  );
-  logger.trace(
-    `Widget content: ${widget.children.length} children, innerHTML length: ${widget.innerHTML.length}`
-  );
-
-  logger.debug(
-    `Updated global widget: ${messageProgress.size} message(s) in progress`
-  );
-}
-
-/**
- * Adds or updates progress tracking for a message
- * @param messageId - Message ID
- * @param current - Current number of images completed
- * @param total - Total number of images to generate
- */
-export function addMessageProgress(
-  messageId: number,
-  current: number,
-  total: number
-): void {
-  // Ensure widget exists
-  getOrCreateGlobalWidget();
-
-  const existing = messageProgress.get(messageId);
-
-  // If progress already exists, preserve the current count
-  // Only update if the new current is higher (actual progress) or if total changed
-  if (existing) {
-    messageProgress.set(messageId, {
-      current: Math.max(existing.current, current), // Use higher of existing or new
-      total,
-      startTime: existing.startTime,
-    });
-    logger.debug(
-      `Updated progress for message ${messageId}: ${Math.max(existing.current, current)}/${total} (preserved current: ${existing.current}, new total: ${total})`
-    );
-  } else {
-    // New progress tracking
-    messageProgress.set(messageId, {
-      current,
-      total,
+  /**
+   * Handles progress:started event
+   */
+  private handleStarted(detail: ProgressStartedEventDetail): void {
+    logger.debug(`Started tracking message ${detail.messageId}`);
+    this.messageProgress.set(detail.messageId, {
+      current: 0,
+      total: detail.total,
+      succeeded: 0,
+      failed: 0,
       startTime: Date.now(),
     });
+    this.scheduleUpdate();
+  }
+
+  /**
+   * Handles progress:updated event
+   */
+  private handleUpdated(detail: ProgressUpdatedEventDetail): void {
     logger.debug(
-      `Added new progress for message ${messageId}: ${current}/${total}`
+      `Updated message ${detail.messageId}: ${detail.completed}/${detail.total} (${detail.succeeded} ok, ${detail.failed} failed)`
+    );
+    const existing = this.messageProgress.get(detail.messageId);
+    this.messageProgress.set(detail.messageId, {
+      current: detail.completed,
+      total: detail.total,
+      succeeded: detail.succeeded,
+      failed: detail.failed,
+      startTime: existing?.startTime ?? Date.now(),
+    });
+    this.scheduleUpdate();
+  }
+
+  /**
+   * Handles progress:cancelled event
+   */
+  private handleCancelled(detail: ProgressCancelledEventDetail): void {
+    logger.debug(`Cancelled tracking message ${detail.messageId}`);
+    this.messageProgress.delete(detail.messageId);
+    this.scheduleUpdate();
+  }
+
+  /**
+   * Schedules a throttled DOM update
+   * Multiple rapid calls will be batched into a single update
+   */
+  private scheduleUpdate(): void {
+    if (this.updateTimer !== null) {
+      return; // Update already scheduled
+    }
+
+    this.updateTimer = window.setTimeout(() => {
+      this.updateTimer = null;
+      this.updateDisplay();
+    }, this.THROTTLE_MS);
+  }
+
+  /**
+   * Actually updates the DOM (called by throttled scheduler)
+   */
+  private updateDisplay(): void {
+    const widget = this.getOrCreateGlobalWidget();
+
+    logger.debug(
+      `Updating display: ${this.messageProgress.size} message(s), display will be: ${this.messageProgress.size === 0 ? 'none' : 'flex'}`
+    );
+
+    // Clear existing content
+    widget.innerHTML = '';
+
+    if (this.messageProgress.size === 0) {
+      // No active generations - hide widget
+      widget.style.display = 'none';
+      logger.debug('No active messages, hiding widget');
+      return;
+    }
+
+    // Show widget
+    widget.style.display = 'flex';
+
+    // Add spinner
+    const spinner = document.createElement('div');
+    spinner.className = 'ai-img-progress-spinner';
+    widget.appendChild(spinner);
+
+    // Add progress text for each message
+    const container = document.createElement('div');
+    container.className = 'ai-img-progress-text-container';
+
+    for (const [messageId, progress] of this.messageProgress.entries()) {
+      const text = document.createElement('div');
+      text.className = 'ai-img-progress-text';
+
+      // Show detailed breakdown: "Message 123: 5 ok, 2 failed, 3 pending"
+      const pending = progress.total - progress.current;
+      const parts: string[] = [];
+
+      if (progress.succeeded > 0) {
+        parts.push(
+          `<span class="ai-img-progress-success">${progress.succeeded} ${t('progress.succeeded')}</span>`
+        );
+      }
+      if (progress.failed > 0) {
+        parts.push(
+          `<span class="ai-img-progress-failed">${progress.failed} ${t('progress.failed')}</span>`
+        );
+      }
+      if (pending > 0) {
+        parts.push(
+          `<span class="ai-img-progress-pending">${pending} ${t('progress.pending')}</span>`
+        );
+      }
+
+      text.innerHTML = `${t('progress.message', {messageId: String(messageId)})}: ${parts.join(', ')}`;
+      container.appendChild(text);
+    }
+
+    widget.appendChild(container);
+
+    // Debug logging AFTER content is added
+    const computedStyle = window.getComputedStyle(widget);
+    const rect = widget.getBoundingClientRect();
+    logger.trace(
+      `Widget rendered - display: ${computedStyle.display}, visibility: ${computedStyle.visibility}, position: ${computedStyle.position}, zIndex: ${computedStyle.zIndex}, bottom: ${computedStyle.bottom}`
+    );
+    logger.trace(
+      `Widget position - top: ${rect.top}px, left: ${rect.left}px, bottom: ${rect.bottom}px, right: ${rect.right}px, width: ${rect.width}px, height: ${rect.height}px`
+    );
+    logger.trace(
+      `Widget content: ${widget.children.length} children, innerHTML length: ${widget.innerHTML.length}`
+    );
+
+    logger.debug(
+      `Updated widget display: ${this.messageProgress.size} message(s) in progress`
     );
   }
 
-  updateGlobalWidgetDisplay();
-}
+  /**
+   * Creates or gets the global progress widget element
+   * @returns Widget HTMLElement
+   */
+  private getOrCreateGlobalWidget(): HTMLElement {
+    const existingWidget = document.getElementById('ai-img-progress-global');
+    if (existingWidget) {
+      return existingWidget;
+    }
 
-/**
- * Removes progress tracking for a message and updates display
- * @param messageId - Message ID
- */
-export function removeMessageProgress(messageId: number): void {
-  const removed = messageProgress.delete(messageId);
+    // Create new global widget
+    const widget = document.createElement('div');
+    widget.id = 'ai-img-progress-global';
+    widget.className = 'ai-img-progress-widget-global';
+    widget.style.display = 'none'; // Start hidden, will be shown by updateDisplay()
 
-  if (removed) {
-    updateGlobalWidgetDisplay();
-    logger.debug(`Removed progress for message ${messageId}`);
+    // Find #sheld and #form_sheld to insert widget in correct position
+    const sheld = document.getElementById('sheld');
+    const formSheld = document.getElementById('form_sheld');
+
+    if (!sheld || !formSheld) {
+      logger.error(
+        'Could not find #sheld or #form_sheld, falling back to body append'
+      );
+      document.body.appendChild(widget);
+      logger.warn(
+        'Widget appended to body as fallback (may have positioning issues)'
+      );
+    } else {
+      // Insert widget BEFORE #form_sheld (just above user input area)
+      // This makes it appear between the chat and the input form
+      sheld.insertBefore(widget, formSheld);
+      logger.debug(
+        'Created global progress widget and inserted into #sheld before #form_sheld'
+      );
+    }
+
+    return widget;
   }
 }
 
-/**
- * Legacy API: Inserts progress widget (now adds to global widget)
- * @deprecated Use addMessageProgress instead
- * @param messageId - Message ID
- * @param total - Total number of images to generate
- * @returns Always returns true (widget always succeeds)
- */
-export function insertProgressWidget(
-  messageId: number,
-  total: number
-): boolean {
-  addMessageProgress(messageId, 0, total);
-  return true;
-}
+// Singleton widget instance (initialized lazily)
+let widgetInstance: ProgressWidgetView | null = null;
 
 /**
- * Legacy API: Updates progress widget (now updates global widget)
- * @deprecated Use addMessageProgress instead
- * @param messageId - Message ID
- * @param current - Number of images completed
- * @param total - Total number of images
+ * Initializes the progress widget with a ProgressManager
+ * Should be called once during extension initialization
+ * @param manager - ProgressManager instance to subscribe to
  */
-export function updateProgressWidget(
-  messageId: number,
-  current: number,
-  total: number
-): void {
-  addMessageProgress(messageId, current, total);
-}
+export function initializeProgressWidget(manager: ProgressManager): void {
+  if (widgetInstance) {
+    logger.warn('Progress widget already initialized');
+    return;
+  }
 
-/**
- * Legacy API: Removes progress widget (now removes from global widget)
- * @deprecated Use removeMessageProgress instead
- * @param messageId - Message ID
- */
-export function removeProgressWidget(messageId: number): void {
-  removeMessageProgress(messageId);
-}
-
-/**
- * Legacy API: Tries to insert progress widget with retry logic
- * @deprecated No longer needed - widget always succeeds. Use insertProgressWidget instead.
- * @param messageId - Message ID
- * @param total - Total number of images to generate
- * @param _maxRetries - Unused (kept for API compatibility)
- * @param _retryDelay - Unused (kept for API compatibility)
- */
-export function tryInsertProgressWidgetWithRetry(
-  messageId: number,
-  total: number,
-  _maxRetries?: number,
-  _retryDelay?: number
-): void {
-  // No retry needed - just add to global widget
-  insertProgressWidget(messageId, total);
+  widgetInstance = new ProgressWidgetView(manager);
+  logger.info('Progress widget initialized');
 }

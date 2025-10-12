@@ -1,84 +1,168 @@
 /**
  * Tests for Progress Manager Module
+ * Tests event-driven architecture (no widget coupling)
  */
 
-import {describe, it, expect, beforeEach, vi} from 'vitest';
-import {ProgressManager} from './progress_manager';
-import * as progressWidget from './progress_widget';
-
-// Mock progress_widget module
-vi.mock('./progress_widget', () => ({
-  addMessageProgress: vi.fn(),
-  removeMessageProgress: vi.fn(),
-}));
+import {describe, it, expect, beforeEach} from 'vitest';
+import {
+  ProgressManager,
+  type ProgressStartedEventDetail,
+  type ProgressUpdatedEventDetail,
+  type ProgressEndedEventDetail,
+  type ProgressCancelledEventDetail,
+} from './progress_manager';
 
 describe('ProgressManager', () => {
   let manager: ProgressManager;
+  let startedEvents: ProgressStartedEventDetail[];
+  let updatedEvents: ProgressUpdatedEventDetail[];
+  let endedEvents: ProgressEndedEventDetail[];
+  let cancelledEvents: ProgressCancelledEventDetail[];
 
   beforeEach(() => {
     manager = new ProgressManager();
-    vi.clearAllMocks();
+    startedEvents = [];
+    updatedEvents = [];
+    endedEvents = [];
+    cancelledEvents = [];
+
+    // Subscribe to all events
+    manager.addEventListener('progress:started', event => {
+      startedEvents.push(
+        (event as CustomEvent<ProgressStartedEventDetail>).detail
+      );
+    });
+    manager.addEventListener('progress:updated', event => {
+      updatedEvents.push(
+        (event as CustomEvent<ProgressUpdatedEventDetail>).detail
+      );
+    });
+    manager.addEventListener('progress:ended', event => {
+      endedEvents.push((event as CustomEvent<ProgressEndedEventDetail>).detail);
+    });
+    manager.addEventListener('progress:cancelled', event => {
+      cancelledEvents.push(
+        (event as CustomEvent<ProgressCancelledEventDetail>).detail
+      );
+    });
   });
 
   describe('registerTask', () => {
-    it('should initialize tracking on first registration', () => {
+    it('should initialize tracking on first registration and emit progress:started', () => {
       const total = manager.registerTask(1, 3);
 
       expect(total).toBe(3);
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 0, 3);
-      expect(manager.getState(1)).toEqual({current: 0, total: 3});
+      expect(startedEvents).toHaveLength(1);
+      expect(startedEvents[0]).toEqual({messageId: 1, total: 3});
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 3,
+        succeeded: 0,
+        failed: 0,
+      });
     });
 
     it('should use default increment of 1', () => {
       const total = manager.registerTask(1);
 
       expect(total).toBe(1);
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 0, 1);
+      expect(startedEvents).toHaveLength(1);
+      expect(startedEvents[0]).toEqual({messageId: 1, total: 1});
     });
 
-    it('should increment total on subsequent registrations', () => {
+    it('should increment total on subsequent registrations and emit progress:updated', () => {
       manager.registerTask(1, 2);
-      vi.clearAllMocks();
+      startedEvents = [];
+      updatedEvents = [];
 
       const total = manager.registerTask(1, 3);
 
       expect(total).toBe(5);
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 0, 5);
-      expect(manager.getState(1)).toEqual({current: 0, total: 5});
+      expect(startedEvents).toHaveLength(0); // No new started event
+      expect(updatedEvents).toHaveLength(1);
+      expect(updatedEvents[0]).toEqual({
+        messageId: 1,
+        total: 5,
+        completed: 0,
+        succeeded: 0,
+        failed: 0,
+      });
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 5,
+        succeeded: 0,
+        failed: 0,
+      });
     });
 
     it('should handle multiple messages independently', () => {
       manager.registerTask(1, 2);
       manager.registerTask(2, 3);
 
-      expect(manager.getState(1)).toEqual({current: 0, total: 2});
-      expect(manager.getState(2)).toEqual({current: 0, total: 3});
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 2,
+        succeeded: 0,
+        failed: 0,
+      });
+      expect(manager.getState(2)).toEqual({
+        current: 0,
+        total: 3,
+        succeeded: 0,
+        failed: 0,
+      });
+      expect(startedEvents).toHaveLength(2);
     });
   });
 
   describe('completeTask', () => {
-    it('should increment completed count and update widget', () => {
+    it('should increment completed/succeeded counts and emit progress:updated', () => {
       manager.registerTask(1, 3);
-      vi.clearAllMocks();
+      updatedEvents = [];
 
       manager.completeTask(1);
 
-      expect(manager.getState(1)).toEqual({current: 1, total: 3});
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 1, 3);
+      expect(manager.getState(1)).toEqual({
+        current: 1,
+        total: 3,
+        succeeded: 1,
+        failed: 0,
+      });
+      expect(updatedEvents).toHaveLength(1);
+      expect(updatedEvents[0]).toEqual({
+        messageId: 1,
+        total: 3,
+        completed: 1,
+        succeeded: 1,
+        failed: 0,
+      });
     });
 
-    it('should NOT auto-clear when all tasks complete', () => {
+    it('should emit progress:ended when all tasks complete', () => {
       manager.registerTask(1, 2);
-      vi.clearAllMocks();
+      endedEvents = [];
 
       manager.completeTask(1);
-      expect(manager.isTracking(1)).toBe(true);
+      expect(endedEvents).toHaveLength(0); // Not done yet
 
       manager.completeTask(1);
-      // Should still be tracking (no auto-clear)
+      expect(endedEvents).toHaveLength(1);
+      expect(endedEvents[0]).toMatchObject({
+        messageId: 1,
+        total: 2,
+        succeeded: 2,
+        failed: 0,
+      });
+      expect(endedEvents[0].duration).toBeGreaterThanOrEqual(0);
+
+      // Should still be tracking (caller must explicitly clear)
       expect(manager.isTracking(1)).toBe(true);
-      expect(manager.getState(1)).toEqual({current: 2, total: 2});
-      expect(progressWidget.removeMessageProgress).not.toHaveBeenCalled();
+      expect(manager.getState(1)).toEqual({
+        current: 2,
+        total: 2,
+        succeeded: 2,
+        failed: 0,
+      });
 
       // Caller must explicitly clear
       manager.clear(1);
@@ -93,27 +177,51 @@ describe('ProgressManager', () => {
   });
 
   describe('failTask', () => {
-    it('should increment completed count on failure', () => {
+    it('should increment completed/failed counts and emit progress:updated', () => {
       manager.registerTask(1, 3);
-      vi.clearAllMocks();
+      updatedEvents = [];
 
       manager.failTask(1);
 
-      expect(manager.getState(1)).toEqual({current: 1, total: 3});
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 1, 3);
+      expect(manager.getState(1)).toEqual({
+        current: 1,
+        total: 3,
+        succeeded: 0,
+        failed: 1,
+      });
+      expect(updatedEvents).toHaveLength(1);
+      expect(updatedEvents[0]).toEqual({
+        messageId: 1,
+        total: 3,
+        completed: 1,
+        succeeded: 0,
+        failed: 1,
+      });
     });
 
-    it('should NOT auto-clear when all tasks done (including failures)', () => {
+    it('should emit progress:ended when all tasks done (including failures)', () => {
       manager.registerTask(1, 2);
-      vi.clearAllMocks();
+      endedEvents = [];
 
       manager.completeTask(1);
       manager.failTask(1);
 
-      // Should still be tracking (no auto-clear)
+      expect(endedEvents).toHaveLength(1);
+      expect(endedEvents[0]).toMatchObject({
+        messageId: 1,
+        total: 2,
+        succeeded: 1,
+        failed: 1,
+      });
+
+      // Should still be tracking (caller must explicitly clear)
       expect(manager.isTracking(1)).toBe(true);
-      expect(manager.getState(1)).toEqual({current: 2, total: 2});
-      expect(progressWidget.removeMessageProgress).not.toHaveBeenCalled();
+      expect(manager.getState(1)).toEqual({
+        current: 2,
+        total: 2,
+        succeeded: 1,
+        failed: 1,
+      });
 
       // Caller must explicitly clear
       manager.clear(1);
@@ -128,15 +236,27 @@ describe('ProgressManager', () => {
   });
 
   describe('updateTotal', () => {
-    it('should update total without changing completed count', () => {
+    it('should update total without changing completed count and emit progress:updated', () => {
       manager.registerTask(1, 3);
       manager.completeTask(1);
-      vi.clearAllMocks();
+      updatedEvents = [];
 
       manager.updateTotal(1, 5);
 
-      expect(manager.getState(1)).toEqual({current: 1, total: 5});
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 1, 5);
+      expect(manager.getState(1)).toEqual({
+        current: 1,
+        total: 5,
+        succeeded: 1,
+        failed: 0,
+      });
+      expect(updatedEvents).toHaveLength(1);
+      expect(updatedEvents[0]).toEqual({
+        messageId: 1,
+        total: 5,
+        completed: 1,
+        succeeded: 1,
+        failed: 0,
+      });
     });
 
     it('should handle updating non-tracked message gracefully', () => {
@@ -147,31 +267,38 @@ describe('ProgressManager', () => {
   });
 
   describe('clear', () => {
-    it('should remove tracking and widget', () => {
+    it('should remove tracking and emit progress:cancelled', () => {
       manager.registerTask(1, 3);
-      vi.clearAllMocks();
+      cancelledEvents = [];
 
       manager.clear(1);
 
       expect(manager.isTracking(1)).toBe(false);
-      expect(progressWidget.removeMessageProgress).toHaveBeenCalledWith(1);
+      expect(cancelledEvents).toHaveLength(1);
+      expect(cancelledEvents[0]).toEqual({messageId: 1});
     });
 
     it('should handle clearing non-tracked message gracefully', () => {
+      cancelledEvents = [];
       manager.clear(999);
 
-      expect(progressWidget.removeMessageProgress).not.toHaveBeenCalled();
+      expect(cancelledEvents).toHaveLength(0);
     });
   });
 
   describe('getState', () => {
-    it('should return current state', () => {
+    it('should return current state with success/failure counts', () => {
       manager.registerTask(1, 3);
       manager.completeTask(1);
 
       const state = manager.getState(1);
 
-      expect(state).toEqual({current: 1, total: 3});
+      expect(state).toEqual({
+        current: 1,
+        total: 3,
+        succeeded: 1,
+        failed: 0,
+      });
     });
 
     it('should return null if not tracked', () => {
@@ -245,50 +372,60 @@ describe('ProgressManager', () => {
   });
 
   describe('decrementTotal', () => {
-    it('should decrement total and update widget', () => {
+    it('should decrement total and emit progress:updated', () => {
       manager.registerTask(1, 5);
-      vi.clearAllMocks();
+      updatedEvents = [];
 
       manager.decrementTotal(1, 2);
 
-      expect(manager.getState(1)).toEqual({current: 0, total: 3});
-      expect(progressWidget.addMessageProgress).toHaveBeenCalledWith(1, 0, 3);
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 3,
+        succeeded: 0,
+        failed: 0,
+      });
+      expect(updatedEvents).toHaveLength(1);
     });
 
     it('should use default decrement of 1', () => {
       manager.registerTask(1, 3);
-      vi.clearAllMocks();
+      updatedEvents = [];
 
       manager.decrementTotal(1);
 
-      expect(manager.getState(1)).toEqual({current: 0, total: 2});
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 2,
+        succeeded: 0,
+        failed: 0,
+      });
     });
 
-    it('should clear if total becomes zero', () => {
+    it('should clear if total becomes zero and emit progress:cancelled', () => {
       manager.registerTask(1, 2);
-      vi.clearAllMocks();
+      cancelledEvents = [];
 
       manager.decrementTotal(1, 2);
 
       expect(manager.isTracking(1)).toBe(false);
-      expect(progressWidget.removeMessageProgress).toHaveBeenCalledWith(1);
+      expect(cancelledEvents).toHaveLength(1);
     });
 
     it('should clear if completed >= total after decrement', () => {
       manager.registerTask(1, 3);
       manager.completeTask(1);
       manager.completeTask(1);
-      vi.clearAllMocks();
+      cancelledEvents = [];
 
       manager.decrementTotal(1, 1); // total: 3 -> 2, completed: 2
 
       expect(manager.isTracking(1)).toBe(false);
-      expect(progressWidget.removeMessageProgress).toHaveBeenCalledWith(1);
+      expect(cancelledEvents).toHaveLength(1);
     });
 
     it('should not go below zero', () => {
       manager.registerTask(1, 2);
-      vi.clearAllMocks();
+      cancelledEvents = [];
 
       manager.decrementTotal(1, 10);
 
@@ -303,26 +440,46 @@ describe('ProgressManager', () => {
   });
 
   describe('mixed operations', () => {
-    it('should handle complex workflow correctly', () => {
+    it('should handle complex workflow correctly with success/failure tracking', () => {
       // User clicks 3 images for regeneration
       manager.registerTask(1, 1);
       manager.registerTask(1, 1);
       manager.registerTask(1, 1);
-      expect(manager.getState(1)).toEqual({current: 0, total: 3});
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 3,
+        succeeded: 0,
+        failed: 0,
+      });
 
       // First image generates
       manager.completeTask(1);
-      expect(manager.getState(1)).toEqual({current: 1, total: 3});
+      expect(manager.getState(1)).toEqual({
+        current: 1,
+        total: 3,
+        succeeded: 1,
+        failed: 0,
+      });
       expect(manager.isTracking(1)).toBe(true);
 
       // Second image fails
       manager.failTask(1);
-      expect(manager.getState(1)).toEqual({current: 2, total: 3});
+      expect(manager.getState(1)).toEqual({
+        current: 2,
+        total: 3,
+        succeeded: 1,
+        failed: 1,
+      });
       expect(manager.isTracking(1)).toBe(true);
 
       // Third image generates
       manager.completeTask(1);
-      expect(manager.getState(1)).toEqual({current: 3, total: 3});
+      expect(manager.getState(1)).toEqual({
+        current: 3,
+        total: 3,
+        succeeded: 2,
+        failed: 1,
+      });
       expect(manager.isTracking(1)).toBe(true);
 
       // Caller explicitly clears when done
@@ -333,21 +490,41 @@ describe('ProgressManager', () => {
     it('should handle streaming scenario with dynamic total', () => {
       // Initial prompts detected
       manager.registerTask(1, 2);
-      expect(manager.getState(1)).toEqual({current: 0, total: 2});
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 2,
+        succeeded: 0,
+        failed: 0,
+      });
 
       // First image completes
       manager.completeTask(1);
-      expect(manager.getState(1)).toEqual({current: 1, total: 2});
+      expect(manager.getState(1)).toEqual({
+        current: 1,
+        total: 2,
+        succeeded: 1,
+        failed: 0,
+      });
 
       // More prompts detected during streaming (while first is done)
       manager.updateTotal(1, 4);
-      expect(manager.getState(1)).toEqual({current: 1, total: 4});
+      expect(manager.getState(1)).toEqual({
+        current: 1,
+        total: 4,
+        succeeded: 1,
+        failed: 0,
+      });
 
       // Remaining images complete
       manager.completeTask(1);
       manager.completeTask(1);
       manager.completeTask(1);
-      expect(manager.getState(1)).toEqual({current: 4, total: 4});
+      expect(manager.getState(1)).toEqual({
+        current: 4,
+        total: 4,
+        succeeded: 4,
+        failed: 0,
+      });
       expect(manager.isTracking(1)).toBe(true);
 
       // Session ends, caller clears
@@ -363,7 +540,12 @@ describe('ProgressManager', () => {
       manager.completeTask(1);
       manager.completeTask(1);
       manager.completeTask(1);
-      expect(manager.getState(1)).toEqual({current: 3, total: 5});
+      expect(manager.getState(1)).toEqual({
+        current: 3,
+        total: 5,
+        succeeded: 3,
+        failed: 0,
+      });
       expect(manager.isTracking(1)).toBe(true);
 
       // User cancels - decrement remaining (automatically clears if completed >= total)
