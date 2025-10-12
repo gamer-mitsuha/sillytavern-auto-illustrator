@@ -733,7 +733,7 @@ function handleFirstStreamToken(): void {
 
   // Check if already streaming this message
   if (sessionManager.isActive(messageId)) {
-    logger.debug('Already streaming this message, ignoring duplicate token');
+    logger.trace('Already streaming this message, ignoring duplicate token');
     return;
   }
 
