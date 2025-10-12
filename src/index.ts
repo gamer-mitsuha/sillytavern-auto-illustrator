@@ -39,6 +39,7 @@ import {
 import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
 import {progressManager} from './progress_manager';
+import {initializeProgressWidget} from './progress_widget';
 
 const logger = createLogger('Main');
 
@@ -941,6 +942,10 @@ function initialize(): void {
   // Initialize SessionManager
   sessionManager = new SessionManager();
   logger.info('Initialized SessionManager');
+
+  // Initialize progress widget (connects to progressManager via events)
+  initializeProgressWidget(progressManager);
+  logger.info('Initialized ProgressWidget with event subscriptions');
 
   // Initialize concurrency limiter with settings
   initializeConcurrencyLimiter(

@@ -14,11 +14,7 @@ import {
   recordPrompt,
   initializePromptPosition,
 } from './prompt_metadata';
-import {
-  tryInsertProgressWidgetWithRetry,
-  updateProgressWidget,
-  removeProgressWidget,
-} from './progress_widget';
+import {progressManager} from './progress_manager';
 import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('Generator');
@@ -372,9 +368,9 @@ export async function replacePromptsWithImages(
   const imageCount = matches.length;
   toastr.info(tCount(imageCount, 'toast.generatingImages'), t('extensionName'));
 
-  // Insert progress widget if messageId is provided
+  // Register progress tracking if messageId is provided
   if (messageId !== undefined) {
-    tryInsertProgressWidgetWithRetry(messageId, imageCount);
+    progressManager.registerTask(messageId, imageCount);
   }
 
   // Generate images sequentially to avoid rate limiting
@@ -390,9 +386,13 @@ export async function replacePromptsWithImages(
     );
     imageUrls.push(imageUrl);
 
-    // Update progress widget after each image
+    // Update progress after each image
     if (messageId !== undefined) {
-      updateProgressWidget(messageId, i + 1, imageCount);
+      if (imageUrl) {
+        progressManager.completeTask(messageId);
+      } else {
+        progressManager.failTask(messageId);
+      }
     }
   }
 
@@ -460,9 +460,9 @@ export async function replacePromptsWithImages(
     }
   }
 
-  // Remove progress widget if messageId is provided
+  // Clear progress tracking if messageId is provided
   if (messageId !== undefined) {
-    removeProgressWidget(messageId);
+    progressManager.clear(messageId);
   }
 
   return result;
@@ -584,8 +584,8 @@ export async function insertDeferredImages(
       await context.saveChat();
       logger.debug('Chat saved after inserting deferred images');
 
-      // Remove progress widget
-      removeProgressWidget(messageId);
+      // Clear progress tracking
+      progressManager.clear(messageId);
 
       return successCount;
     },
