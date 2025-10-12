@@ -31,9 +31,11 @@ This document outlines the core principles and workflow for all development task
 
 Before writing any code, you must follow this sequence:
 
-1. **Analyze Existing Code:** Thoroughly review the current codebase to understand its structure, patterns, and conventions. Ask which files are relevant if you are unsure.
-2. **Formulate a Plan:** Create a clear, step-by-step plan detailing the changes. Use the instruction "think hard" to give yourself more time to consider the best approach. Outline the files you will create or modify.
-3. **Wait for Approval:** Present the plan for review. **Do not proceed until the plan is approved.**
+1. **Review Product Requirements:** Consult [`docs/PRD.md`](docs/PRD.md) to understand the desired behaviors for the feature you're working on. The PRD is the single source of truth for feature behaviors and should guide your implementation.
+2. **Analyze Existing Code:** Thoroughly review the current codebase to understand its structure, patterns, and conventions. Ask which files are relevant if you are unsure.
+3. **Formulate a Plan:** Create a clear, step-by-step plan detailing the changes. Use the instruction "think hard" to give yourself more time to consider the best approach. Outline the files you will create or modify.
+4. **Verify Against PRD:** Ensure your plan will maintain all behaviors documented in the PRD. If your changes affect documented behaviors, note this in your plan.
+5. **Wait for Approval:** Present the plan for review. **Do not proceed until the plan is approved.**
 
 ## **2\. Code Style and Quality**
 
@@ -52,7 +54,8 @@ Before writing any code, you must follow this sequence:
 
 - **Tests First:** For any new feature or bug fix, write unit tests _before_ writing the implementation code.
 - **Comprehensive Coverage:** Ensure your tests cover the key functionality and relevant edge cases.
-- **Existing Tests:** All existing tests must continue to pass. Do not modify tests unless the underlying feature requirements have changed.
+- **Verify PRD Behaviors:** When writing tests, reference [`docs/PRD.md`](docs/PRD.md) to ensure your tests validate the documented desired behaviors.
+- **Existing Tests:** All existing tests must continue to pass. Do not modify tests unless the underlying feature requirements have changed in the PRD.
 
 ## **4\. Pre-Commit Quality Checks**
 
@@ -79,5 +82,12 @@ All commit messages must follow the Conventional Commits specification. The form
 - **Append, Don't Overwrite:** You must maintain the CHANGELOG.md file.
 - **Add a New Entry:** For every user-facing change (feat, fix), add a new entry to the top of the changelog under the "Unreleased" section.
 - **Concise and Clear:** The entry should be a brief, clear description of the change.
+
+## **7\. Product Requirements Document (PRD)**
+
+- **Source of Truth:** [`docs/PRD.md`](docs/PRD.md) is the definitive reference for desired feature behaviors.
+- **Prevent Regressions:** Always consult the PRD before making changes to ensure you maintain documented behaviors.
+- **Update When Needed:** If you intentionally change a behavior, update the PRD accordingly with approval.
+- **Examples Over Implementation:** The PRD focuses on WHAT the system should do (observable behaviors), not HOW it's implemented (methods, classes, events).
 
 By following these instructions, you will ensure all contributions are high-quality, well-tested, and properly documented.
