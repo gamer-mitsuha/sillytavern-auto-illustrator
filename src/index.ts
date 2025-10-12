@@ -983,7 +983,7 @@ function initialize(): void {
     (type: string, _options: unknown, dryRun: boolean) => {
       // Skip dry runs (token counting/preview)
       if (dryRun) {
-        logger.debug('Generation started (dry run), skipping type tracking', {
+        logger.trace('Generation started (dry run), skipping type tracking', {
           type,
         });
         return;
@@ -1000,7 +1000,7 @@ function initialize(): void {
   context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, eventData => {
     // Skip if this is a dry run (token counting, not actual generation)
     if (eventData?.dryRun) {
-      logger.info('Skipping prompt ready processing for dry run');
+      logger.trace('Skipping prompt ready processing for dry run');
       return;
     }
 
