@@ -9,6 +9,7 @@ import {QueueProcessor} from './queue_processor';
 import {Barrier} from './barrier';
 import {createLogger} from './logger';
 import type {StreamingSession} from './types';
+import {addMessageProgress} from './progress_widget';
 
 const logger = createLogger('SessionManager');
 
@@ -68,6 +69,13 @@ export class SessionManager {
       settings.streamingPollInterval,
       () => {
         // Callback when new prompts detected
+        // Update widget total immediately to reflect new queue size
+        const stats = queue.getStats();
+        const completedCount = stats.COMPLETED + stats.FAILED;
+        const newTotal = queue.size();
+        addMessageProgress(messageId, completedCount, newTotal);
+
+        // Trigger processor to start generating
         processor.trigger();
       }
     );
