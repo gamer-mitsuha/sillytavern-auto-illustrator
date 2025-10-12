@@ -8,11 +8,7 @@ import {generateImage} from './image_generator';
 import type {QueuedPrompt, DeferredImage} from './types';
 import type {Barrier} from './barrier';
 import {createLogger} from './logger';
-import {
-  tryInsertProgressWidgetWithRetry,
-  updateProgressWidget,
-  insertProgressWidget,
-} from './progress_widget';
+import {progressManager} from './progress_manager';
 
 const logger = createLogger('Processor');
 
@@ -73,8 +69,8 @@ export class QueueProcessor {
       `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent}) ${barrier ? 'with barrier' : 'without barrier'}`
     );
 
-    // Initialize progress widget for this message
-    insertProgressWidget(messageId, 0);
+    // Note: Progress tracking is initialized by session_manager callback
+    // when first prompts are detected, not here
 
     // Start processing
     this.processNext();
@@ -122,11 +118,8 @@ export class QueueProcessor {
 
       logger.debug(`Processing prompt: ${nextPrompt.id}`);
 
-      // Insert progress widget on first prompt (if not already inserted)
-      const totalCount = this.queue.size();
-      if (totalCount > 0) {
-        tryInsertProgressWidgetWithRetry(this.messageId, totalCount);
-      }
+      // Note: Progress tracking is managed by session_manager callback
+      // which initializes/updates total when prompts are detected
 
       // Mark as generating and increment active count
       this.queue.updateState(nextPrompt.id, 'GENERATING');
@@ -185,10 +178,8 @@ export class QueueProcessor {
           `Deferred image insertion (${this.deferredImages.length} total)`
         );
 
-        // Update progress widget
-        const stats = this.queue.getStats();
-        const completedCount = stats.COMPLETED + stats.FAILED;
-        updateProgressWidget(this.messageId, completedCount, this.queue.size());
+        // Update progress tracking
+        progressManager.completeTask(this.messageId);
       } else {
         // Failed
         this.queue.updateState(prompt.id, 'FAILED', {
@@ -196,10 +187,8 @@ export class QueueProcessor {
         });
         logger.warn(`Failed to generate image for: ${prompt.prompt}`);
 
-        // Update progress widget (count failed as completed)
-        const stats = this.queue.getStats();
-        const completedCount = stats.COMPLETED + stats.FAILED;
-        updateProgressWidget(this.messageId, completedCount, this.queue.size());
+        // Update progress tracking (count failed as completed)
+        progressManager.failTask(this.messageId);
       }
     } catch (error) {
       // Error
@@ -208,10 +197,8 @@ export class QueueProcessor {
       });
       logger.error('Error generating image:', error);
 
-      // Update progress widget (count error as completed)
-      const stats = this.queue.getStats();
-      const completedCount = stats.COMPLETED + stats.FAILED;
-      updateProgressWidget(this.messageId, completedCount, this.queue.size());
+      // Update progress tracking (count error as completed)
+      progressManager.failTask(this.messageId);
     }
   }
 

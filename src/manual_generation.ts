@@ -26,24 +26,10 @@ import {
   initializePromptPosition,
 } from './prompt_metadata';
 import {updatePromptForPosition} from './prompt_updater';
-import {
-  addMessageProgress,
-  updateMessageProgress,
-  removeMessageProgress,
-} from './progress_widget';
+import {progressManager} from './progress_manager';
 import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('ManualGen');
-
-/**
- * Tracks concurrent regenerations per message
- * Key: messageId
- * Value: {pending: total count, completed: completed count}
- */
-const regenerationTracking = new Map<
-  number,
-  {pending: number; completed: number}
->();
 
 /**
  * Escapes HTML attribute values to prevent XSS and rendering issues
@@ -347,8 +333,8 @@ export async function generateImagesForMessage(
       t('extensionName')
     );
 
-    // Insert progress widget
-    addMessageProgress(messageId, 0, promptsToGenerate.length);
+    // Register batch generation tasks
+    progressManager.registerTask(messageId, promptsToGenerate.length);
 
     const startTime = performance.now();
     let successCount = 0;
@@ -377,10 +363,10 @@ export async function generateImagesForMessage(
 
       if (success) {
         successCount++;
+        progressManager.completeTask(messageId);
+      } else {
+        progressManager.failTask(messageId);
       }
-
-      // Update progress widget after each image (success or failure)
-      updateMessageProgress(messageId, i + 1, promptsToGenerate.length);
     }
 
     const duration = performance.now() - startTime;
@@ -388,8 +374,8 @@ export async function generateImagesForMessage(
       `Generated ${successCount}/${promptsToGenerate.length} images (${duration.toFixed(0)}ms total)`
     );
 
-    // Remove progress widget
-    removeMessageProgress(messageId);
+    // Clear progress tracking now that batch is complete
+    progressManager.clear(messageId);
 
     // Show completion notification
     if (successCount === promptsToGenerate.length) {
@@ -413,8 +399,8 @@ export async function generateImagesForMessage(
   } catch (error) {
     logger.error('Error during manual image generation:', error);
     toastr.error(t('toast.failedToGenerate'), t('extensionName'));
-    // Remove progress widget on error
-    removeMessageProgress(messageId);
+    // Clear progress tracking on error
+    progressManager.clear(messageId);
     return 0;
   }
 }
@@ -785,24 +771,8 @@ export async function regenerateImage(
 ): Promise<number> {
   // Register this regeneration request BEFORE scheduling
   // This ensures the counter is incremented even before DOM queue processing starts
-  const tracking = regenerationTracking.get(messageId) || {
-    pending: 0,
-    completed: 0,
-  };
-  tracking.pending++;
-  regenerationTracking.set(messageId, tracking);
-  logger.debug(
-    `Registered regeneration for message ${messageId}: ${tracking.pending} pending`
-  );
-
-  // Update progress widget IMMEDIATELY so user sees the total count update as they click
-  if (tracking.pending === 1) {
-    // First click - initialize widget
-    addMessageProgress(messageId, 0, tracking.pending);
-  } else {
-    // Subsequent clicks - update existing widget with new total
-    updateMessageProgress(messageId, tracking.completed, tracking.pending);
-  }
+  progressManager.registerTask(messageId, 1);
+  logger.debug(`Registered regeneration task for message ${messageId}`);
 
   // Wrap in scheduleDomOperation to serialize with other message operations
   return scheduleDomOperation(
@@ -818,15 +788,8 @@ export async function regenerateImage(
             t('toast.cannotGenerateMessageStreaming'),
             t('extensionName')
           );
-          // Decrement pending count on early exit
-          const tracking = regenerationTracking.get(messageId);
-          if (tracking) {
-            tracking.pending--;
-            if (tracking.pending === 0) {
-              regenerationTracking.delete(messageId);
-              removeMessageProgress(messageId);
-            }
-          }
+          // Cancel this task since we can't proceed
+          progressManager.decrementTotal(messageId, 1);
           return 0;
         }
 
@@ -835,14 +798,9 @@ export async function regenerateImage(
         if (!message) {
           logger.error('Message not found:', messageId);
           toastr.error(t('toast.messageNotFound'), t('extensionName'));
-          // Decrement pending count on error
-          const tracking = regenerationTracking.get(messageId);
-          if (tracking) {
-            tracking.pending--;
-            if (tracking.pending === 0) {
-              regenerationTracking.delete(messageId);
-              removeMessageProgress(messageId);
-            }
+          progressManager.failTask(messageId);
+          if (progressManager.isComplete(messageId)) {
+            progressManager.clear(messageId);
           }
           return 0;
         }
@@ -855,14 +813,9 @@ export async function regenerateImage(
         );
         if (!promptText) {
           toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
-          // Decrement pending count on error
-          const tracking = regenerationTracking.get(messageId);
-          if (tracking) {
-            tracking.pending--;
-            if (tracking.pending === 0) {
-              regenerationTracking.delete(messageId);
-              removeMessageProgress(messageId);
-            }
+          progressManager.failTask(messageId);
+          if (progressManager.isComplete(messageId)) {
+            progressManager.clear(messageId);
           }
           return 0;
         }
@@ -881,14 +834,9 @@ export async function regenerateImage(
         if (!imageIndex) {
           logger.error('Could not determine image index for regeneration');
           toastr.error(t('toast.failedToDetermineIndex'), t('extensionName'));
-          // Decrement pending count on error
-          const tracking = regenerationTracking.get(messageId);
-          if (tracking) {
-            tracking.pending--;
-            if (tracking.pending === 0) {
-              regenerationTracking.delete(messageId);
-              removeMessageProgress(messageId);
-            }
+          progressManager.failTask(messageId);
+          if (progressManager.isComplete(messageId)) {
+            progressManager.clear(messageId);
           }
           return 0;
         }
@@ -902,14 +850,9 @@ export async function regenerateImage(
         if (!matchingPrompt) {
           logger.error('Prompt tag not found in text');
           toastr.error(t('toast.failedToFindPromptTag'), t('extensionName'));
-          // Decrement pending count on error
-          const tracking = regenerationTracking.get(messageId);
-          if (tracking) {
-            tracking.pending--;
-            if (tracking.pending === 0) {
-              regenerationTracking.delete(messageId);
-              removeMessageProgress(messageId);
-            }
+          progressManager.failTask(messageId);
+          if (progressManager.isComplete(messageId)) {
+            progressManager.clear(messageId);
           }
           return 0;
         }
@@ -928,45 +871,22 @@ export async function regenerateImage(
           true // isRegeneration = true
         );
 
-        // Update tracking: increment completed count
-        const trackingAfterGen = regenerationTracking.get(messageId);
-        if (trackingAfterGen) {
-          trackingAfterGen.completed++;
-          const totalRemaining = trackingAfterGen.pending;
-          const currentCompleted = trackingAfterGen.completed;
-
-          // Update progress widget with cumulative progress
-          updateMessageProgress(messageId, currentCompleted, totalRemaining);
-          logger.debug(
-            `Regeneration progress for message ${messageId}: ${currentCompleted}/${totalRemaining}`
-          );
-        }
-
         if (!success) {
           toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
-          // Check if all regenerations are complete
-          const tracking = regenerationTracking.get(messageId);
-          if (tracking && tracking.completed === tracking.pending) {
-            regenerationTracking.delete(messageId);
-            removeMessageProgress(messageId);
+          progressManager.failTask(messageId);
+          if (progressManager.isComplete(messageId)) {
+            progressManager.clear(messageId);
           }
           return 0;
         }
 
         toastr.success(t('toast.imageRegenerated'), t('extensionName'));
         logger.info('Image regenerated successfully');
+        progressManager.completeTask(messageId);
 
-        // Check if all regenerations are complete and cleanup
-        const trackingFinal = regenerationTracking.get(messageId);
-        if (
-          trackingFinal &&
-          trackingFinal.completed === trackingFinal.pending
-        ) {
-          regenerationTracking.delete(messageId);
-          removeMessageProgress(messageId);
-          logger.debug(
-            `All ${trackingFinal.pending} regenerations complete for message ${messageId}`
-          );
+        // Only clear if all tasks are complete
+        if (progressManager.isComplete(messageId)) {
+          progressManager.clear(messageId);
         }
 
         // Re-attach click handlers to all images (including the new one)
@@ -978,11 +898,9 @@ export async function regenerateImage(
       } catch (error) {
         logger.error('Error during image regeneration:', error);
         toastr.error(t('toast.failedToGenerateImage'), t('extensionName'));
-        // Check if all regenerations are complete
-        const tracking = regenerationTracking.get(messageId);
-        if (tracking && tracking.completed === tracking.pending) {
-          regenerationTracking.delete(messageId);
-          removeMessageProgress(messageId);
+        progressManager.failTask(messageId);
+        if (progressManager.isComplete(messageId)) {
+          progressManager.clear(messageId);
         }
         return 0;
       }

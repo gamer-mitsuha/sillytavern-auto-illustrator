@@ -165,38 +165,6 @@ export function addMessageProgress(
 }
 
 /**
- * Updates progress for a message
- * @param messageId - Message ID
- * @param current - Current number of images completed
- * @param total - Total number of images to generate
- */
-export function updateMessageProgress(
-  messageId: number,
-  current: number,
-  total: number
-): void {
-  const existing = messageProgress.get(messageId);
-  if (!existing) {
-    logger.warn(
-      `Cannot update progress for message ${messageId}: not being tracked`
-    );
-    return;
-  }
-
-  messageProgress.set(messageId, {
-    current,
-    total,
-    startTime: existing.startTime,
-  });
-
-  updateGlobalWidgetDisplay();
-
-  logger.debug(
-    `Updated progress for message ${messageId}: ${current}/${total}`
-  );
-}
-
-/**
  * Removes progress tracking for a message and updates display
  * @param messageId - Message ID
  */
@@ -226,7 +194,7 @@ export function insertProgressWidget(
 
 /**
  * Legacy API: Updates progress widget (now updates global widget)
- * @deprecated Use updateMessageProgress instead
+ * @deprecated Use addMessageProgress instead
  * @param messageId - Message ID
  * @param current - Number of images completed
  * @param total - Total number of images
@@ -236,7 +204,7 @@ export function updateProgressWidget(
   current: number,
   total: number
 ): void {
-  updateMessageProgress(messageId, current, total);
+  addMessageProgress(messageId, current, total);
 }
 
 /**

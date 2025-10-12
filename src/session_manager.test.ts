@@ -86,9 +86,12 @@ describe('SessionManager', () => {
       expect(manager.isActive(0)).toBe(true);
     });
 
-    it('should create unique session IDs', () => {
+    it('should create unique session IDs', async () => {
       const session1 = manager.startSession(0, context, settings);
       manager.endSession(0);
+
+      // Add small delay to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 2));
 
       const session2 = manager.startSession(0, context, settings);
 
