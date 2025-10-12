@@ -646,28 +646,8 @@
   }
 
   .ai-img-modal-nav {
-    width: 44px;
-    height: 44px;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-    /* Semi-transparent on mobile to not obstruct image */
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(12px);
-  }
-
-  .ai-img-modal-nav:hover:not(:disabled) {
-    background: rgba(155, 89, 182, 0.7);
-  }
-
-  .ai-img-modal-nav.prev {
-    left: 0.5rem;
-    transform: translateY(-50%) scaleX(-1);
-  }
-
-  .ai-img-modal-nav.next {
-    right: 0.5rem;
+    /* Hide navigation buttons on mobile - use swipe gestures instead */
+    display: none;
   }
 
   .ai-img-modal-image-container {
@@ -681,6 +661,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+  }
+
+  /* Swipe hint indicator on mobile */
+  .ai-img-modal-image-container::after {
+    content: '← Swipe →';
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.5s ease-out;
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .ai-img-modal-image {

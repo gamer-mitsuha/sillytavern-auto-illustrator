@@ -603,6 +603,45 @@ class ProgressWidgetView {
       img.classList.toggle('zoomed', isZoomed);
     });
 
+    // Touch swipe support for mobile navigation
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const minSwipeDistance = 50; // Minimum distance for a swipe
+
+    imageContainer.addEventListener(
+      'touchstart',
+      (e: TouchEvent) => {
+        touchStartX = e.changedTouches[0].screenX;
+      },
+      {passive: true}
+    );
+
+    imageContainer.addEventListener(
+      'touchend',
+      (e: TouchEvent) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+      },
+      {passive: true}
+    );
+
+    const handleSwipe = () => {
+      const swipeDistance = touchEndX - touchStartX;
+
+      // Swipe left (next image)
+      if (
+        swipeDistance < -minSwipeDistance &&
+        currentIndex < progress.completedImages.length - 1
+      ) {
+        nextBtn.click();
+      }
+
+      // Swipe right (previous image)
+      if (swipeDistance > minSwipeDistance && currentIndex > 0) {
+        prevBtn.click();
+      }
+    };
+
     // Close handlers
     const closeModal = () => {
       backdrop.remove();
