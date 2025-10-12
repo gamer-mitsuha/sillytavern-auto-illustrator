@@ -38,7 +38,7 @@ import {
 } from './image_generator';
 import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
-import {removeMessageProgress} from './progress_widget';
+import {progressManager} from './progress_manager';
 
 const logger = createLogger('Main');
 
@@ -859,6 +859,7 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
 
         // End session after successful insertion
         sessionManager.endSession(messageId);
+        progressManager.clear(messageId);
         logger.debug(
           `Session ended for message ${messageId} after successful insertion`
         );
@@ -868,13 +869,14 @@ async function handleGenerationEnded(chatLength: number): Promise<void> {
 
         // End session even on error
         sessionManager.endSession(messageId);
+        progressManager.clear(messageId);
         logger.debug('Session ended after error');
       }
     })();
   } else {
-    // No deferred images, end session immediately and remove progress widget
+    // No deferred images, end session immediately and clear progress tracking
     sessionManager.endSession(messageId);
-    removeMessageProgress(messageId);
+    progressManager.clear(messageId);
     logger.debug(`Session ended for message ${messageId} (no deferred images)`);
 
     // Show info notification that no prompts were detected (extended display time: 5 seconds)

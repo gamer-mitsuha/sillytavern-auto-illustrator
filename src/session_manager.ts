@@ -9,7 +9,7 @@ import {QueueProcessor} from './queue_processor';
 import {Barrier} from './barrier';
 import {createLogger} from './logger';
 import type {StreamingSession} from './types';
-import {addMessageProgress} from './progress_widget';
+import {progressManager} from './progress_manager';
 
 const logger = createLogger('SessionManager');
 
@@ -47,7 +47,7 @@ export class SessionManager {
     }
 
     const sessionId = `session_${messageId}_${Date.now()}`;
-    const barrier = new Barrier(['genDone', 'messageReceived'], 300000); // 300s timeout (5 minutes)
+    const barrier = new Barrier(['genDone', 'messageReceived'], 1200000); // 1200s timeout (20 minutes)
     const abortController = new AbortController();
 
     // Create queue
@@ -69,11 +69,15 @@ export class SessionManager {
       settings.streamingPollInterval,
       () => {
         // Callback when new prompts detected
-        // Update widget total immediately to reflect new queue size
-        const stats = queue.getStats();
-        const completedCount = stats.COMPLETED + stats.FAILED;
         const newTotal = queue.size();
-        addMessageProgress(messageId, completedCount, newTotal);
+
+        // Initialize tracking if this is the first prompt detection
+        if (!progressManager.isTracking(messageId)) {
+          progressManager.registerTask(messageId, newTotal);
+        } else {
+          // Update existing tracking with new total
+          progressManager.updateTotal(messageId, newTotal);
+        }
 
         // Trigger processor to start generating
         processor.trigger();
