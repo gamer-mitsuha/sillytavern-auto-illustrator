@@ -67,6 +67,19 @@ export interface ProgressClearedEventDetail {
 }
 
 /**
+ * Event detail for progress:image-completed event
+ * Emitted when an image generation completes during streaming
+ * Allows UI to show preview of completed images before insertion
+ */
+export interface ProgressImageCompletedEventDetail {
+  messageId: number;
+  imageUrl: string;
+  promptText: string;
+  promptPreview: string;
+  completedAt: number;
+}
+
+/**
  * Centralized progress manager for image generation tasks
  * Pure domain layer with no UI dependencies
  *
@@ -81,6 +94,7 @@ export interface ProgressClearedEventDetail {
  * - progress:updated - When task state changes or total changes
  * - progress:all-tasks-complete - When all CURRENT tasks complete (more may be added)
  * - progress:cleared - When tracking is cleared (operation finished, widget can hide)
+ * - progress:image-completed - When an image completes during streaming (for preview UI)
  */
 export class ProgressManager extends EventTarget {
   private states: Map<number, TaskState> = new Map();
@@ -408,6 +422,36 @@ export class ProgressManager extends EventTarget {
       new CustomEvent('progress:cleared', {detail, bubbles: false})
     );
     logger.trace(`Emitted progress:cleared for message ${messageId}`);
+  }
+
+  /**
+   * Emits progress:image-completed event
+   * Called externally when an image generation completes during streaming
+   *
+   * @param messageId - Message ID
+   * @param imageUrl - URL of completed image
+   * @param promptText - Full prompt text
+   * @param promptPreview - Truncated prompt for display
+   */
+  emitImageCompleted(
+    messageId: number,
+    imageUrl: string,
+    promptText: string,
+    promptPreview: string
+  ): void {
+    const detail: ProgressImageCompletedEventDetail = {
+      messageId,
+      imageUrl,
+      promptText,
+      promptPreview,
+      completedAt: Date.now(),
+    };
+    this.dispatchEvent(
+      new CustomEvent('progress:image-completed', {detail, bubbles: false})
+    );
+    logger.trace(
+      `Emitted progress:image-completed for message ${messageId}: ${promptPreview}`
+    );
   }
 }
 

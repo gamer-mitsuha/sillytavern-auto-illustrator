@@ -10,6 +10,7 @@ import {
   type ProgressUpdatedEventDetail,
   type ProgressAllTasksCompleteEventDetail,
   type ProgressClearedEventDetail,
+  type ProgressImageCompletedEventDetail,
 } from './progress_manager';
 
 describe('ProgressManager', () => {
@@ -18,6 +19,7 @@ describe('ProgressManager', () => {
   let updatedEvents: ProgressUpdatedEventDetail[];
   let allTasksCompleteEvents: ProgressAllTasksCompleteEventDetail[];
   let clearedEvents: ProgressClearedEventDetail[];
+  let imageCompletedEvents: ProgressImageCompletedEventDetail[];
 
   beforeEach(() => {
     manager = new ProgressManager();
@@ -25,6 +27,7 @@ describe('ProgressManager', () => {
     updatedEvents = [];
     allTasksCompleteEvents = [];
     clearedEvents = [];
+    imageCompletedEvents = [];
 
     // Subscribe to all events
     manager.addEventListener('progress:started', event => {
@@ -45,6 +48,11 @@ describe('ProgressManager', () => {
     manager.addEventListener('progress:cleared', event => {
       clearedEvents.push(
         (event as CustomEvent<ProgressClearedEventDetail>).detail
+      );
+    });
+    manager.addEventListener('progress:image-completed', event => {
+      imageCompletedEvents.push(
+        (event as CustomEvent<ProgressImageCompletedEventDetail>).detail
       );
     });
   });
@@ -553,6 +561,67 @@ describe('ProgressManager', () => {
       // User cancels - decrement remaining (automatically clears if completed >= total)
       manager.decrementTotal(1, 2);
       expect(manager.isTracking(1)).toBe(false);
+    });
+  });
+
+  describe('emitImageCompleted', () => {
+    it('should emit progress:image-completed event with correct data', () => {
+      manager.registerTask(1, 3);
+
+      manager.emitImageCompleted(
+        1,
+        'https://example.com/image.png',
+        '1girl, long hair, blue eyes',
+        '1girl, long hair, blue...'
+      );
+
+      expect(imageCompletedEvents).toHaveLength(1);
+      expect(imageCompletedEvents[0]).toMatchObject({
+        messageId: 1,
+        imageUrl: 'https://example.com/image.png',
+        promptText: '1girl, long hair, blue eyes',
+        promptPreview: '1girl, long hair, blue...',
+      });
+      expect(imageCompletedEvents[0].completedAt).toBeTypeOf('number');
+      expect(imageCompletedEvents[0].completedAt).toBeLessThanOrEqual(
+        Date.now()
+      );
+    });
+
+    it('should emit events for multiple completed images', () => {
+      manager.registerTask(1, 3);
+
+      manager.emitImageCompleted(1, 'url1', 'prompt1', 'prompt1');
+      manager.emitImageCompleted(1, 'url2', 'prompt2', 'prompt2');
+      manager.emitImageCompleted(1, 'url3', 'prompt3', 'prompt3');
+
+      expect(imageCompletedEvents).toHaveLength(3);
+      expect(imageCompletedEvents[0].imageUrl).toBe('url1');
+      expect(imageCompletedEvents[1].imageUrl).toBe('url2');
+      expect(imageCompletedEvents[2].imageUrl).toBe('url3');
+    });
+
+    it('should work without tracking being initialized', () => {
+      // Emit event without calling registerTask first
+      manager.emitImageCompleted(1, 'url', 'prompt', 'preview');
+
+      expect(imageCompletedEvents).toHaveLength(1);
+      expect(imageCompletedEvents[0].messageId).toBe(1);
+    });
+
+    it('should handle truncated prompt previews', () => {
+      const longPrompt =
+        '1girl, very long hair, detailed face, blue eyes, school uniform, outdoor scene with many details';
+      const preview = longPrompt.substring(0, 57) + '...';
+
+      manager.emitImageCompleted(1, 'url', longPrompt, preview);
+
+      expect(imageCompletedEvents).toHaveLength(1);
+      expect(imageCompletedEvents[0].promptText).toBe(longPrompt);
+      expect(imageCompletedEvents[0].promptPreview).toBe(preview);
+      expect(imageCompletedEvents[0].promptPreview.length).toBeLessThanOrEqual(
+        60
+      );
     });
   });
 });

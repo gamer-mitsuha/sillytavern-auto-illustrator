@@ -51,6 +51,10 @@ export interface DeferredImage {
   prompt: QueuedPrompt;
   /** Generated image URL */
   imageUrl: string;
+  /** Prompt text preview (truncated for display) */
+  promptPreview?: string;
+  /** Timestamp when image was generated */
+  completedAt: number;
 }
 
 /**

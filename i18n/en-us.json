@@ -109,6 +109,8 @@
   "progress.failed": "failed",
   "progress.pending": "pending",
   "progress.message": "Message #{messageId}",
+  "progress.generatedImages": "Generated Images:",
+  "progress.clickToView": "click to view full size",
   "prompt.enterPresetName": "Enter name for new preset:",
   "prompt.overwritePreset": "Overwrite existing preset '{name}'?",
   "prompt.deletePresetConfirm": "Delete preset '{name}'?",

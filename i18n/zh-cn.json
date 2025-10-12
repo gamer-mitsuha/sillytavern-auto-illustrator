@@ -109,6 +109,8 @@
   "progress.failed": "失败",
   "progress.pending": "等待中",
   "progress.message": "消息 #{messageId}",
+  "progress.generatedImages": "已生成的图像：",
+  "progress.clickToView": "点击查看全尺寸",
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
   "prompt.deletePresetConfirm": "删除预设 '{name}'？",

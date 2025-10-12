@@ -173,9 +173,26 @@ export class QueueProcessor {
         logger.debug(`Generated image: ${imageUrl}`);
 
         // Store for later batch insertion (after streaming completes)
-        this.deferredImages.push({prompt, imageUrl});
+        const promptPreview =
+          prompt.prompt.length > 60
+            ? prompt.prompt.substring(0, 57) + '...'
+            : prompt.prompt;
+        this.deferredImages.push({
+          prompt,
+          imageUrl,
+          promptPreview,
+          completedAt: Date.now(),
+        });
         logger.debug(
           `Deferred image insertion (${this.deferredImages.length} total)`
+        );
+
+        // Emit image-completed event for thumbnail preview UI
+        progressManager.emitImageCompleted(
+          this.messageId,
+          imageUrl,
+          prompt.prompt,
+          promptPreview
         );
 
         // Update progress tracking

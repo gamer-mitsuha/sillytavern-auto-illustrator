@@ -17,6 +17,7 @@ import type {
   ProgressStartedEventDetail,
   ProgressUpdatedEventDetail,
   ProgressClearedEventDetail,
+  ProgressImageCompletedEventDetail,
 } from './progress_manager';
 
 const logger = createLogger('ProgressWidget');
@@ -28,6 +29,15 @@ interface MessageProgressState {
   succeeded: number;
   failed: number;
   startTime: number;
+  completedImages: CompletedImage[]; // Thumbnails for streaming preview
+}
+
+// Completed image data for thumbnail display
+interface CompletedImage {
+  imageUrl: string;
+  promptText: string;
+  promptPreview: string;
+  completedAt: number;
 }
 
 /**
@@ -59,6 +69,12 @@ class ProgressWidgetView {
       this.handleCleared(detail);
     });
 
+    manager.addEventListener('progress:image-completed', event => {
+      const detail = (event as CustomEvent<ProgressImageCompletedEventDetail>)
+        .detail;
+      this.handleImageCompleted(detail);
+    });
+
     logger.debug('ProgressWidget initialized and subscribed to manager events');
   }
 
@@ -73,6 +89,7 @@ class ProgressWidgetView {
       succeeded: 0,
       failed: 0,
       startTime: Date.now(),
+      completedImages: [],
     });
     this.scheduleUpdate();
   }
@@ -91,6 +108,7 @@ class ProgressWidgetView {
       succeeded: detail.succeeded,
       failed: detail.failed,
       startTime: existing?.startTime ?? Date.now(),
+      completedImages: existing?.completedImages ?? [],
     });
     this.scheduleUpdate();
   }
@@ -102,6 +120,35 @@ class ProgressWidgetView {
   private handleCleared(detail: ProgressClearedEventDetail): void {
     logger.debug(`Cleared tracking for message ${detail.messageId}`);
     this.messageProgress.delete(detail.messageId);
+    this.scheduleUpdate();
+  }
+
+  /**
+   * Handles progress:image-completed event
+   * Adds completed image to thumbnail gallery
+   */
+  private handleImageCompleted(
+    detail: ProgressImageCompletedEventDetail
+  ): void {
+    logger.debug(
+      `Image completed for message ${detail.messageId}: ${detail.promptPreview}`
+    );
+    const progress = this.messageProgress.get(detail.messageId);
+    if (!progress) {
+      logger.warn(
+        `Cannot add image: message ${detail.messageId} not being tracked`
+      );
+      return;
+    }
+
+    // Add to completed images array
+    progress.completedImages.push({
+      imageUrl: detail.imageUrl,
+      promptText: detail.promptText,
+      promptPreview: detail.promptPreview,
+      completedAt: detail.completedAt,
+    });
+
     this.scheduleUpdate();
   }
 
@@ -178,6 +225,15 @@ class ProgressWidgetView {
 
       text.innerHTML = `${t('progress.message', {messageId: String(messageId)})}: ${parts.join(', ')}`;
       container.appendChild(text);
+
+      // Add thumbnail gallery if there are completed images
+      if (progress.completedImages.length > 0) {
+        const gallery = this.createThumbnailGallery(
+          messageId,
+          progress.completedImages
+        );
+        container.appendChild(gallery);
+      }
     }
 
     widget.appendChild(container);
@@ -198,6 +254,119 @@ class ProgressWidgetView {
     logger.debug(
       `Updated widget display: ${this.messageProgress.size} message(s) in progress`
     );
+  }
+
+  /**
+   * Creates thumbnail gallery for completed images
+   * @param messageId - Message ID (for logging)
+   * @param images - Array of completed images
+   * @returns Gallery container element
+   */
+  private createThumbnailGallery(
+    messageId: number,
+    images: CompletedImage[]
+  ): HTMLElement {
+    const gallery = document.createElement('div');
+    gallery.className = 'ai-img-progress-gallery';
+
+    // Add label
+    const label = document.createElement('div');
+    label.className = 'ai-img-progress-gallery-label';
+    label.textContent = t('progress.generatedImages');
+    gallery.appendChild(label);
+
+    // Add thumbnails container
+    const thumbnailsContainer = document.createElement('div');
+    thumbnailsContainer.className = 'ai-img-progress-thumbnails';
+
+    // Limit to max 5 thumbnails to avoid clutter
+    const displayImages = images.slice(0, 5);
+
+    for (const image of displayImages) {
+      const thumbnail = document.createElement('div');
+      thumbnail.className = 'ai-img-progress-thumbnail';
+      thumbnail.title = image.promptText; // Full prompt on hover
+
+      // Create img element
+      const img = document.createElement('img');
+      img.src = image.imageUrl;
+      img.alt = image.promptPreview;
+      img.loading = 'lazy';
+
+      // Add click handler to show full-size modal
+      thumbnail.addEventListener('click', () => {
+        this.showImageModal(image.imageUrl, image.promptText);
+      });
+
+      thumbnail.appendChild(img);
+      thumbnailsContainer.appendChild(thumbnail);
+    }
+
+    gallery.appendChild(thumbnailsContainer);
+
+    // Add hint text
+    const hint = document.createElement('div');
+    hint.className = 'ai-img-progress-gallery-hint';
+    hint.textContent = t('progress.clickToView');
+    gallery.appendChild(hint);
+
+    logger.trace(
+      `Created gallery with ${displayImages.length} thumbnails for message ${messageId}`
+    );
+
+    return gallery;
+  }
+
+  /**
+   * Shows full-size image in modal overlay
+   * @param imageUrl - URL of the image to display
+   * @param promptText - Prompt text for title
+   */
+  private showImageModal(imageUrl: string, promptText: string): void {
+    logger.debug('Showing image modal');
+
+    // Create modal backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'ai-img-modal-backdrop';
+
+    // Create modal container
+    const modal = document.createElement('div');
+    modal.className = 'ai-img-modal';
+
+    // Create image
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.alt = promptText;
+    img.className = 'ai-img-modal-image';
+
+    // Create prompt text
+    const prompt = document.createElement('div');
+    prompt.className = 'ai-img-modal-prompt';
+    prompt.textContent = promptText;
+
+    modal.appendChild(img);
+    modal.appendChild(prompt);
+    backdrop.appendChild(modal);
+
+    // Close on backdrop click
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop) {
+        backdrop.remove();
+        logger.debug('Image modal closed');
+      }
+    });
+
+    // Close on Escape key
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        backdrop.remove();
+        document.removeEventListener('keydown', handleEscape);
+        logger.debug('Image modal closed via Escape');
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+
+    document.body.appendChild(backdrop);
   }
 
   /**
