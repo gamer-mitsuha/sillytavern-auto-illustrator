@@ -94,9 +94,11 @@ export class GalleryWidgetView {
         this.isWidgetVisible = state.visible;
         this.isWidgetMinimized = state.minimized;
 
-        logger.debug(
-          `Loaded gallery state from chat: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}`
+        logger.info(
+          `[Gallery] Loaded state from chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, expandedMessages=${state.expandedMessages?.length || 0}`
         );
+      } else {
+        logger.warn('[Gallery] No state found in chat metadata');
       }
     } catch (error) {
       logger.warn('Failed to load gallery widget state:', error);
@@ -119,7 +121,11 @@ export class GalleryWidgetView {
         const context = (window as any).SillyTavern?.getContext?.();
         context?.saveChat();
 
-        logger.trace('Saved gallery widget state to chat metadata');
+        logger.info(
+          `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, expandedMessages=${state.expandedMessages.length}`
+        );
+      } else {
+        logger.warn('[Gallery] Cannot save state - no chat metadata available');
       }
     } catch (error) {
       logger.warn('Failed to save gallery widget state:', error);
@@ -160,7 +166,9 @@ export class GalleryWidgetView {
     const context = (window as any).SillyTavern?.getContext?.();
     if (context?.eventTypes?.CHAT_CHANGED && context?.eventSource) {
       context.eventSource.on(context.eventTypes.CHAT_CHANGED, () => {
-        logger.debug('CHAT_CHANGED - reloading gallery widget state');
+        logger.info(
+          '[Gallery] CHAT_CHANGED event - reloading gallery widget state'
+        );
         // Reload state from new chat's metadata
         this.loadStateFromChatMetadata();
         // Rescan new chat for images
