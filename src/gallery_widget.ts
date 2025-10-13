@@ -11,7 +11,6 @@
 
 import {createLogger} from './logger';
 import {t} from './i18n';
-import {getMetadata} from './prompt_metadata';
 import {extractImagePrompts} from './image_extractor';
 import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
 import {openImageModal, type ModalImage} from './modal_viewer';
@@ -65,23 +64,42 @@ export class GalleryWidgetView {
    */
   private getGalleryState() {
     const context = (window as any).SillyTavern?.getContext?.();
-    if (!context?.chat_metadata) {
+    if (!context) {
       return null;
     }
 
-    const metadata = getMetadata(context);
+    // Use proper SillyTavern API to access chat metadata
+    const {chatMetadata} = context;
+    if (!chatMetadata) {
+      return null;
+    }
+
+    // Ensure auto_illustrator subobject exists
+    if (!chatMetadata.auto_illustrator) {
+      chatMetadata.auto_illustrator = {
+        imageUrlToPromptId: {},
+        promptIdToText: {},
+        promptPositionHistory: {},
+      };
+    }
 
     // Initialize gallery widget state if doesn't exist
-    if (!metadata.galleryWidget) {
-      metadata.galleryWidget = {
+    if (!chatMetadata.auto_illustrator.galleryWidget) {
+      logger.info(
+        '[Gallery] Initializing new gallery widget state in metadata'
+      );
+      chatMetadata.auto_illustrator.galleryWidget = {
         visible: true, // Default visible for new chats
         minimized: false,
         expandedMessages: [],
       };
-      context.saveChat();
     }
 
-    return metadata.galleryWidget;
+    // Log the actual state we're returning from metadata
+    logger.trace(
+      `[Gallery] getGalleryState returning: ${JSON.stringify(chatMetadata.auto_illustrator.galleryWidget)}`
+    );
+    return chatMetadata.auto_illustrator.galleryWidget;
   }
 
   /**
@@ -108,7 +126,7 @@ export class GalleryWidgetView {
   /**
    * Save current state to chat metadata
    */
-  private saveStateToChatMetadata(): void {
+  private async saveStateToChatMetadata(): Promise<void> {
     try {
       const state = this.getGalleryState();
       if (state) {
@@ -118,12 +136,19 @@ export class GalleryWidgetView {
           .filter(([, group]) => group.isExpanded)
           .map(([messageId]) => messageId);
 
+        // Use proper SillyTavern API to save metadata
         const context = (window as any).SillyTavern?.getContext?.();
-        context?.saveChat();
+        if (context?.saveMetadata) {
+          await context.saveMetadata();
 
-        logger.info(
-          `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, expandedMessages=${state.expandedMessages.length}`
-        );
+          logger.info(
+            `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, expandedMessages=${state.expandedMessages.length}`
+          );
+        } else {
+          logger.warn(
+            '[Gallery] Cannot save metadata - saveMetadata function not available'
+          );
+        }
       } else {
         logger.warn('[Gallery] Cannot save state - no chat metadata available');
       }
@@ -167,13 +192,20 @@ export class GalleryWidgetView {
     if (context?.eventTypes?.CHAT_CHANGED && context?.eventSource) {
       context.eventSource.on(context.eventTypes.CHAT_CHANGED, () => {
         logger.info(
-          '[Gallery] CHAT_CHANGED event - reloading gallery widget state'
+          '=== [Gallery] CHAT_CHANGED EVENT FIRED - reloading gallery widget state ==='
         );
         // Reload state from new chat's metadata
         this.loadStateFromChatMetadata();
         // Rescan new chat for images
         this.refreshGallery();
       });
+      logger.info(
+        '[Gallery] Successfully registered CHAT_CHANGED event listener'
+      );
+    } else {
+      logger.warn(
+        '[Gallery] Could not register CHAT_CHANGED listener - event system not available'
+      );
     }
 
     // Listen for message edits (images might be added/removed)

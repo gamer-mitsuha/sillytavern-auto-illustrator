@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Enhanced gallery widget state persistence logging for debugging
+  - Improved visibility of save/load operations in console
+  - Shows detailed state information (visible, minimized, expanded messages count)
+  - Helps diagnose state persistence issues when switching chats
+
 ### Fixed
 
 - Mobile zoom/pan system redesigned for better UX
