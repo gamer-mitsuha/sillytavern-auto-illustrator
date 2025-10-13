@@ -363,40 +363,70 @@ class ProgressWidgetView {
     widget: HTMLElement,
     visibleMessages: Array<[number, MessageProgressState]>
   ): void {
-    // Find existing elements
-    const header = widget.querySelector('.ai-img-progress-header-collapsed');
-    if (!header) {
+    // Find existing FAB
+    const fab = widget.querySelector('.ai-img-progress-fab');
+    if (!fab) {
       // Fallback to full render if structure is missing
       this.renderCollapsedWidget(widget, visibleMessages);
       return;
     }
 
-    // Update status icon
+    // Update status
     const allComplete = visibleMessages.every(
       ([, progress]) => progress.current === progress.total
     );
-
-    const statusIcon = header.querySelector(
-      '.ai-img-progress-checkmark, .ai-img-progress-spinner'
+    const totalImages = visibleMessages.reduce(
+      (sum, [, progress]) => sum + progress.completedImages.length,
+      0
     );
-    if (statusIcon) {
-      statusIcon.className = allComplete
-        ? 'ai-img-progress-checkmark'
-        : 'ai-img-progress-spinner';
-      statusIcon.textContent = allComplete ? '✓' : '';
+
+    // Update title
+    fab.setAttribute(
+      'title',
+      allComplete
+        ? t('progress.summaryComplete', {
+            count: String(visibleMessages.length),
+          })
+        : t('progress.summaryGenerating', {
+            count: String(visibleMessages.length),
+          })
+    );
+
+    // Update icon (spinner or checkmark)
+    const spinner = fab.querySelector('.ai-img-progress-fab-spinner');
+    const checkIcon = fab.querySelector('span:not(.ai-img-progress-fab-badge)');
+
+    if (allComplete) {
+      // Remove spinner, add checkmark
+      if (spinner) spinner.remove();
+      if (!checkIcon) {
+        const check = document.createElement('span');
+        check.textContent = '✓';
+        fab.insertBefore(check, fab.firstChild);
+      }
+    } else {
+      // Remove checkmark, add spinner
+      if (checkIcon && checkIcon.textContent === '✓') checkIcon.remove();
+      if (!spinner) {
+        const spin = document.createElement('div');
+        spin.className = 'ai-img-progress-fab-spinner';
+        fab.insertBefore(spin, fab.firstChild);
+      }
     }
 
-    // Update summary text
-    const summaryText = header.querySelector('.ai-img-progress-summary-text');
-    if (summaryText) {
-      const messageCount = visibleMessages.length;
-      const totalImages = visibleMessages.reduce(
-        (sum, [, progress]) => sum + progress.completedImages.length,
-        0
-      );
-      summaryText.textContent = allComplete
-        ? `${t('progress.summaryComplete', {count: String(messageCount)})} (${t('progress.imageCountTotal', {count: String(totalImages)})})`
-        : t('progress.summaryGenerating', {count: String(messageCount)});
+    // Update badge
+    const badge = fab.querySelector('.ai-img-progress-fab-badge');
+    if (totalImages > 0) {
+      if (badge) {
+        badge.textContent = String(totalImages);
+      } else {
+        const newBadge = document.createElement('span');
+        newBadge.className = 'ai-img-progress-fab-badge';
+        newBadge.textContent = String(totalImages);
+        fab.appendChild(newBadge);
+      }
+    } else if (badge) {
+      badge.remove();
     }
   }
 
@@ -753,40 +783,42 @@ class ProgressWidgetView {
       0
     );
 
-    // Create collapsed header (clickable to expand)
-    const header = document.createElement('div');
-    header.className = 'ai-img-progress-header-collapsed';
-    header.addEventListener('click', () => {
+    // Create FAB button
+    const fab = document.createElement('button');
+    fab.className = 'ai-img-progress-fab';
+    fab.title = allComplete
+      ? t('progress.summaryComplete', {
+          count: String(visibleMessages.length),
+        })
+      : t('progress.summaryGenerating', {
+          count: String(visibleMessages.length),
+        });
+    fab.addEventListener('click', () => {
       this.isWidgetCollapsed = false;
       this.saveStateToStorage();
       this.scheduleUpdate();
     });
 
-    // Status icon
-    const statusIcon = document.createElement('span');
-    statusIcon.className = allComplete
-      ? 'ai-img-progress-checkmark'
-      : 'ai-img-progress-spinner';
-    statusIcon.textContent = allComplete ? '✓' : '';
-    header.appendChild(statusIcon);
+    // Add status icon (spinner or checkmark)
+    if (allComplete) {
+      const checkIcon = document.createElement('span');
+      checkIcon.textContent = '✓';
+      fab.appendChild(checkIcon);
+    } else {
+      const spinner = document.createElement('div');
+      spinner.className = 'ai-img-progress-fab-spinner';
+      fab.appendChild(spinner);
+    }
 
-    // Summary text
-    const summaryText = document.createElement('span');
-    summaryText.className = 'ai-img-progress-summary-text';
-    const messageCount = visibleMessages.length;
-    summaryText.textContent = allComplete
-      ? `${t('progress.summaryComplete', {count: String(messageCount)})} (${t('progress.imageCountTotal', {count: String(totalImages)})})`
-      : t('progress.summaryGenerating', {count: String(messageCount)});
-    header.appendChild(summaryText);
+    // Add badge showing image count
+    if (totalImages > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'ai-img-progress-fab-badge';
+      badge.textContent = String(totalImages);
+      fab.appendChild(badge);
+    }
 
-    // Expand button
-    const expandBtn = document.createElement('button');
-    expandBtn.className = 'ai-img-progress-expand-toggle';
-    expandBtn.innerHTML = '▼';
-    expandBtn.title = t('progress.expandWidget');
-    header.appendChild(expandBtn);
-
-    widget.appendChild(header);
+    widget.appendChild(fab);
   }
 
   /**
@@ -839,21 +871,6 @@ class ProgressWidgetView {
       this.scheduleUpdate();
     });
     header.appendChild(collapseBtn);
-
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'ai-img-progress-close';
-    closeBtn.innerHTML = '×';
-    closeBtn.title = t('progress.closeWidget');
-    closeBtn.addEventListener('click', () => {
-      // Close all visible messages
-      for (const [messageId] of visibleMessages) {
-        this.closedMessages.add(messageId);
-        this.messageProgress.delete(messageId);
-      }
-      this.scheduleUpdate();
-    });
-    header.appendChild(closeBtn);
 
     widget.appendChild(header);
 
