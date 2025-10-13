@@ -47,6 +47,8 @@ interface CompletedImage {
 class ProgressWidgetView {
   private messageProgress = new Map<number, MessageProgressState>();
   private closedMessages = new Set<number>(); // Track manually closed messages
+  private isWidgetCollapsed = false; // Track widget expansion state
+  private expandedMessages = new Set<number>(); // Track which messages are expanded
   private updateTimer: number | null = null;
   private readonly THROTTLE_MS = 100; // Max 10 updates per second
   private readonly progressManager: ProgressManager;
@@ -185,7 +187,7 @@ class ProgressWidgetView {
     );
 
     logger.debug(
-      `Updating display: ${visibleMessages.length} visible message(s) (${this.closedMessages.size} closed), display will be: ${visibleMessages.length === 0 ? 'none' : 'flex'}`
+      `Updating display: ${visibleMessages.length} visible message(s) (${this.closedMessages.size} closed), widget collapsed: ${this.isWidgetCollapsed}`
     );
 
     // Clear existing content
@@ -200,6 +202,97 @@ class ProgressWidgetView {
 
     // Show widget
     widget.style.display = 'flex';
+
+    // Render collapsed or expanded widget
+    if (this.isWidgetCollapsed) {
+      this.renderCollapsedWidget(widget, visibleMessages);
+    } else {
+      this.renderExpandedWidget(widget, visibleMessages);
+    }
+
+    // Debug logging AFTER content is added
+    const computedStyle = window.getComputedStyle(widget);
+    const rect = widget.getBoundingClientRect();
+    logger.trace(
+      `Widget rendered - display: ${computedStyle.display}, visibility: ${computedStyle.visibility}, position: ${computedStyle.position}, zIndex: ${computedStyle.zIndex}, bottom: ${computedStyle.bottom}`
+    );
+    logger.trace(
+      `Widget position - top: ${rect.top}px, left: ${rect.left}px, bottom: ${rect.bottom}px, right: ${rect.right}px, width: ${rect.width}px, height: ${rect.height}px`
+    );
+    logger.trace(
+      `Widget content: ${widget.children.length} children, innerHTML length: ${widget.innerHTML.length}`
+    );
+
+    logger.debug(
+      `Updated widget display: ${visibleMessages.length} visible message(s)`
+    );
+  }
+
+  /**
+   * Renders widget in collapsed state (compact single bar)
+   */
+  private renderCollapsedWidget(
+    widget: HTMLElement,
+    visibleMessages: Array<[number, MessageProgressState]>
+  ): void {
+    widget.classList.add('collapsed');
+    widget.classList.remove('expanded');
+
+    // Determine overall status
+    const allComplete = visibleMessages.every(
+      ([, progress]) => progress.current === progress.total
+    );
+
+    // Count total images across all messages
+    const totalImages = visibleMessages.reduce(
+      (sum, [, progress]) => sum + progress.completedImages.length,
+      0
+    );
+
+    // Create collapsed header (clickable to expand)
+    const header = document.createElement('div');
+    header.className = 'ai-img-progress-header-collapsed';
+    header.addEventListener('click', () => {
+      this.isWidgetCollapsed = false;
+      this.scheduleUpdate();
+    });
+
+    // Status icon
+    const statusIcon = document.createElement('span');
+    statusIcon.className = allComplete
+      ? 'ai-img-progress-checkmark'
+      : 'ai-img-progress-spinner';
+    statusIcon.textContent = allComplete ? '✓' : '';
+    header.appendChild(statusIcon);
+
+    // Summary text
+    const summaryText = document.createElement('span');
+    summaryText.className = 'ai-img-progress-summary-text';
+    const messageCount = visibleMessages.length;
+    summaryText.textContent = allComplete
+      ? `${t('progress.summaryComplete', {count: String(messageCount)})} (${t('progress.imageCountTotal', {count: String(totalImages)})})`
+      : t('progress.summaryGenerating', {count: String(messageCount)});
+    header.appendChild(summaryText);
+
+    // Expand button
+    const expandBtn = document.createElement('button');
+    expandBtn.className = 'ai-img-progress-expand-toggle';
+    expandBtn.innerHTML = '▼';
+    expandBtn.title = t('progress.expandWidget');
+    header.appendChild(expandBtn);
+
+    widget.appendChild(header);
+  }
+
+  /**
+   * Renders widget in expanded state (full details)
+   */
+  private renderExpandedWidget(
+    widget: HTMLElement,
+    visibleMessages: Array<[number, MessageProgressState]>
+  ): void {
+    widget.classList.add('expanded');
+    widget.classList.remove('collapsed');
 
     // Determine if all visible messages are complete
     const allComplete = visibleMessages.every(
@@ -230,6 +323,17 @@ class ProgressWidgetView {
       : t('progress.generatingImages');
     header.appendChild(title);
 
+    // Add collapse button
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'ai-img-progress-collapse';
+    collapseBtn.innerHTML = '▲';
+    collapseBtn.title = t('progress.collapseWidget');
+    collapseBtn.addEventListener('click', () => {
+      this.isWidgetCollapsed = true;
+      this.scheduleUpdate();
+    });
+    header.appendChild(collapseBtn);
+
     // Add close button
     const closeBtn = document.createElement('button');
     closeBtn.className = 'ai-img-progress-close';
@@ -252,91 +356,185 @@ class ProgressWidgetView {
     container.className = 'ai-img-progress-text-container';
 
     for (const [messageId, progress] of visibleMessages) {
-      const messageSection = document.createElement('div');
-      messageSection.className = 'ai-img-progress-text';
+      const isMessageComplete = progress.current === progress.total;
+      const isExpanded = this.expandedMessages.has(messageId);
 
-      // Message label
-      const label = document.createElement('div');
-      label.className = 'ai-img-progress-message-label';
-      label.textContent = t('progress.message', {
-        messageId: String(messageId),
-      });
-      messageSection.appendChild(label);
-
-      // Status badges
-      const badgesContainer = document.createElement('div');
-      badgesContainer.className = 'ai-img-progress-status-badges';
-
-      const pending = progress.total - progress.current;
-
-      if (progress.succeeded > 0) {
-        const badge = this.createStatusBadge(
-          '✓',
-          progress.succeeded,
-          t('progress.succeeded'),
-          'success'
-        );
-        badgesContainer.appendChild(badge);
+      // Auto-expand if message is not complete, auto-collapse if complete
+      if (!isMessageComplete && !isExpanded) {
+        this.expandedMessages.add(messageId);
+      } else if (isMessageComplete && !isExpanded) {
+        // Keep collapsed if complete
       }
 
-      if (progress.failed > 0) {
-        const badge = this.createStatusBadge(
-          '✗',
-          progress.failed,
-          t('progress.failed'),
-          'failed'
-        );
-        badgesContainer.appendChild(badge);
-      }
-
-      if (pending > 0) {
-        const badge = this.createStatusBadge(
-          '⏳',
-          pending,
-          t('progress.pending'),
-          'pending'
-        );
-        badgesContainer.appendChild(badge);
-      }
-
-      messageSection.appendChild(badgesContainer);
-
-      // Progress bar
-      const progressPercent =
-        progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
-      const progressBar = this.createProgressBar(progressPercent);
-      messageSection.appendChild(progressBar);
-
-      container.appendChild(messageSection);
-
-      // Add thumbnail gallery if there are completed images
-      if (progress.completedImages.length > 0) {
-        const gallery = this.createThumbnailGallery(
-          messageId,
-          progress.completedImages
-        );
-        container.appendChild(gallery);
+      // Render message (collapsed or expanded)
+      if (this.expandedMessages.has(messageId)) {
+        const messageElement = this.renderExpandedMessage(messageId, progress);
+        container.appendChild(messageElement);
+      } else {
+        const messageElement = this.renderCompactMessage(messageId, progress);
+        container.appendChild(messageElement);
       }
     }
 
     widget.appendChild(container);
+  }
 
-    // Debug logging AFTER content is added
-    const computedStyle = window.getComputedStyle(widget);
-    const rect = widget.getBoundingClientRect();
-    logger.trace(
-      `Widget rendered - display: ${computedStyle.display}, visibility: ${computedStyle.visibility}, position: ${computedStyle.position}, zIndex: ${computedStyle.zIndex}, bottom: ${computedStyle.bottom}`
-    );
-    logger.trace(
-      `Widget position - top: ${rect.top}px, left: ${rect.left}px, bottom: ${rect.bottom}px, right: ${rect.right}px, width: ${rect.width}px, height: ${rect.height}px`
-    );
-    logger.trace(
-      `Widget content: ${widget.children.length} children, innerHTML length: ${widget.innerHTML.length}`
-    );
+  /**
+   * Renders a message in compact state (single line)
+   */
+  private renderCompactMessage(
+    messageId: number,
+    progress: MessageProgressState
+  ): HTMLElement {
+    const messageContainer = document.createElement('div');
+    messageContainer.className = 'ai-img-progress-message compact';
 
-    logger.debug(
-      `Updated widget display: ${this.messageProgress.size} message(s) in progress`
-    );
+    const messageHeader = document.createElement('div');
+    messageHeader.className = 'ai-img-progress-message-header';
+
+    // Checkmark for completed
+    const checkmark = document.createElement('span');
+    checkmark.className = 'message-checkmark';
+    checkmark.textContent = '✓';
+    messageHeader.appendChild(checkmark);
+
+    // Message label
+    const label = document.createElement('span');
+    label.className = 'message-label';
+    label.textContent = t('progress.message', {messageId: String(messageId)});
+    messageHeader.appendChild(label);
+
+    // Summary
+    const summary = document.createElement('span');
+    summary.className = 'message-summary';
+    summary.textContent = `${progress.succeeded} ${t('progress.succeeded')}`;
+    if (progress.failed > 0) {
+      summary.textContent += `, ${progress.failed} ${t('progress.failed')}`;
+    }
+    messageHeader.appendChild(summary);
+
+    // Image count
+    const imageCount = document.createElement('span');
+    imageCount.className = 'message-image-count';
+    imageCount.textContent = `(${t('progress.imageCountTotal', {count: String(progress.completedImages.length)})})`;
+    messageHeader.appendChild(imageCount);
+
+    // Expand toggle
+    const expandToggle = document.createElement('button');
+    expandToggle.className = 'ai-img-progress-message-expand-toggle';
+    expandToggle.innerHTML = '▼';
+    expandToggle.title = t('progress.expandWidget');
+    expandToggle.addEventListener('click', () => {
+      this.expandedMessages.add(messageId);
+      this.scheduleUpdate();
+    });
+    messageHeader.appendChild(expandToggle);
+
+    // Make entire header clickable to expand
+    messageHeader.style.cursor = 'pointer';
+    messageHeader.addEventListener('click', e => {
+      // Don't trigger if clicking the button directly
+      if (e.target !== expandToggle) {
+        this.expandedMessages.add(messageId);
+        this.scheduleUpdate();
+      }
+    });
+
+    messageContainer.appendChild(messageHeader);
+    return messageContainer;
+  }
+
+  /**
+   * Renders a message in expanded state (full details)
+   */
+  private renderExpandedMessage(
+    messageId: number,
+    progress: MessageProgressState
+  ): HTMLElement {
+    const messageContainer = document.createElement('div');
+    messageContainer.className = 'ai-img-progress-message expanded';
+
+    const messageHeader = document.createElement('div');
+    messageHeader.className = 'ai-img-progress-message-header';
+
+    // Message label
+    const label = document.createElement('div');
+    label.className = 'ai-img-progress-message-label';
+    label.textContent = t('progress.message', {messageId: String(messageId)});
+    messageHeader.appendChild(label);
+
+    // Collapse toggle (only for completed messages)
+    const isComplete = progress.current === progress.total;
+    if (isComplete) {
+      const collapseToggle = document.createElement('button');
+      collapseToggle.className = 'ai-img-progress-message-collapse-toggle';
+      collapseToggle.innerHTML = '▲';
+      collapseToggle.title = t('progress.collapseWidget');
+      collapseToggle.addEventListener('click', () => {
+        this.expandedMessages.delete(messageId);
+        this.scheduleUpdate();
+      });
+      messageHeader.appendChild(collapseToggle);
+    }
+
+    messageContainer.appendChild(messageHeader);
+
+    // Status badges
+    const badgesContainer = document.createElement('div');
+    badgesContainer.className = 'ai-img-progress-status-badges';
+
+    const pending = progress.total - progress.current;
+
+    if (progress.succeeded > 0) {
+      const badge = this.createStatusBadge(
+        '✓',
+        progress.succeeded,
+        t('progress.succeeded'),
+        'success'
+      );
+      badgesContainer.appendChild(badge);
+    }
+
+    if (progress.failed > 0) {
+      const badge = this.createStatusBadge(
+        '✗',
+        progress.failed,
+        t('progress.failed'),
+        'failed'
+      );
+      badgesContainer.appendChild(badge);
+    }
+
+    if (pending > 0) {
+      const badge = this.createStatusBadge(
+        '⏳',
+        pending,
+        t('progress.pending'),
+        'pending'
+      );
+      badgesContainer.appendChild(badge);
+    }
+
+    messageContainer.appendChild(badgesContainer);
+
+    // Progress bar (show only if not complete)
+    if (!isComplete) {
+      const progressPercent =
+        progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+      const progressBar = this.createProgressBar(progressPercent);
+      messageContainer.appendChild(progressBar);
+    }
+
+    // Add thumbnail gallery if there are completed images
+    if (progress.completedImages.length > 0) {
+      const gallery = this.createThumbnailGallery(
+        messageId,
+        progress.completedImages
+      );
+      messageContainer.appendChild(gallery);
+    }
+
+    return messageContainer;
   }
 
   /**

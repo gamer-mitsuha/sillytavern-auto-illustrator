@@ -29,6 +29,7 @@
   gap: 1rem;
   padding: 1rem 1.5rem;
   min-width: 300px;
+  max-width: 800px;
   background: linear-gradient(
     135deg,
     rgba(30, 30, 40, 0.95) 0%,
@@ -38,13 +39,26 @@
   border-radius: 12px;
   font-size: 0.9rem;
   color: #ffffff;
-  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   backdrop-filter: blur(16px) saturate(180%);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset,
     0 2px 4px rgba(155, 89, 182, 0.2);
-  max-width: 95%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Collapsed widget state (compact bar) */
+.ai-img-progress-widget-global.collapsed {
+  padding: 0.75rem 1rem;
+  gap: 0;
+  min-width: 250px;
+  max-width: 600px;
+}
+
+/* Expanded widget state */
+.ai-img-progress-widget-global.expanded {
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 /* Widget header with spinner and title */
@@ -124,6 +138,84 @@
   transform: scale(0.95);
 }
 
+/* Collapse widget button */
+.ai-img-progress-collapse {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+  margin-right: 0.5rem;
+}
+
+.ai-img-progress-collapse:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.ai-img-progress-collapse:active {
+  transform: scale(0.95);
+}
+
+/* Collapsed widget header (compact single bar) */
+.ai-img-progress-header-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 0.25rem;
+  border-radius: 8px;
+  margin: -0.25rem;
+}
+
+.ai-img-progress-header-collapsed:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ai-img-progress-summary-text {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.ai-img-progress-expand-toggle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.ai-img-progress-expand-toggle:hover {
+  color: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+}
+
 .ai-img-progress-text-container {
   display: flex;
   flex-direction: column;
@@ -137,10 +229,91 @@
   gap: 0.5rem;
 }
 
+/* Individual message container */
+.ai-img-progress-message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s;
+}
+
+/* Compact message (single line) */
+.ai-img-progress-message.compact {
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+}
+
+.ai-img-progress-message.compact:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Message header (shared between compact and expanded) */
+.ai-img-progress-message-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Compact message header elements */
+.message-checkmark {
+  color: #2ecc71;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.message-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.message-summary {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.message-image-count {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Message expand/collapse toggles */
+.ai-img-progress-message-expand-toggle,
+.ai-img-progress-message-collapse-toggle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  margin-left: auto;
+}
+
+.ai-img-progress-message-expand-toggle:hover,
+.ai-img-progress-message-collapse-toggle:hover {
+  color: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+}
+
 .ai-img-progress-message-label {
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
+  flex: 1;
 }
 
 /* Status badges container */
@@ -272,32 +445,10 @@
 .ai-img-progress-thumbnails {
   display: flex;
   gap: 0.75rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   max-width: 100%;
-  overflow-x: auto;
   padding: 0.25rem;
   margin: -0.25rem;
-  /* Custom scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(155, 89, 182, 0.5) rgba(255, 255, 255, 0.1);
-}
-
-.ai-img-progress-thumbnails::-webkit-scrollbar {
-  height: 6px;
-}
-
-.ai-img-progress-thumbnails::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-
-.ai-img-progress-thumbnails::-webkit-scrollbar-thumb {
-  background: rgba(155, 89, 182, 0.5);
-  border-radius: 3px;
-}
-
-.ai-img-progress-thumbnails::-webkit-scrollbar-thumb:hover {
-  background: rgba(155, 89, 182, 0.7);
 }
 
 .ai-img-progress-thumbnail {

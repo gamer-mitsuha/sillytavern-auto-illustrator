@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Two-level collapsible progress widget for improved scalability
+  - **Widget-level collapse**: Entire widget collapses to compact bar showing summary (e.g., "✓ 3 message(s) complete (6 images) ▼")
+  - **Message-level collapse**: Individual messages collapse to single line (e.g., "✓ Message #3: 2 ok (2 images) ▼")
+  - **Smart auto-expand/collapse**: Messages that are generating stay expanded, completed messages auto-collapse
+  - **Manual override**: Users can click to expand/collapse any message or the entire widget
+  - **Space efficiency**: 5 messages reduce from ~2000px to ~600px height (1 expanded + 4 collapsed)
+  - **Increased widget size**: Expanded widget max-width increased from 95% to 800px, collapsed from 400px to 600px
+  - **Better thumbnail layout**: Thumbnails now wrap to multiple rows instead of horizontal scrolling
+  - **Taller widget**: Max-height increased from 70vh to 80vh for better content visibility
+  - **Smooth animations**: CSS transitions with cubic-bezier easing for polished UX
+  - **Persistent state tracking**: Widget remembers which messages are expanded/collapsed
+  - **Clickable headers**: Entire message header is clickable to expand (not just the toggle button)
+  - Solves UX problem where widget with many messages becomes unusably long
+
 - Progress widget now remains visible after image generation completes
   - Widget stays open after all images finish generating, allowing users to review status at their convenience
   - **Close button**: Added (×) button in widget header for manual dismissal
