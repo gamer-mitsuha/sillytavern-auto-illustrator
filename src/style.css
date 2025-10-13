@@ -379,8 +379,8 @@
 /* Close button */
 .ai-img-modal-close {
   position: absolute;
-  top: -3rem;
-  right: 0;
+  top: 1rem;
+  right: 1rem;
   background: rgba(0, 0, 0, 0.7);
   border: 1.5px solid rgba(255, 255, 255, 0.3);
   color: #ffffff;
@@ -704,7 +704,7 @@
 
   /* Expand when showing prompt */
   .ai-img-modal-info.expanded {
-    max-height: 35vh;
+    max-height: 45vh;
     overflow-y: auto;
   }
 
@@ -733,7 +733,7 @@
     display: block;
     font-size: 0.8rem;
     padding: 0.6rem;
-    max-height: 15vh;
+    max-height: 25vh;
     overflow-y: auto;
     line-height: 1.4;
   }

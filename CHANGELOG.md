@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Image modal close button now fully visible on desktop (moved from -3rem to 1rem top position)
+- Mobile prompt text no longer cut off when expanded (increased max-height from 15vh to 25vh, container from 35vh to 45vh)
+
 ### Added
 
 - Image preview gallery in progress widget during streaming mode (#49)
