@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Extension enable/disable setting now properly controls all extension functionality
+  - When disabled, no event handlers are registered, no widgets are initialized, and no automatic processing occurs
+  - User is notified to reload the page when toggling the enable setting
+  - Ensures extension is completely inactive when disabled, providing true on/off control
 - Mobile zoom/pan system redesigned for better UX
   - Zoom now correctly centers on touch point (pinch or double-tap location)
   - Pan works symmetrically in all directions with proper constraints

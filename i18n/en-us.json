@@ -105,6 +105,7 @@
   "toast.cannotUpdateDuringGeneration": "Cannot update prompt while images are being generated for this message",
   "toast.generatingImagesProgress": "Generating images: {current} of {total}",
   "toast.generatingImagesProgressWithMessage": "Message #{messageId}: Generating {current} of {total} images",
+  "toast.reloadRequired": "Please reload the page for this change to take effect",
   "progress.succeeded": "ok",
   "progress.failed": "failed",
   "progress.pending": "pending",

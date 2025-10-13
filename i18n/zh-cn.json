@@ -105,6 +105,7 @@
   "toast.cannotUpdateDuringGeneration": "该消息正在生成图像，无法更新提示词",
   "toast.generatingImagesProgress": "正在生成图像：{current}/{total}",
   "toast.generatingImagesProgressWithMessage": "消息 #{messageId}：正在生成 {current}/{total} 图片",
+  "toast.reloadRequired": "请刷新页面以使此更改生效",
   "progress.succeeded": "成功",
   "progress.failed": "失败",
   "progress.pending": "等待中",

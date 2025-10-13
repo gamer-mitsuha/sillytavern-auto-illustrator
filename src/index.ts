@@ -301,6 +301,8 @@ function handleSettingsChange(): void {
     UI_ELEMENT_IDS.MANUAL_GEN_MODE
   ) as HTMLSelectElement;
 
+  // Track if enabled state changed (requires page reload)
+  const wasEnabled = settings.enabled;
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
   settings.streamingEnabled =
@@ -415,6 +417,16 @@ function handleSettingsChange(): void {
 
   // Update validation status after settings change
   updateValidationStatus();
+
+  // Notify user if enable state changed
+  if (wasEnabled !== settings.enabled) {
+    toastr.info(t('toast.reloadRequired'), t('extensionName'), {
+      timeOut: 5000,
+    });
+    logger.info(
+      `Extension ${settings.enabled ? 'enabled' : 'disabled'} - reload required`
+    );
+  }
 
   logger.info('Settings updated:', settings);
 }
@@ -915,109 +927,56 @@ function cancelAllSessions(): void {
 }
 
 /**
- * Initializes the extension
+ * Registers all event handlers for the extension
+ * Only called when extension is enabled
  */
-function initialize(): void {
-  logger.info('Initializing extension...');
+function registerEventHandlers(): void {
+  logger.info('Registering event handlers...');
 
-  // Get SillyTavern context
-  try {
-    context = SillyTavern.getContext();
-    logger.info('Got SillyTavern context');
-  } catch (error) {
-    logger.error('Failed to get SillyTavern context:', error);
-    return;
-  }
-
-  // Initialize i18n
-  initializeI18n(context);
-  logger.info('Initialized i18n');
-
-  // Load settings
-  settings = loadSettings(context);
-  logger.info('Loaded settings:', settings);
-
-  // Apply log level from settings
-  setLogLevel(settings.logLevel);
-
-  // Initialize SessionManager
-  sessionManager = new SessionManager();
-  logger.info('Initialized SessionManager');
-
-  // Initialize progress widget (connects to progressManager via events)
-  initializeProgressWidget(progressManager);
-  logger.info('Initialized ProgressWidget with event subscriptions');
-
-  // Initialize gallery widget (connects to progressManager via events)
-  initializeGalleryWidget(progressManager);
-  logger.info('Initialized GalleryWidget');
-
-  // Show gallery widget on initialization to scan for existing images
-  const gallery = getGalleryWidget();
-  if (gallery) {
-    gallery.show();
-    logger.debug('Gallery widget shown on initialization');
-  }
-
-  // Initialize concurrency limiter with settings
-  initializeConcurrencyLimiter(
-    settings.maxConcurrentGenerations,
-    settings.minGenerationInterval
-  );
-  logger.info(
-    `Initialized concurrency limiter: max=${settings.maxConcurrentGenerations}, minInterval=${settings.minGenerationInterval}ms`
-  );
-
-  // Create and register message handler
+  // Create message handler
   const messageHandler = createMessageHandler(context, settings);
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
-  // Add manual generation button to new messages and add click handlers to images
+  // Add manual generation buttons and image click handlers on message received
   context.eventSource.on(MESSAGE_RECEIVED, (messageId: number) => {
-    // Use setTimeout to ensure DOM is updated
     setTimeout(() => {
       const $mes = $(`.mes[mesid="${messageId}"]`);
       if ($mes.length > 0) {
         addManualGenerationButton($mes, messageId, context, settings);
       }
-      // Add click handlers to all images (including newly added ones)
       addImageClickHandlers(context, settings);
     }, 100);
   });
 
-  // Add click handlers when messages are updated (e.g., after deferred image insertion)
+  // Add click handlers when messages are updated
   const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
   context.eventSource.on(MESSAGE_UPDATED, () => {
-    // Use setTimeout to ensure DOM is fully updated
     setTimeout(() => {
       addImageClickHandlers(context, settings);
     }, 100);
   });
 
-  // Register GENERATION_STARTED to track generation type
+  // Track generation type
   const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
   context.eventSource.on(
     GENERATION_STARTED,
     (type: string, _options: unknown, dryRun: boolean) => {
-      // Skip dry runs (token counting/preview)
       if (dryRun) {
         logger.trace('Generation started (dry run), skipping type tracking', {
           type,
         });
         return;
       }
-
       currentGenerationType = type;
       logger.info('Generation started (actual)', {type});
     }
   );
 
-  // Register CHAT_COMPLETION_PROMPT_READY handler for pruning and meta-prompt injection
+  // Chat history pruning and meta-prompt injection
   const CHAT_COMPLETION_PROMPT_READY =
     context.eventTypes.CHAT_COMPLETION_PROMPT_READY;
-  context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, eventData => {
-    // Skip if this is a dry run (token counting, not actual generation)
+  context.eventSource.on(CHAT_COMPLETION_PROMPT_READY, (eventData: any) => {
     if (eventData?.dryRun) {
       logger.trace('Skipping prompt ready processing for dry run');
       return;
@@ -1030,10 +989,7 @@ function initialize(): void {
     // Prune generated images from chat history
     pruneGeneratedImages(eventData.chat);
 
-    // Inject meta-prompt as last system message (if enabled and appropriate)
-    // If currentGenerationType is null (e.g., timing issue on first message),
-    // assume 'normal' type to ensure meta-prompt is injected by default.
-    // Only skip for quiet and impersonate types.
+    // Inject meta-prompt
     const effectiveType = currentGenerationType || 'normal';
     const shouldInject =
       settings.enabled &&
@@ -1068,9 +1024,9 @@ function initialize(): void {
 
   // Register streaming handlers
   const STREAM_TOKEN_RECEIVED = context.eventTypes.STREAM_TOKEN_RECEIVED;
-  const GENERATION_ENDED = context.eventTypes.GENERATION_ENDED;
-
   context.eventSource.on(STREAM_TOKEN_RECEIVED, handleFirstStreamToken);
+
+  const GENERATION_ENDED = context.eventTypes.GENERATION_ENDED;
   context.eventSource.on(GENERATION_ENDED, handleGenerationEnded);
 
   logger.info('Event handlers registered:', {
@@ -1081,6 +1037,76 @@ function initialize(): void {
     STREAM_TOKEN_RECEIVED,
     GENERATION_ENDED,
   });
+}
+
+/**
+ * Initializes the extension
+ */
+function initialize(): void {
+  logger.info('Initializing extension...');
+
+  // Get SillyTavern context
+  try {
+    context = SillyTavern.getContext();
+    logger.info('Got SillyTavern context');
+  } catch (error) {
+    logger.error('Failed to get SillyTavern context:', error);
+    return;
+  }
+
+  // Initialize i18n
+  initializeI18n(context);
+  logger.info('Initialized i18n');
+
+  // Load settings
+  settings = loadSettings(context);
+  logger.info('Loaded settings:', settings);
+
+  // Apply log level from settings
+  setLogLevel(settings.logLevel);
+
+  // Conditionally initialize extension components based on settings.enabled
+  if (settings.enabled) {
+    // Initialize SessionManager
+    sessionManager = new SessionManager();
+    logger.info('Initialized SessionManager');
+
+    // Initialize progress widget (connects to progressManager via events)
+    initializeProgressWidget(progressManager);
+    logger.info('Initialized ProgressWidget with event subscriptions');
+
+    // Initialize gallery widget (connects to progressManager via events)
+    initializeGalleryWidget(progressManager);
+    logger.info('Initialized GalleryWidget');
+
+    // Show gallery widget on initialization to scan for existing images
+    const gallery = getGalleryWidget();
+    if (gallery) {
+      gallery.show();
+      logger.debug('Gallery widget shown on initialization');
+    }
+  } else {
+    logger.info(
+      'Extension is disabled - skipping SessionManager and widget initialization'
+    );
+  }
+
+  // Initialize concurrency limiter with settings
+  initializeConcurrencyLimiter(
+    settings.maxConcurrentGenerations,
+    settings.minGenerationInterval
+  );
+  logger.info(
+    `Initialized concurrency limiter: max=${settings.maxConcurrentGenerations}, minInterval=${settings.minGenerationInterval}ms`
+  );
+
+  // Conditionally register event handlers based on settings.enabled
+  if (settings.enabled) {
+    registerEventHandlers();
+    logger.info('Extension is enabled - event handlers registered');
+  } else {
+    logger.info('Extension is disabled - skipping event handler registration');
+  }
 
   // Inject settings UI
   const settingsContainer = document.getElementById('extensions_settings2');
