@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Progress widget automatically benefits from all mobile UX improvements
   - Reduced bundle size by 8 KiB (from 255 KiB to 247 KiB)
   - Both progress widget and gallery widget now share the same modal implementation
+- Gallery widget now only appears during active chat sessions
+  - Hidden on non-chat pages (settings, character management, etc.)
+  - Prevents empty widget from cluttering non-chat UI
 
 ## [1.3.0] - 2025-01-13
 
