@@ -383,7 +383,7 @@ export class GalleryWidgetView {
 
     widget.innerHTML = `
       <button class="ai-img-gallery-fab" title="${t('gallery.expand')}">
-        <span class="ai-img-gallery-fab-icon">🖼️</span>
+        <i class="ai-img-gallery-fab-icon fa-solid fa-images"></i>
         <span class="ai-img-gallery-fab-badge">${totalImages}</span>
       </button>
     `;
@@ -410,13 +410,13 @@ export class GalleryWidgetView {
     header.className = 'ai-img-gallery-header';
     header.innerHTML = `
       <div class="ai-img-gallery-title">
-        <span class="ai-img-gallery-icon">🖼️</span>
+        <i class="ai-img-gallery-icon fa-solid fa-images"></i>
         <span>${t('gallery.title')}</span>
         <span class="ai-img-gallery-count">(${totalImages} ${t('gallery.images')})</span>
       </div>
       <div class="ai-img-gallery-actions">
-        <button class="ai-img-gallery-btn view-all-btn" title="${t('gallery.viewAll')}">👁️</button>
-        <button class="ai-img-gallery-btn minimize-btn" title="${t('gallery.minimize')}">─</button>
+        <button class="ai-img-gallery-btn view-all-btn" title="${t('gallery.viewAll')}"><i class="fa-solid fa-eye"></i></button>
+        <button class="ai-img-gallery-btn minimize-btn" title="${t('gallery.minimize')}"><i class="fa-solid fa-minus"></i></button>
       </div>
     `;
     widget.appendChild(header);
