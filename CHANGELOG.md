@@ -9,8 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Image modal close button now fully visible on desktop (moved from -3rem to 1rem top position)
-- Mobile prompt text no longer cut off when expanded (increased max-height from 15vh to 25vh, container from 35vh to 45vh)
+- Desktop: Progress widget no longer overlaps with chat input area (adjusted bottom position from 0 to 2rem)
+- Desktop: Image modal no longer overlaps with prompt area and action buttons
+  - Replaced hardcoded image height calculation with proper flexbox layout
+  - Added max-height constraints to info bar (35vh) and prompt (25vh) with scrolling
+  - Image and info bar now dynamically share available vertical space
+  - Long prompts scroll internally instead of pushing content out of viewport
+- Mobile: Action buttons (zoom, download) now fully visible and not cut off at bottom
+  - Reduced image container height (70vh → 65dvh) to reserve space for info bar
+  - Limited info bar expanded height (45vh → 30dvh) to keep buttons in viewport
+  - Added iOS safe area support for devices with notch/home indicator
+- Mobile: Eliminated auto-scroll when expanding prompt viewer
+  - Added overflow-anchor: none to prevent browser scroll adjustment
+  - Added overscroll-behavior: contain to prevent scroll chaining
+  - Made prompt scrollable internally instead of scrolling entire info bar
+- Improved mobile compatibility: Using dvh (dynamic viewport height) units for better handling of mobile browser chrome showing/hiding
 
 ### Added
 
