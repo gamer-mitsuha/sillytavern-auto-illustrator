@@ -348,9 +348,19 @@ export class GalleryWidgetView {
   private updateDisplay(): void {
     const widget = this.getOrCreateGalleryWidget();
 
-    if (!this.isWidgetVisible) {
+    // Check if we're in an active chat session
+    const context = (window as any).SillyTavern?.getContext?.();
+    const hasActiveChat =
+      context?.chat && Array.isArray(context.chat) && context.chat.length > 0;
+
+    // Hide widget if no active chat or if explicitly hidden by user
+    if (!hasActiveChat || !this.isWidgetVisible) {
       widget.style.display = 'none';
-      logger.trace('Gallery widget hidden');
+      logger.trace(
+        hasActiveChat
+          ? 'Gallery widget hidden by user'
+          : 'Gallery widget hidden - no active chat'
+      );
       return;
     }
 
