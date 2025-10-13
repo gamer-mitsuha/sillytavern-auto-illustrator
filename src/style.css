@@ -1356,6 +1356,7 @@
   flex-direction: column;
   width: min(400px, 90vw);
   max-height: 80vh;
+  height: 80vh; /* Set explicit height for proper flex child sizing */
   background: linear-gradient(
     135deg,
     rgba(30, 30, 40, 0.95) 0%,
@@ -1371,7 +1372,7 @@
     0 0 0 1px rgba(255, 255, 255, 0.05) inset,
     0 2px 4px rgba(155, 89, 182, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  overflow: hidden; /* Keep this to clip rounded corners properly */
 }
 
 /* Minimized state - shrink to fit FAB only */
@@ -1439,6 +1440,7 @@
   padding: 0.75rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
+  flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 .ai-img-gallery-title {
@@ -1487,7 +1489,7 @@
 
 /* Gallery content */
 .ai-img-gallery-content {
-  flex: 1;
+  flex: 1 1 auto; /* Grow and shrink, auto basis */
   min-height: 0; /* Critical: Allow flex shrinking for proper scrolling */
   overflow-y: auto;
   overflow-x: hidden;
@@ -1495,6 +1497,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  position: relative; /* Establish positioning context */
 }
 
 /* Empty state */
@@ -1513,6 +1516,7 @@
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateY(0);
+  flex-shrink: 0; /* Prevent message groups from shrinking */
 }
 
 .ai-img-gallery-message-group:hover {
