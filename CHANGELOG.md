@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented momentum scrolling with velocity tracking and friction-based deceleration
   - Fixed toast notification positioning on mobile to avoid safe area overlap
   - Added iOS-specific download handling (opens in new tab with long-press save instruction)
+- Progress widget now uses shared modal viewer for consistent UX
+  - Eliminated 597 lines of duplicate modal code
+  - Progress widget automatically benefits from all mobile UX improvements
+  - Reduced bundle size by 8 KiB (from 255 KiB to 247 KiB)
+  - Both progress widget and gallery widget now share the same modal implementation
 
 ## [1.3.0] - 2025-01-13
 
