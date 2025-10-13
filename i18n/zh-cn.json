@@ -141,5 +141,8 @@
   "gallery.noImages": "此对话中未找到图片",
   "gallery.expand": "展开画廊",
   "gallery.minimize": "最小化画廊",
-  "gallery.close": "关闭画廊"
+  "gallery.close": "关闭画廊",
+  "gallery.viewAll": "查看所有图片",
+  "gallery.imageViewer": "图片查看器",
+  "gallery.allImages": "所有对话图片"
 }

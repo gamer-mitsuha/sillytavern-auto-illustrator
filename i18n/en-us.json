@@ -141,5 +141,8 @@
   "gallery.noImages": "No images found in this chat",
   "gallery.expand": "Expand Gallery",
   "gallery.minimize": "Minimize Gallery",
-  "gallery.close": "Close Gallery"
+  "gallery.close": "Close Gallery",
+  "gallery.viewAll": "View All Images",
+  "gallery.imageViewer": "Image Viewer",
+  "gallery.allImages": "All Chat Images"
 }

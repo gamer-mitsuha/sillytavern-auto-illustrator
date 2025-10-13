@@ -14,6 +14,7 @@ import {t} from './i18n';
 import {getMetadata} from './prompt_metadata';
 import {extractImagePrompts} from './image_extractor';
 import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
+import {openImageModal, type ModalImage} from './modal_viewer';
 import type {
   ProgressManager,
   ProgressImageCompletedEventDetail,
@@ -414,6 +415,7 @@ export class GalleryWidgetView {
         <span class="ai-img-gallery-count">(${totalImages} ${t('gallery.images')})</span>
       </div>
       <div class="ai-img-gallery-actions">
+        <button class="ai-img-gallery-btn view-all-btn" title="${t('gallery.viewAll')}">👁️</button>
         <button class="ai-img-gallery-btn minimize-btn" title="${t('gallery.minimize')}">─</button>
       </div>
     `;
@@ -425,6 +427,11 @@ export class GalleryWidgetView {
       this.isWidgetMinimized = true;
       this.saveStateToChatMetadata();
       this.updateDisplay();
+    });
+
+    const viewAllBtn = header.querySelector('.view-all-btn');
+    viewAllBtn?.addEventListener('click', () => {
+      this.showAllImagesModal();
     });
 
     // Create content container
@@ -528,8 +535,7 @@ export class GalleryWidgetView {
   }
 
   /**
-   * Show image modal viewer
-   * TODO: This is a placeholder - will be implemented by reusing progress_widget modal
+   * Show image modal viewer for a specific message group
    */
   private showImageModal(
     group: MessageGalleryGroup,
@@ -539,14 +545,68 @@ export class GalleryWidgetView {
       `Opening image modal for message ${group.messageId}, image ${initialIndex + 1}/${group.images.length}`
     );
 
-    // TODO: Implement modal viewer
-    // For now, just log
-    const image = group.images[initialIndex];
-    logger.info(`Image: ${image.imageUrl}`);
-    logger.info(`Prompt: ${image.promptText}`);
+    // Convert gallery images to modal images format
+    const modalImages: ModalImage[] = group.images.map(img => ({
+      imageUrl: img.imageUrl,
+      promptText: img.promptText,
+      promptPreview: img.promptPreview,
+      messageId: img.messageId,
+      imageIndex: img.imageIndex,
+    }));
 
-    // Placeholder: Open image in new tab
-    window.open(image.imageUrl, '_blank');
+    // Open the modal viewer
+    openImageModal({
+      images: modalImages,
+      initialIndex,
+      title: t('gallery.imageViewer'),
+      onClose: () => {
+        logger.debug('Gallery modal closed');
+      },
+      onNavigate: (newIndex: number) => {
+        logger.trace(`Gallery modal navigated to image ${newIndex + 1}/${modalImages.length}`);
+      },
+    });
+  }
+
+  /**
+   * Show all images from all messages in a single modal
+   */
+  private showAllImagesModal(): void {
+    // Collect all images from all message groups (newest first)
+    const allImages: ModalImage[] = [];
+    const groups = Array.from(this.messageGroups.values()).reverse();
+
+    for (const group of groups) {
+      for (const img of group.images) {
+        allImages.push({
+          imageUrl: img.imageUrl,
+          promptText: img.promptText,
+          promptPreview: img.promptPreview,
+          messageId: img.messageId,
+          imageIndex: img.imageIndex,
+        });
+      }
+    }
+
+    if (allImages.length === 0) {
+      logger.warn('No images to display in modal');
+      return;
+    }
+
+    logger.debug(`Opening modal with all ${allImages.length} images from ${groups.length} messages`);
+
+    // Open the modal viewer with all images
+    openImageModal({
+      images: allImages,
+      initialIndex: 0,
+      title: t('gallery.allImages'),
+      onClose: () => {
+        logger.debug('All images modal closed');
+      },
+      onNavigate: (newIndex: number) => {
+        logger.trace(`All images modal navigated to image ${newIndex + 1}/${allImages.length}`);
+      },
+    });
   }
 
   /**
