@@ -873,6 +873,20 @@ class ProgressWidgetView {
     });
     header.appendChild(collapseBtn);
 
+    // Add close button (×)
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ai-img-progress-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.title = t('progress.closeWidget');
+    closeBtn.addEventListener('click', () => {
+      // Close all visible messages
+      for (const [messageId] of visibleMessages) {
+        this.closedMessages.add(messageId);
+      }
+      this.scheduleUpdate();
+    });
+    header.appendChild(closeBtn);
+
     widget.appendChild(header);
 
     // Add progress content for each message
@@ -1017,6 +1031,19 @@ class ProgressWidgetView {
         this.scheduleUpdate();
       });
       messageHeader.appendChild(collapseToggle);
+    }
+
+    // Add close button (×) for completed messages
+    if (isComplete) {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'ai-img-progress-message-close';
+      closeBtn.innerHTML = '×';
+      closeBtn.title = t('progress.closeWidget');
+      closeBtn.addEventListener('click', () => {
+        this.closedMessages.add(messageId);
+        this.scheduleUpdate();
+      });
+      messageHeader.appendChild(closeBtn);
     }
 
     messageContainer.appendChild(messageHeader);
