@@ -361,8 +361,10 @@ export class GalleryWidgetView {
     widget.innerHTML = '';
 
     if (this.isWidgetMinimized) {
+      widget.classList.add('minimized');
       this.renderMinimizedWidget(widget);
     } else {
+      widget.classList.remove('minimized');
       this.renderExpandedWidget(widget);
     }
 
@@ -413,7 +415,6 @@ export class GalleryWidgetView {
       </div>
       <div class="ai-img-gallery-actions">
         <button class="ai-img-gallery-btn minimize-btn" title="${t('gallery.minimize')}">─</button>
-        <button class="ai-img-gallery-btn close-btn" title="${t('gallery.close')}">×</button>
       </div>
     `;
     widget.appendChild(header);
@@ -424,11 +425,6 @@ export class GalleryWidgetView {
       this.isWidgetMinimized = true;
       this.saveStateToChatMetadata();
       this.updateDisplay();
-    });
-
-    const closeBtn = header.querySelector('.close-btn');
-    closeBtn?.addEventListener('click', () => {
-      this.hide();
     });
 
     // Create content container

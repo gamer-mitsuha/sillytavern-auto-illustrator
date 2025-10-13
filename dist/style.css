@@ -1374,11 +1374,22 @@
   overflow: hidden;
 }
 
+/* Minimized state - shrink to fit FAB only */
+.ai-img-gallery-widget-global.minimized {
+  width: auto;
+  max-height: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
 /* Gallery FAB (Floating Action Button) - minimized state */
 .ai-img-gallery-fab {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: linear-gradient(
     135deg,
@@ -1387,7 +1398,7 @@
   );
   border: 2px solid rgba(255, 255, 255, 0.2);
   color: white;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   cursor: pointer;
   box-shadow:
     0 4px 12px rgba(155, 89, 182, 0.4),
@@ -1407,15 +1418,15 @@
 
 .ai-img-gallery-fab-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: -3px;
+  right: -3px;
   background: rgba(231, 76, 60, 0.9);
   color: white;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 10px;
-  min-width: 20px;
+  padding: 2px 5px;
+  border-radius: 9px;
+  min-width: 18px;
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
@@ -1623,14 +1634,19 @@
     max-height: 70vh;
   }
 
+  .ai-img-gallery-widget-global.minimized {
+    top: 3rem;
+    right: 0.5rem;
+  }
+
   .ai-img-gallery-thumbnails {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   }
 
   .ai-img-gallery-fab {
-    width: 50px;
-    height: 50px;
-    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+    font-size: 1.3rem;
   }
 }
 
