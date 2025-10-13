@@ -879,10 +879,48 @@
   gap: 0.5rem;
 }
 
+.ai-img-modal-action-btn i {
+  font-size: 0.9rem;
+  width: 1rem;
+  text-align: center;
+}
+
 .ai-img-modal-action-btn:hover {
   background: rgba(155, 89, 182, 0.4);
   border-color: rgba(155, 89, 182, 0.8);
   transform: translateY(-2px);
+}
+
+/* Toast notifications */
+.ai-img-modal-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: white;
+  z-index: 10003;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ai-img-modal-toast.show {
+  opacity: 1;
+}
+
+.ai-img-modal-toast-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ai-img-modal-toast-error {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Mobile optimizations for progress widget */

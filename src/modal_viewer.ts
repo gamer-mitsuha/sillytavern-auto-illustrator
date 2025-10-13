@@ -217,8 +217,9 @@ export class ImageModalViewer {
     this.prevBtn?.addEventListener('click', () => this.navigate(-1));
     this.nextBtn?.addEventListener('click', () => this.navigate(1));
 
-    // Keyboard navigation
+    // Keyboard navigation and shortcuts
     this.boundHandlers.keydown = ((e: KeyboardEvent) => {
+      // Navigation
       switch (e.key) {
         case 'ArrowLeft':
           this.navigate(-1);
@@ -229,6 +230,53 @@ export class ImageModalViewer {
         case 'Escape':
           this.close();
           break;
+        case 'Home':
+          this.navigateToIndex(0);
+          break;
+        case 'End':
+          this.navigateToIndex(this.images.length - 1);
+          break;
+      }
+
+      // Action shortcuts (case insensitive)
+      const key = e.key.toLowerCase();
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        switch (key) {
+          case 'c':
+            const currentImage = this.images[this.currentIndex];
+            this.copyPromptToClipboard(currentImage.promptText);
+            break;
+          case 'd':
+            const downloadImage = this.images[this.currentIndex];
+            this.downloadImage(downloadImage.imageUrl, `image-${this.currentIndex + 1}.png`);
+            this.showToast(t('modal.downloadStarted'));
+            break;
+          case 'o':
+            const openImage = this.images[this.currentIndex];
+            window.open(openImage.imageUrl, '_blank', 'noopener,noreferrer');
+            break;
+          case 'r':
+            if (this.zoomState.scale > this.MIN_ZOOM) {
+              this.resetZoom();
+            }
+            break;
+          case '+':
+          case '=':
+            this.zoomTo(this.zoomState.scale + this.ZOOM_STEP);
+            break;
+          case '-':
+          case '_':
+            this.zoomTo(this.zoomState.scale - this.ZOOM_STEP);
+            break;
+        }
+      }
+
+      // Number keys for quick navigation
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
+        const targetIndex = parseInt(e.key) - 1;
+        if (targetIndex < this.images.length) {
+          this.navigateToIndex(targetIndex);
+        }
       }
     }) as EventListener;
     document.addEventListener('keydown', this.boundHandlers.keydown);
@@ -431,6 +479,17 @@ export class ImageModalViewer {
   }
 
   /**
+   * Navigate to a specific index
+   */
+  private navigateToIndex(index: number): void {
+    if (index >= 0 && index < this.images.length && index !== this.currentIndex) {
+      this.currentIndex = index;
+      this.updateDisplay();
+      this.onNavigate?.(this.currentIndex);
+    }
+  }
+
+  /**
    * Update the modal display
    */
   private updateDisplay(changeImage = true): void {
@@ -457,13 +516,16 @@ export class ImageModalViewer {
       </div>
       <div class="ai-img-modal-actions">
         <button class="ai-img-modal-action-btn reset-zoom-btn" title="${t('modal.resetZoom')}" style="display: none;">
-          ↺ ${t('modal.resetZoom')}
+          <i class="fa fa-undo"></i> ${t('modal.resetZoom')}
         </button>
-        <button class="ai-img-modal-action-btn open-tab-btn" title="${t('modal.openInNewTab')}">
-          🔗 ${t('modal.openInNewTab')}
+        <button class="ai-img-modal-action-btn copy-prompt-btn" title="${t('modal.copyPrompt')} (C)">
+          <i class="fa fa-copy"></i> ${t('modal.copyPrompt')}
         </button>
-        <button class="ai-img-modal-action-btn download-btn" title="${t('modal.download')}">
-          💾 ${t('modal.download')}
+        <button class="ai-img-modal-action-btn open-tab-btn" title="${t('modal.openInNewTab')} (O)">
+          <i class="fa fa-external-link-alt"></i> ${t('modal.openInNewTab')}
+        </button>
+        <button class="ai-img-modal-action-btn download-btn" title="${t('modal.download')} (D)">
+          <i class="fa fa-download"></i> ${t('modal.download')}
         </button>
       </div>
     `;
@@ -507,6 +569,7 @@ export class ImageModalViewer {
     if (!this.meta) return;
 
     const resetZoomBtn = this.meta.querySelector('.reset-zoom-btn') as HTMLButtonElement;
+    const copyPromptBtn = this.meta.querySelector('.copy-prompt-btn');
     const downloadBtn = this.meta.querySelector('.download-btn');
     const openTabBtn = this.meta.querySelector('.open-tab-btn');
 
@@ -523,9 +586,15 @@ export class ImageModalViewer {
       updateResetButton();
     });
 
+    copyPromptBtn?.addEventListener('click', () => {
+      const currentImage = this.images[this.currentIndex];
+      this.copyPromptToClipboard(currentImage.promptText);
+    });
+
     downloadBtn?.addEventListener('click', () => {
       const currentImage = this.images[this.currentIndex];
       this.downloadImage(currentImage.imageUrl, `image-${this.currentIndex + 1}.png`);
+      this.showToast(t('modal.downloadStarted'));
     });
 
     openTabBtn?.addEventListener('click', () => {
@@ -536,6 +605,66 @@ export class ImageModalViewer {
         logger.warn('Failed to open image in new tab', e);
       }
     });
+  }
+
+  /**
+   * Copy prompt text to clipboard
+   */
+  private async copyPromptToClipboard(text: string): Promise<void> {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        this.showToast(t('modal.copiedToClipboard'));
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          this.showToast(t('modal.copiedToClipboard'));
+        } catch (err) {
+          this.showToast(t('modal.copyFailed'), 'error');
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to copy to clipboard', err);
+      this.showToast(t('modal.copyFailed'), 'error');
+    }
+  }
+
+  /**
+   * Show a toast notification
+   */
+  private showToast(message: string, type: 'success' | 'error' = 'success'): void {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `ai-img-modal-toast ai-img-modal-toast-${type}`;
+    toast.textContent = message;
+
+    // Add to container or backdrop
+    const container = this.container || this.backdrop;
+    if (container) {
+      container.appendChild(toast);
+
+      // Trigger animation
+      setTimeout(() => {
+        toast.classList.add('show');
+      }, 10);
+
+      // Remove after animation
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 2000);
+    }
   }
 
   /**
