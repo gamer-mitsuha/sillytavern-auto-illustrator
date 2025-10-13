@@ -129,6 +129,14 @@ class ProgressWidgetView {
   private handleStarted(detail: ProgressStartedEventDetail): void {
     logger.debug(`Started tracking message ${detail.messageId}`);
 
+    // Remove from closed messages to ensure widget reappears
+    if (this.closedMessages.has(detail.messageId)) {
+      logger.debug(
+        `Removing message ${detail.messageId} from closed messages - widget will reappear`
+      );
+      this.closedMessages.delete(detail.messageId);
+    }
+
     // Check if this is a regeneration (message already exists)
     const existing = this.messageProgress.get(detail.messageId);
     if (existing) {
