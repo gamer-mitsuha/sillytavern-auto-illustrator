@@ -128,14 +128,33 @@ class ProgressWidgetView {
    */
   private handleStarted(detail: ProgressStartedEventDetail): void {
     logger.debug(`Started tracking message ${detail.messageId}`);
-    this.messageProgress.set(detail.messageId, {
-      current: 0,
-      total: detail.total,
-      succeeded: 0,
-      failed: 0,
-      startTime: Date.now(),
-      completedImages: [],
-    });
+
+    // Check if this is a regeneration (message already exists)
+    const existing = this.messageProgress.get(detail.messageId);
+    if (existing) {
+      logger.debug(
+        `Message ${detail.messageId} already exists - clearing old images for regeneration`
+      );
+      // Clear completed images for regeneration
+      existing.completedImages = [];
+      // Reset counts for new generation
+      existing.current = 0;
+      existing.total = detail.total;
+      existing.succeeded = 0;
+      existing.failed = 0;
+      existing.startTime = Date.now();
+    } else {
+      // New message
+      this.messageProgress.set(detail.messageId, {
+        current: 0,
+        total: detail.total,
+        succeeded: 0,
+        failed: 0,
+        startTime: Date.now(),
+        completedImages: [],
+      });
+    }
+
     this.scheduleUpdate();
   }
 
@@ -568,6 +587,9 @@ class ProgressWidgetView {
           progress.completedImages
         );
       }
+    } else if (gallery) {
+      // No images, but gallery exists - remove it (e.g., during regeneration)
+      gallery.remove();
     }
   }
 
@@ -618,8 +640,42 @@ class ProgressWidgetView {
     const existingCount = existingThumbnails.length;
     const newCount = images.length;
 
-    // Only add new thumbnails (don't recreate existing ones)
-    if (newCount > existingCount) {
+    // If we have fewer images than before (e.g., regeneration), clear and rebuild
+    if (newCount < existingCount) {
+      // Clear all thumbnails
+      thumbnailsContainer.innerHTML = '';
+      // Rebuild from scratch with new images
+      for (let i = 0; i < newCount; i++) {
+        const image = images[i];
+        const thumbnail = document.createElement('div');
+        thumbnail.className = 'ai-img-progress-thumbnail';
+        thumbnail.title = image.promptText;
+
+        // Add index badge
+        const indexBadge = document.createElement('div');
+        indexBadge.className = 'ai-img-progress-thumbnail-index';
+        indexBadge.textContent = t('progress.imageIndex', {
+          current: String(i + 1),
+          total: String(newCount),
+        });
+        thumbnail.appendChild(indexBadge);
+
+        // Create img element
+        const img = document.createElement('img');
+        img.src = image.imageUrl;
+        img.alt = image.promptPreview;
+        img.loading = 'lazy';
+        thumbnail.appendChild(img);
+
+        // Add click handler
+        thumbnail.addEventListener('click', () => {
+          this.showImageModal(messageId, i);
+        });
+
+        thumbnailsContainer.appendChild(thumbnail);
+      }
+    } else if (newCount > existingCount) {
+      // Only add new thumbnails (don't recreate existing ones)
       for (let i = existingCount; i < newCount; i++) {
         const image = images[i];
         const thumbnail = document.createElement('div');
@@ -665,6 +721,7 @@ class ProgressWidgetView {
           }
         });
     }
+    // If newCount === existingCount, we assume images are the same and don't update
   }
 
   /**
