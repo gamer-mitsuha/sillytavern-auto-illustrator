@@ -7,194 +7,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-10-13
+
 ### Added
 
-- Widget visibility settings to control which widgets are displayed
-  - Added "Show Progress Widget" setting to enable/disable the progress widget
-  - Added "Show Gallery Widget" setting to enable/disable the gallery widget
-  - Both widgets default to enabled (true) for backward compatibility
+- **Permanent Gallery Widget** (#50)
+  - Always-available widget for reviewing all generated images in current chat
+  - Groups images by assistant message with collapsible headers and message previews
+  - Minimizes to floating action button (FAB) with image count badge
+  - State persistence: remembers visibility, minimization, and expanded messages per-chat
+  - Located at top-right of chat area with modern glassmorphism design
+  - Automatically updates when new images complete
+
+- **Widget Visibility Controls**
+  - New settings to show/hide Progress Widget and Gallery Widget independently
+  - Both widgets default to enabled for backward compatibility
   - Requires page reload to take effect when changed
-- Progress widget close functionality (PROG-005)
-  - Added close button (×) to widget header to dismiss all messages at once
-  - Added close button (×) to individual completed messages for selective dismissal
-  - Closed messages are hidden until new images are generated for that message
-- Enhanced gallery widget state persistence logging for debugging
-  - Improved visibility of save/load operations in console
-  - Shows detailed state information (visible, minimized, expanded messages count)
-  - Helps diagnose state persistence issues when switching chats
 
-### Fixed
+- **Progress Widget Enhancements**
+  - **Close functionality**: Added close button (×) in widget header and for individual completed messages
+  - **Two-level collapse**: Widget-level and message-level collapsing for better scalability
+  - **Persistent after completion**: Widget remains visible after generation completes with manual close control
+  - **Improved visual design**: Modern glassmorphism UI with gradient background and status badges
+  - **Better thumbnail layout**: Thumbnails wrap to multiple rows instead of horizontal scrolling
+  - **Space efficiency**: 5 messages reduce from ~2000px to ~600px height when collapsed
+  - Widget stays expanded after all images finish, showing completion indicator (checkmark) and "Images Generated" title
 
-- Context and chat metadata caching issues that caused stale data after chat switches (#34)
-  - All code now calls `SillyTavern.getContext()` when accessing chat or chatMetadata instead of caching context references
-  - Fixed QueueProcessor, StreamingMonitor, MessageHandler, and ManualGeneration to use fresh context
-  - Ensures extension always operates on the correct chat's metadata after switching chats
-- Extension enable/disable setting now properly controls all extension functionality
-  - When disabled, no event handlers are registered, no widgets are initialized, and no automatic processing occurs
-  - User is notified to reload the page when toggling the enable setting
-  - Ensures extension is completely inactive when disabled, providing true on/off control
-- Mobile zoom/pan system redesigned for better UX
-  - Zoom now correctly centers on touch point (pinch or double-tap location)
-  - Pan works symmetrically in all directions with proper constraints
-  - Added smooth CSS transitions for zoom operations
-  - Implemented momentum scrolling with velocity tracking and friction-based deceleration
-  - Fixed toast notification positioning on mobile to avoid safe area overlap
-  - Added iOS-specific download handling (opens in new tab with long-press save instruction)
-- Progress widget now uses shared modal viewer for consistent UX
-  - Eliminated 597 lines of duplicate modal code
-  - Progress widget automatically benefits from all mobile UX improvements
-  - Reduced bundle size by 8 KiB (from 255 KiB to 247 KiB)
-  - Both progress widget and gallery widget now share the same modal implementation
-- Gallery widget now only appears during active chat sessions
-  - Hidden on non-chat pages (settings, character management, etc.)
-  - Prevents empty widget from cluttering non-chat UI
-
-## [1.3.0] - 2025-01-13
-
-### Fixed
-
-- Gallery widget now visible by default and correctly extracts images
-  - Widget now visible by default for new chats (previously hidden)
-  - Fixed image extraction by reusing existing `extractImagePrompts()` function
-  - Supports all three prompt formats: HTML comment `<!--img-prompt="..."-->` (primary), hyphenated `<img-prompt="...">`, and legacy underscore `<img_prompt="...">`
-  - Deleted broken `IMAGE_PROMPT_WITH_IMG_PATTERN` constant that only matched hyphenated format
-  - State now stored per-chat in `chat_metadata` instead of global localStorage
-  - Each chat remembers its own gallery visibility, minimization, and expanded messages
-  - State persists with chat backups/exports
-  - Widget shows automatically on initialization to scan for existing images
-  - Listens for CHAT_CHANGED to reload state when switching chats
-  - Listens for MESSAGE_EDITED to detect new images from manual generation
-- Widget state preservation during updates
-  - **Smart DOM updates**: Progress widget now uses differential DOM updates instead of full rebuilds
-  - **Scroll position preservation**: Thumbnail gallery scroll positions are saved and restored during updates
-  - **Image viewer state maintained**: Zoom and pan states in the image modal no longer reset during progress updates
-  - **Improved performance**: Only changed elements are updated, reducing DOM thrashing
-  - Fixes UX issue where interacting with images (zooming, panning, scrolling) would reset when progress updated
-- Regeneration now properly clears old thumbnails
-  - Progress widget clears existing completedImages array when regenerating same message
-  - Thumbnail gallery updates correctly when image count decreases
-  - Fixes issue where stale thumbnails remained visible during regeneration
-
-### Added
-
-- Permanent image gallery widget for reviewing all generated images (#50)
-  - **Separate from progress widget**: Always-available gallery independent of generation progress
-  - **Message grouping**: Groups images by assistant message with collapsible headers
-  - **Message preview**: Shows first 100 chars of message text for context
-  - **Thumbnail grid**: Responsive grid layout (100px thumbnails) with image count badges
-  - **FAB minimization**: Minimizes to floating action button with image count badge
-  - **State persistence**: Remembers visibility, minimization, and expanded messages in localStorage
-  - **Auto-refresh**: Automatically updates when new images complete via progress manager events
-  - **Global functions**: Exposed `toggleImageGallery()`, `showImageGallery()`, `hideImageGallery()` for easy access
-  - **Reuses UI components**: Leverages thumbnail styling and modal patterns from progress widget
-  - **Mobile responsive**: Glassmorphism design with safe-area padding and responsive layouts
-  - Solves issue where users needed easy way to review all generated images in current chat
-  - Located at top-right of chat area (fixed position, z-index 99)
-
-- Two-level collapsible progress widget for improved scalability
-  - **Widget-level collapse**: Entire widget collapses to compact bar showing summary (e.g., "✓ 3 message(s) complete (6 images) ▼")
-  - **Message-level collapse**: Individual messages collapse to single line (e.g., "✓ Message #3: 2 ok (2 images) ▼")
-  - **Smart auto-expand/collapse**: Messages that are generating stay expanded, completed messages with images auto-expand (to show thumbnails), completed messages without images can be collapsed
-  - **Manual override**: Users can click to expand/collapse any message or the entire widget
-    - Manual collapse/expand actions are persisted and respected by auto-expand logic
-    - Collapsed messages stay collapsed until user manually expands them
-  - **Space efficiency**: 5 messages reduce from ~2000px to ~600px height (1 expanded + 4 collapsed)
-  - **Increased widget size**: Widget now uses explicit width and minimum height
-    - Expanded width: `width: min(900px, 95%)` ensures full 900px width on desktop
-    - Collapsed width: `width: min(800px, 95%)` ensures full 800px width for collapsed bar
-    - Expanded height: `min-height: 350px` ensures thumbnails are fully visible without tiny scrolling
-    - Fixes issue where widget stayed narrow (~300px) and short with content
-  - **Better thumbnail layout**: Thumbnails now wrap to multiple rows instead of horizontal scrolling
-  - **Taller widget**: Max-height increased from 70vh to 80vh for better content visibility
-  - **Smooth animations**: CSS transitions with cubic-bezier easing for polished UX
-  - **Persistent state tracking**: Widget remembers which messages are expanded/collapsed
-  - **Clickable headers**: Entire message header is clickable to expand (not just the toggle button)
-  - Solves UX problem where widget with many messages becomes unusably long
-
-- Progress widget now remains visible after image generation completes
-  - Widget stays open after all images finish generating, allowing users to review status at their convenience
-  - **Close button**: Added (×) button in widget header for manual dismissal
-  - **Completion indicator**: Spinner changes to green checkmark (✓) when all tasks complete
-  - **Title change**: "Generating Images" changes to "Images Generated" when done
-  - Users can inspect generated images and prompts before closing the widget
-  - Closing the widget does not remove generated images from chat
-  - Improves UX by giving users control over when to dismiss progress information
-
-- Enhanced zoom and pan controls for image modal
-  - **Desktop**: Mouse wheel zoom (progressive 1x-3x), click-and-drag panning, double-click zoom toggle
-  - **Mobile**: Pinch-to-zoom gesture, one-finger panning when zoomed, double-tap zoom toggle
+- **Mobile Image Viewing Experience**
+  - **Comprehensive zoom/pan system**: Pinch-to-zoom gesture, one-finger panning when zoomed, double-tap zoom toggle
   - **Zoom indicator**: Shows current zoom level (e.g., "150%") with auto-fade
-  - **Smart gestures**: Swipe navigation only works at 1x zoom, panning takes over when zoomed
-  - **Keyboard shortcuts**: `+`/`=` to zoom in, `-` to zoom out, `0` to reset
-  - **Reset button**: Dynamically appears when zoomed >1x to quickly return to fit
-  - **Boundary constraints**: Panning limited to image edges with smooth containment
-  - **Hardware accelerated**: Smooth 60fps transforms with GPU acceleration
+  - **Touch-optimized controls**: Zoom centers on touch point, momentum scrolling with velocity tracking
+  - **iOS-specific improvements**: Safe area support for notch/home indicator, new-tab download with long-press instruction
+  - **Gesture coordination**: Swipe navigation only works at 1x zoom, panning takes over when zoomed
 
-### Fixed
+- **Desktop Image Viewing Experience**
+  - Mouse wheel zoom (progressive 1x-3x), click-and-drag panning, double-click zoom toggle
+  - Keyboard shortcuts: `+`/`=` to zoom in, `-` to zoom out, `0` to reset
+  - Reset button appears when zoomed >1x to quickly return to fit
+  - Hardware accelerated transforms for smooth 60fps performance
 
-- Desktop: Progress widget no longer overlaps with chat input area (adjusted bottom position from 0 to 2rem)
-- Desktop: Image modal no longer overlaps with prompt area and action buttons
-  - Replaced hardcoded image height calculation with proper flexbox layout
-  - Added max-height constraints to info bar (35vh) and prompt (25vh) with scrolling
-  - Image and info bar now dynamically share available vertical space
-  - Long prompts scroll internally instead of pushing content out of viewport
-- Mobile: Action buttons (zoom, download) now fully visible and not cut off at bottom
-  - Reduced image container height (70vh → 65dvh) to reserve space for info bar
-  - Limited info bar expanded height (45vh → 30dvh) to keep buttons in viewport
-  - Added iOS safe area support for devices with notch/home indicator
-- Mobile: Eliminated auto-scroll when expanding prompt viewer
-  - Added overflow-anchor: none to prevent browser scroll adjustment
-  - Added overscroll-behavior: contain to prevent scroll chaining
-  - Made prompt scrollable internally instead of scrolling entire info bar
-- Improved mobile compatibility: Using dvh (dynamic viewport height) units for better handling of mobile browser chrome showing/hiding
-
-### Added
-
-- Image preview gallery in progress widget during streaming mode (#49)
-  - Shows completed images as thumbnails (100x100px) while streaming continues
-  - Click thumbnails to view full-size images in modal
-  - Modal features: navigation (prev/next), zoom, download, keyboard shortcuts
-  - Solves issue where LLM streaming output overrides inserted image tags
-  - Event-driven architecture: ProgressManager emits image-completed events
-  - Images remain visible in widget until streaming completes
-
-### Changed
-
-- Enhanced progress widget UI with modern glassmorphism design
-  - Changed layout from horizontal to vertical (column)
-  - Added gradient background with enhanced blur effects (backdrop-filter: blur(16px))
-  - Implemented status badge system with icons (✓ success, ✗ failed, ⏳ pending)
-  - Added animated progress bar with shimmer effect
-  - Increased thumbnail size from 80x80px to 100x100px with index badges
-  - Enhanced hover effects with scale and shadow animations
-  - Mobile optimizations with responsive padding and touch-friendly controls
-- Enhanced image modal with comprehensive functionality
-  - Added prev/next navigation buttons with disabled states
-  - Implemented zoom on click (toggle between 1x and 1.5x scale)
-  - Added download button with automatic filename generation
+- **Image Modal Features**
+  - Streaming image preview gallery: shows completed images as thumbnails (100x100px) while streaming continues
+  - Click thumbnails to view full-size images with navigation (prev/next), zoom, download
+  - Real-time updates: modal automatically reflects new images without needing to close/reopen
+  - Navigation buttons enable dynamically as images complete
   - Keyboard navigation: Escape to close, Arrow keys for navigation
-  - Display image index, dimensions, and full prompt text
+  - Displays image index, dimensions, and full prompt text
 
 ### Fixed
 
-- Image modal now updates in real-time when new images complete (#49)
-  - Navigation buttons (next/prev) automatically enable when new images finish
-  - Image count updates dynamically without needing to close and reopen modal
-  - Modal now references live progress state instead of snapshot at open time
-  - Provides seamless viewing experience during concurrent image generation
-- Progress widget now shows cumulative count for sequential image regenerations
-  - When clicking multiple regenerate buttons rapidly (e.g., 3 images), widget now shows "0/3 → 1/3 → 2/3 → 3/3" instead of "0/1 → 1/1" for each
-  - Added regeneration tracking to accumulate pending and completed counts per message
-  - Widget only disappears after all regenerations complete
+- **Context Caching Issues** (#34)
+  - Eliminated stale context/metadata access after chat switches
+  - All code now calls `SillyTavern.getContext()` when accessing chat or chatMetadata
+  - Ensures extension always operates on correct chat's data after switching chats
+  - Fixed in QueueProcessor, StreamingMonitor, MessageHandler, and ManualGeneration modules
+
+- **Extension Enable/Disable**
+  - Extension toggle now properly controls all functionality
+  - When disabled: no event handlers registered, no widgets initialized, no automatic processing
+  - User notified to reload page when toggling setting
+  - Provides true on/off control
+
+- **Gallery Widget Improvements**
+  - Now visible by default for new chats (previously hidden)
+  - Only appears during active chat sessions (hidden on settings/character management pages)
+  - Fixed image extraction by reusing existing `extractImagePrompts()` function
+  - State stored per-chat in `chat_metadata` instead of global localStorage
+  - State persists with chat backups/exports
+
+- **Progress Widget Improvements**
+  - Smart DOM updates: uses differential updates instead of full rebuilds
+  - Scroll position preservation: thumbnail gallery positions saved and restored
+  - Image viewer state maintained: zoom and pan no longer reset during progress updates
+  - Properly clears old thumbnails when regenerating same message
+  - Shows cumulative count for sequential regenerations (e.g., "0/3 → 1/3 → 2/3 → 3/3")
+  - Widget reappears when new streaming starts after being closed
+
+- **Modal Viewer Refactoring**
+  - Progress and gallery widgets now share unified modal implementation
+  - Eliminated 597 lines of duplicate code
+  - Reduced bundle size by 8 KiB (from 255 KiB to 247 KiB)
+  - Both widgets automatically benefit from all mobile UX improvements
+
+- **Desktop UI Fixes**
+  - Progress widget no longer overlaps with chat input area
+  - Image modal no longer overlaps with prompt area and action buttons
+  - Proper flexbox layout replaces hardcoded height calculations
+  - Long prompts scroll internally instead of pushing content out of viewport
+
+- **Mobile UI Fixes**
+  - Action buttons (zoom, download) now fully visible and not cut off
+  - Eliminated auto-scroll when expanding prompt viewer
+  - iOS safe area support for devices with notch/home indicator
+  - Using dvh (dynamic viewport height) units for better browser chrome handling
+  - Toast notification positioning avoids safe area overlap
 
 ### Changed
 
-- Improved logging level assignments for reduced verbosity at INFO level (#42)
-  - Moved 40+ internal operation logs from INFO to DEBUG level (session start/stop, queue operations, barrier signals, progress updates)
-  - Moved detailed widget rendering logs from INFO to TRACE level (DOM position, CSS styles)
+- **Logging Improvements** (#42)
   - INFO level now focuses on user-facing events only (generation complete, errors, user actions)
-  - DEBUG level shows development details for troubleshooting
-  - TRACE level shows very detailed state changes (useful for deep debugging)
+  - DEBUG level shows development details (40+ logs moved from INFO including session start/stop, queue operations)
+  - TRACE level shows very detailed state changes (widget rendering logs moved from INFO)
+  - Significantly reduced console verbosity at default INFO level
 
 ## [1.2.0] - 2025-10-11
 

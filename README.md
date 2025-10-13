@@ -24,6 +24,20 @@ Automatically generates inline images in your SillyTavern conversations based on
   - Create, edit, and delete custom presets
   - Preview preset content before editing
   - Customize image generation frequency via preset templates
+- 🖼️ **Permanent Gallery Widget** (v1.3.0+): Always-available widget for reviewing all generated images
+  - Groups images by message with collapsible headers and message previews
+  - Minimizes to floating action button with image count badge
+  - State persists per-chat across sessions
+- 📊 **Enhanced Progress Widget** (v1.3.0+): Real-time generation progress with improved UX
+  - Close buttons for widget and individual messages
+  - Two-level collapse for space efficiency
+  - Thumbnail preview during generation
+  - Remains visible after completion until manually closed
+- 🔍 **Advanced Image Viewing** (v1.3.0+): Comprehensive zoom and pan controls
+  - Desktop: Mouse wheel zoom, click-and-drag panning, keyboard shortcuts
+  - Mobile: Pinch-to-zoom, touch panning, gesture coordination
+  - Hardware accelerated for smooth 60fps performance
+- ⚙️ **Widget Visibility Controls** (v1.3.0+): Show/hide Progress and Gallery widgets independently
 - 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
 - 💾 **Persistent Images**: Generated images are automatically saved to chat history
 - 🧹 **Smart Chat Pruning**: Removes generated images from LLM context (not from UI)
@@ -98,6 +112,10 @@ Access settings via **Extensions** > **Auto Illustrator**
   - **INFO** (default): Key events and operations
   - **WARN/ERROR**: Only warnings and errors
   - **SILENT**: No console output
+- **Widget Visibility** (v1.3.0+):
+  - **Show Progress Widget**: Toggle visibility of the progress indicator widget (default: enabled)
+  - **Show Gallery Widget**: Toggle visibility of the permanent gallery widget (default: enabled)
+  - **Note**: Changes require page reload to take effect
 - **Reset to Defaults**: Restore all settings to default values
 
 ### Meta Prompt Presets
@@ -129,6 +147,50 @@ The extension includes a preset management system for organizing and switching b
 - Preset selection persists across sessions
 - Each preset controls image generation frequency (e.g., every ~250 words) and style guidelines
 - To adjust frequency, create a custom preset and modify the word count in the template
+
+### Gallery Widget (v1.3.0+)
+
+The permanent gallery widget provides an always-available way to review all generated images in the current chat:
+
+**Features:**
+- **Persistent visibility**: Always available at top-right of chat area, independent of generation progress
+- **Message grouping**: Images organized by assistant message with collapsible headers
+- **Message previews**: Shows first 100 characters of each message for context
+- **Minimize to FAB**: Minimizes to a floating action button with image count badge
+- **State persistence**: Remembers visibility, minimization, and expanded messages per-chat
+- **Auto-refresh**: Automatically updates when new images complete
+
+**Usage:**
+- Click the gallery icon at top-right of chat area to open
+- Expand/collapse individual messages to view their images
+- Click any thumbnail to view full-size in modal viewer
+- Minimize to FAB when not needed, or hide completely via Widget Visibility settings
+- State persists across page reloads and chat switches
+
+**Global Functions** (for advanced users):
+- `toggleImageGallery()` - Toggle gallery visibility
+- `showImageGallery()` - Show gallery
+- `hideImageGallery()` - Hide gallery
+
+### Progress Widget (v1.3.0+)
+
+The progress widget shows real-time status during image generation:
+
+**Features:**
+- **Close controls**: Close button (×) in header to dismiss all messages, or close individual completed messages
+- **Two-level collapse**: Collapse entire widget or individual messages for space efficiency
+- **Persistent after completion**: Widget remains visible after generation completes until manually closed
+- **Thumbnail preview**: Shows completed images as thumbnails (100x100px) while generation continues
+- **Status indicators**: Green checkmark (✓) for success, red × for failed, orange ⏳ for pending
+- **Space efficient**: 5 messages reduce from ~2000px to ~600px height when collapsed
+
+**Usage:**
+- Widget appears automatically when image generation starts
+- Click thumbnails to view full-size images in modal viewer
+- Click header to collapse/expand entire widget
+- Click message headers to collapse/expand individual messages
+- After completion, click close button (×) to dismiss
+- Widget can be hidden completely via Widget Visibility settings
 
 ## Advanced Features
 

@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 # SillyTavern Auto Illustrator
 
-**Version**: 1.0
-**Last Updated**: 2025-01-12
+**Version**: 1.1
+**Last Updated**: 2025-10-13
 **Purpose**: Define desired behaviors for all features to prevent regressions
 
 ---
