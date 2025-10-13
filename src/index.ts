@@ -40,6 +40,7 @@ import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
 import {progressManager} from './progress_manager';
 import {initializeProgressWidget} from './progress_widget';
+import {initializeGalleryWidget, getGalleryWidget} from './gallery_widget';
 
 const logger = createLogger('Main');
 
@@ -947,6 +948,17 @@ function initialize(): void {
   initializeProgressWidget(progressManager);
   logger.info('Initialized ProgressWidget with event subscriptions');
 
+  // Initialize gallery widget (connects to progressManager via events)
+  initializeGalleryWidget(progressManager);
+  logger.info('Initialized GalleryWidget');
+
+  // Show gallery widget on initialization to scan for existing images
+  const gallery = getGalleryWidget();
+  if (gallery) {
+    gallery.show();
+    logger.debug('Gallery widget shown on initialization');
+  }
+
   // Initialize concurrency limiter with settings
   initializeConcurrencyLimiter(
     settings.maxConcurrentGenerations,
@@ -1219,3 +1231,37 @@ function addButtonsToExistingMessages(): void {
 
 // Initialize when extension loads
 initialize();
+
+// Expose gallery toggle function globally for easy access
+// Users can call window.toggleImageGallery() from console
+(window as any).toggleImageGallery = () => {
+  const gallery = getGalleryWidget();
+  if (gallery) {
+    gallery.toggleVisibility();
+    logger.info('Gallery visibility toggled via global function');
+  } else {
+    logger.warn('Gallery widget not initialized');
+  }
+};
+
+// Expose gallery show function
+(window as any).showImageGallery = () => {
+  const gallery = getGalleryWidget();
+  if (gallery) {
+    gallery.show();
+    logger.info('Gallery shown via global function');
+  } else {
+    logger.warn('Gallery widget not initialized');
+  }
+};
+
+// Expose gallery hide function
+(window as any).hideImageGallery = () => {
+  const gallery = getGalleryWidget();
+  if (gallery) {
+    gallery.hide();
+    logger.info('Gallery hidden via global function');
+  } else {
+    logger.warn('Gallery widget not initialized');
+  }
+};

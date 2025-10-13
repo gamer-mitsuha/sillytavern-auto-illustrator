@@ -9,14 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Gallery widget now visible by default and correctly extracts images
+  - Widget now visible by default for new chats (previously hidden)
+  - Fixed image extraction by reusing existing `extractImagePrompts()` function
+  - Supports all three prompt formats: HTML comment `<!--img-prompt="..."-->` (primary), hyphenated `<img-prompt="...">`, and legacy underscore `<img_prompt="...">`
+  - Deleted broken `IMAGE_PROMPT_WITH_IMG_PATTERN` constant that only matched hyphenated format
+  - State now stored per-chat in `chat_metadata` instead of global localStorage
+  - Each chat remembers its own gallery visibility, minimization, and expanded messages
+  - State persists with chat backups/exports
+  - Widget shows automatically on initialization to scan for existing images
+  - Listens for CHAT_CHANGED to reload state when switching chats
+  - Listens for MESSAGE_EDITED to detect new images from manual generation
 - Widget state preservation during updates
   - **Smart DOM updates**: Progress widget now uses differential DOM updates instead of full rebuilds
   - **Scroll position preservation**: Thumbnail gallery scroll positions are saved and restored during updates
   - **Image viewer state maintained**: Zoom and pan states in the image modal no longer reset during progress updates
   - **Improved performance**: Only changed elements are updated, reducing DOM thrashing
   - Fixes UX issue where interacting with images (zooming, panning, scrolling) would reset when progress updated
+- Regeneration now properly clears old thumbnails
+  - Progress widget clears existing completedImages array when regenerating same message
+  - Thumbnail gallery updates correctly when image count decreases
+  - Fixes issue where stale thumbnails remained visible during regeneration
 
 ### Added
+
+- Permanent image gallery widget for reviewing all generated images (#50)
+  - **Separate from progress widget**: Always-available gallery independent of generation progress
+  - **Message grouping**: Groups images by assistant message with collapsible headers
+  - **Message preview**: Shows first 100 chars of message text for context
+  - **Thumbnail grid**: Responsive grid layout (100px thumbnails) with image count badges
+  - **FAB minimization**: Minimizes to floating action button with image count badge
+  - **State persistence**: Remembers visibility, minimization, and expanded messages in localStorage
+  - **Auto-refresh**: Automatically updates when new images complete via progress manager events
+  - **Global functions**: Exposed `toggleImageGallery()`, `showImageGallery()`, `hideImageGallery()` for easy access
+  - **Reuses UI components**: Leverages thumbnail styling and modal patterns from progress widget
+  - **Mobile responsive**: Glassmorphism design with safe-area padding and responsive layouts
+  - Solves issue where users needed easy way to review all generated images in current chat
+  - Located at top-right of chat area (fixed position, z-index 99)
 
 - Two-level collapsible progress widget for improved scalability
   - **Widget-level collapse**: Entire widget collapses to compact bar showing summary (e.g., "✓ 3 message(s) complete (6 images) ▼")

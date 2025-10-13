@@ -1341,3 +1341,314 @@
     padding: 0.5rem 0.75rem;
   }
 }
+
+/* ========================================
+   Image Gallery Widget
+   ======================================== */
+
+/* Gallery widget container */
+.ai-img-gallery-widget-global {
+  position: fixed;
+  top: 4rem;
+  right: 1rem;
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  width: min(400px, 90vw);
+  max-height: 80vh;
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 40, 0.95) 0%,
+    rgba(20, 20, 30, 0.95) 100%
+  );
+  border: 1.5px solid rgba(155, 89, 182, 0.6);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  color: #ffffff;
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 2px 4px rgba(155, 89, 182, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Gallery FAB (Floating Action Button) - minimized state */
+.ai-img-gallery-fab {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(155, 89, 182, 0.9),
+    rgba(125, 69, 152, 0.9)
+  );
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+  box-shadow:
+    0 4px 12px rgba(155, 89, 182, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-img-gallery-fab:hover {
+  transform: scale(1.1);
+  box-shadow:
+    0 6px 18px rgba(155, 89, 182, 0.5),
+    0 3px 9px rgba(0, 0, 0, 0.3);
+}
+
+.ai-img-gallery-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: rgba(231, 76, 60, 0.9);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Gallery header */
+.ai-img-gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ai-img-gallery-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.ai-img-gallery-icon {
+  font-size: 1.2rem;
+}
+
+.ai-img-gallery-count {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+
+.ai-img-gallery-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ai-img-gallery-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.ai-img-gallery-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* Gallery content */
+.ai-img-gallery-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Empty state */
+.ai-img-gallery-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+/* Message group */
+.ai-img-gallery-message-group {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.ai-img-gallery-message-group:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(155, 89, 182, 0.4);
+}
+
+.ai-img-gallery-message-group.expanded {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Message header */
+.ai-img-gallery-message-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ai-img-gallery-message-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ai-img-gallery-message-toggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.ai-img-gallery-message-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ai-img-gallery-message-id {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: rgba(155, 89, 182, 1);
+}
+
+.ai-img-gallery-message-preview {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-img-gallery-message-count {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+/* Thumbnail gallery in message group */
+.ai-img-gallery-thumbnails {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem 0.75rem;
+}
+
+.ai-img-gallery-thumbnail {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.ai-img-gallery-thumbnail:hover {
+  transform: scale(1.05);
+  border-color: rgba(155, 89, 182, 0.6);
+  box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+  z-index: 1;
+}
+
+.ai-img-gallery-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ai-img-gallery-thumbnail-index {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .ai-img-gallery-widget-global {
+    top: 3rem;
+    right: 0.5rem;
+    width: min(350px, 95vw);
+    max-height: 70vh;
+  }
+
+  .ai-img-gallery-thumbnails {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
+
+  .ai-img-gallery-fab {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+  }
+}
+
+/* Scrollbar styling for gallery content */
+.ai-img-gallery-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-img-gallery-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.ai-img-gallery-content::-webkit-scrollbar-thumb {
+  background: rgba(155, 89, 182, 0.5);
+  border-radius: 4px;
+}
+
+.ai-img-gallery-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(155, 89, 182, 0.7);
+}

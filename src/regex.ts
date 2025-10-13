@@ -7,74 +7,17 @@
  */
 
 /**
- * Matches the img-prompt tag with its content: <img-prompt="...">
- *
- * Capture groups:
- * - Group 1: The prompt content (supports escaped quotes)
- *
- * Examples:
- * - <img-prompt="sunset scene"> → captures "sunset scene"
- * - <img-prompt="character saying \"hello\""> → captures "character saying \"hello\""
- *
- * Note: Use createImagePromptRegex() to get a fresh instance for iteration
- */
-export const IMAGE_PROMPT_PATTERN =
-  /<img-prompt="([^"\\]*(?:\\.[^"\\]*)*)"\s*>/g;
-
-/**
  * Matches an img-prompt tag (without capturing the content)
  *
  * Used for simple matching without needing to extract the prompt text.
+ * Note: This pattern is kept for backward compatibility with old test cases.
+ * Production code should use DEFAULT_PROMPT_DETECTION_PATTERNS instead.
  *
  * Examples:
  * - <img-prompt="any text here">
  * - <img-prompt="">
  */
 export const IMAGE_PROMPT_TAG_PATTERN = /<img-prompt="[^"]*">/;
-
-/**
- * Matches an img-prompt tag followed by an img tag (for pruning)
- *
- * Pattern: <img-prompt="...">OPTIONAL_WHITESPACE<img ...>
- *
- * This is used to identify generated images that should be removed from
- * chat history before sending to the LLM. It matches the complete sequence
- * of prompt tag + generated image tag.
- *
- * Examples:
- * - <img-prompt="test">\n<img src="..." title="..." alt="...">
- * - <img-prompt="scene"> <img src="...">
- * - <img-prompt="test"><img src="..." class="foo" id="bar">
- */
-export const IMAGE_PROMPT_WITH_IMG_PATTERN =
-  /<img-prompt="[^"]*">\s*<img\s+[^>]*>/g;
-
-/**
- * Creates a fresh RegExp instance for IMAGE_PROMPT_PATTERN
- *
- * Use this when you need to iterate over matches with exec() or test()
- * to avoid state issues with the global flag.
- *
- * @returns New RegExp instance
- */
-export function createImagePromptRegex(): RegExp {
-  return new RegExp(IMAGE_PROMPT_PATTERN.source, IMAGE_PROMPT_PATTERN.flags);
-}
-
-/**
- * Creates a fresh RegExp instance for IMAGE_PROMPT_WITH_IMG_PATTERN
- *
- * Use this when you need to iterate over matches with exec() or replace()
- * to avoid state issues with the global flag.
- *
- * @returns New RegExp instance
- */
-export function createImagePromptWithImgRegex(): RegExp {
-  return new RegExp(
-    IMAGE_PROMPT_WITH_IMG_PATTERN.source,
-    IMAGE_PROMPT_WITH_IMG_PATTERN.flags
-  );
-}
 
 /**
  * Unescapes quotes in an extracted prompt string

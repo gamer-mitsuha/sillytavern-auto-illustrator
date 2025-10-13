@@ -101,15 +101,15 @@ describe('image_generator', () => {
         },
       });
 
-      const text = 'Text before <img-prompt="sunset scene"> text after';
+      const text = 'Text before <!--img-prompt="sunset scene"--> text after';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      expect(result).toContain('<img-prompt="sunset scene">');
+      expect(result).toContain('<!--img-prompt="sunset scene"-->');
       expect(result).toContain('<img src="https://example.com/image1.png"');
       expect(result).toContain('title="AI generated image #1"');
       expect(result).toContain('alt="AI generated image #1"');
       // Check that image comes after the prompt
-      const promptIndex = result.indexOf('<img-prompt="sunset scene">');
+      const promptIndex = result.indexOf('<!--img-prompt="sunset scene"-->');
       const imgIndex = result.indexOf('<img src=');
       expect(imgIndex).toBeGreaterThan(promptIndex);
     });
@@ -130,11 +130,11 @@ describe('image_generator', () => {
       });
 
       const text =
-        'Start <img-prompt="scene 1"> middle <img-prompt="scene 2"> end';
+        'Start <!--img-prompt="scene 1"--> middle <!--img-prompt="scene 2"--> end';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      expect(result).toContain('<img-prompt="scene 1">');
-      expect(result).toContain('<img-prompt="scene 2">');
+      expect(result).toContain('<!--img-prompt="scene 1"-->');
+      expect(result).toContain('<!--img-prompt="scene 2"-->');
       expect(result).toContain('https://example.com/image1.png');
       expect(result).toContain('https://example.com/image2.png');
       expect(mockCallback).toHaveBeenCalledTimes(2);
@@ -152,12 +152,12 @@ describe('image_generator', () => {
         },
       });
 
-      const text = 'Text <img-prompt="failed prompt"> more text';
+      const text = 'Text <!--img-prompt="failed prompt"--> more text';
       const result = await replacePromptsWithImages(text, mockContext);
 
       // Prompt tag should be preserved to allow retry and show what was attempted
       expect(result).toBe(text);
-      expect(result).toContain('<img-prompt="failed prompt">');
+      expect(result).toContain('<!--img-prompt="failed prompt"-->');
     });
 
     it('should return original text if no prompts found', async () => {
@@ -191,10 +191,10 @@ describe('image_generator', () => {
         },
       });
 
-      const text = 'Start <img-prompt="middle"> end';
+      const text = 'Start <!--img-prompt="middle"--> end';
       const result = await replacePromptsWithImages(text, mockContext);
 
-      expect(result).toContain('<img-prompt="middle">');
+      expect(result).toContain('<!--img-prompt="middle"-->');
       expect(result.indexOf('Start')).toBe(0);
       expect(result.indexOf('end')).toBeGreaterThan(0);
       expect(result).toContain('https://example.com/image.png');
@@ -221,7 +221,7 @@ describe('image_generator', () => {
       });
 
       const text =
-        '<img-prompt="first"> <img-prompt="second"> <img-prompt="third">';
+        '<!--img-prompt="first"--> <!--img-prompt="second"--> <!--img-prompt="third"-->';
       await replacePromptsWithImages(text, mockContext);
 
       // Verify calls happened sequentially (each call number should be consecutive)
@@ -244,11 +244,11 @@ describe('image_generator', () => {
       });
 
       const text =
-        '<img-prompt="rating:nsfw, asuna_(sao), danbooru, 1girl, close-up">';
+        '<!--img-prompt="rating:nsfw, asuna_(sao), danbooru, 1girl, close-up"-->';
       const result = await replacePromptsWithImages(text, mockContext);
 
       // Should use simple, safe title/alt (avoids all special character issues)
-      expect(result).toContain('<img-prompt="rating:nsfw, asuna_(sao)');
+      expect(result).toContain('<!--img-prompt="rating:nsfw, asuna_(sao)');
       expect(result).toContain('title="AI generated image #1"');
       expect(result).toContain('alt="AI generated image #1"');
       expect(result).toContain('https://example.com/image.png');
@@ -269,7 +269,7 @@ describe('image_generator', () => {
       });
 
       // Test with parentheses and other valid prompt characters
-      const text = '<img-prompt="character (masterpiece), detailed face">';
+      const text = '<!--img-prompt="character (masterpiece), detailed face"-->';
       const result = await replacePromptsWithImages(text, mockContext);
 
       // Simple title/alt works with any valid prompt characters
@@ -278,7 +278,7 @@ describe('image_generator', () => {
       expect(result).toContain('https://example.com/image.png');
       // Original prompt tag should remain unchanged
       expect(result).toContain(
-        '<img-prompt="character (masterpiece), detailed face">'
+        '<!--img-prompt="character (masterpiece), detailed face"-->'
       );
     });
   });

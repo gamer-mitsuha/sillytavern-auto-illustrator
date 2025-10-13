@@ -41,13 +41,13 @@ describe('message_handler', () => {
         chat_metadata: {},
       });
 
-      const message = 'Text with <img-prompt="beautiful scene"> in the middle';
+      const message = 'Text with <!--img-prompt="beautiful scene"--> in the middle';
       const messageId = 0;
 
       await processMessageImages(message, messageId, mockContext);
 
       expect(mockContext.chat[0].mes).toContain(
-        '<img-prompt="beautiful scene">'
+        '<!--img-prompt="beautiful scene"-->'
       );
       expect(mockContext.chat[0].mes).toContain(
         '<img src="https://example.com/image.png"'
@@ -88,7 +88,7 @@ describe('message_handler', () => {
         chat_metadata: {},
       });
 
-      const message = 'Text with <img-prompt="test">';
+      const message = 'Text with <!--img-prompt="test"-->';
       const messageId = 999;
 
       await expect(
@@ -148,7 +148,7 @@ describe('message_handler', () => {
           MESSAGE_UPDATED: MESSAGE_UPDATED,
         },
         chat: [
-          {is_user: false, mes: 'Here is a scene <img-prompt="test scene">'},
+          {is_user: false, mes: 'Here is a scene <!--img-prompt="test scene"-->'},
         ],
         chat_metadata: {},
         saveChat: mockSaveChat,

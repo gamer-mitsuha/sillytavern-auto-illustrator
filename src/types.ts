@@ -123,6 +123,16 @@ export interface AutoIllustratorChatMetadata {
 
   /** Maps prompt position key to version history */
   promptPositionHistory: Record<string, PromptPositionHistory>;
+
+  /** Gallery widget state (per-chat) */
+  galleryWidget?: {
+    /** Whether the gallery widget is visible */
+    visible: boolean;
+    /** Whether the gallery is minimized to FAB */
+    minimized: boolean;
+    /** Array of message IDs that are expanded in the gallery */
+    expandedMessages: number[];
+  };
 }
 
 /**

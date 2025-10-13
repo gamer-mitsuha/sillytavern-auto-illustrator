@@ -12,13 +12,13 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            'Hello <img-prompt="test prompt">\n<img src="test.jpg" title="test prompt" alt="test prompt"> world',
+            'Hello <!--img-prompt="test prompt"-->\n<img src="test.jpg" title="test prompt" alt="test prompt> world',
         },
       ];
 
       pruneGeneratedImages(chat);
 
-      expect(chat[0].content).toBe('Hello <img-prompt="test prompt"> world');
+      expect(chat[0].content).toBe('Hello <!--img-prompt="test prompt"--> world');
     });
 
     it('should preserve standalone img tags in assistant messages', () => {
@@ -26,7 +26,7 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            'Hello <img src="user-image.jpg" title="user image" alt="user image"> world',
+            'Hello <img src="user-image.jpg" title="user image" alt="user image> world',
         },
       ];
 
@@ -41,7 +41,7 @@ describe('Chat History Pruner', () => {
         {
           role: 'user',
           content:
-            'User message <img-prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+            'User message <!--img-prompt="test"-->\n<img src="test.jpg" title="test" alt="test>',
         },
       ];
 
@@ -56,7 +56,7 @@ describe('Chat History Pruner', () => {
         {
           role: 'system',
           content:
-            'System prompt <img-prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+            'System prompt <!--img-prompt="test"-->\n<img src="test.jpg" title="test" alt="test>',
         },
       ];
 
@@ -71,14 +71,14 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            'Start <img-prompt="prompt1">\n<img src="1.jpg" title="prompt1" alt="prompt1"> middle <img-prompt="prompt2">\n<img src="2.jpg" title="prompt2" alt="prompt2"> end',
+            'Start <!--img-prompt="prompt1"-->\n<img src="1.jpg" title="prompt1" alt="prompt1> middle <!--img-prompt="prompt2"-->\n<img src="2.jpg" title="prompt2" alt="prompt2> end',
         },
       ];
 
       pruneGeneratedImages(chat);
 
       expect(chat[0].content).toBe(
-        'Start <img-prompt="prompt1"> middle <img-prompt="prompt2"> end'
+        'Start <!--img-prompt="prompt1"--> middle <!--img-prompt="prompt2"--> end'
       );
     });
 
@@ -87,14 +87,14 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            '<img src="user.jpg" title="user" alt="user"> text <img-prompt="gen">\n<img src="gen.jpg" title="gen" alt="gen"> more',
+            '<img src="user.jpg" title="user" alt="user> text <!--img-prompt="gen"-->\n<img src="gen.jpg" title="gen" alt="gen> more',
         },
       ];
 
       pruneGeneratedImages(chat);
 
       expect(chat[0].content).toBe(
-        '<img src="user.jpg" title="user" alt="user"> text <img-prompt="gen"> more'
+        '<img src="user.jpg" title="user" alt="user> text <!--img-prompt="gen"--> more'
       );
     });
 
@@ -103,12 +103,12 @@ describe('Chat History Pruner', () => {
         {
           role: 'user',
           content:
-            'User <img-prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+            'User <!--img-prompt="test"-->\n<img src="test.jpg" title="test" alt="test>',
         },
         {
           role: 'assistant',
           content:
-            'Assistant <img-prompt="test">\n<img src="test.jpg" title="test" alt="test">',
+            'Assistant <!--img-prompt="test"-->\n<img src="test.jpg" title="test" alt="test>',
         },
         {role: 'system', content: 'System message'},
       ];
@@ -117,7 +117,7 @@ describe('Chat History Pruner', () => {
       pruneGeneratedImages(chat);
 
       expect(chat[0].content).toBe(userOriginal); // User unchanged
-      expect(chat[1].content).toBe('Assistant <img-prompt="test">'); // Assistant pruned
+      expect(chat[1].content).toBe('Assistant <!--img-prompt="test"-->'); // Assistant pruned
       expect(chat[2].content).toBe('System message'); // System unchanged
     });
 
@@ -125,13 +125,13 @@ describe('Chat History Pruner', () => {
       const chat = [
         {
           role: 'assistant',
-          content: 'Text <img-prompt="test"> more text',
+          content: 'Text <!--img-prompt="test"--> more text',
         },
       ];
 
       pruneGeneratedImages(chat);
 
-      expect(chat[0].content).toBe('Text <img-prompt="test"> more text');
+      expect(chat[0].content).toBe('Text <!--img-prompt="test"--> more text');
     });
 
     it('should handle empty chat array', () => {
@@ -159,13 +159,13 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            'Text <img-prompt="test">   \n  <img src="test.jpg" title="test" alt="test"> end',
+            'Text <!--img-prompt="test"-->   \n  <img src="test.jpg" title="test" alt="test> end',
         },
       ];
 
       pruneGeneratedImages(chat);
 
-      expect(chat[0].content).toBe('Text <img-prompt="test"> end');
+      expect(chat[0].content).toBe('Text <!--img-prompt="test"--> end');
     });
 
     it('should only remove img tags that match the generated pattern', () => {
@@ -173,7 +173,7 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            '<img-prompt="gen">\n<img src="gen.jpg" title="gen" alt="gen"> and <img src="other.jpg">',
+            '<!--img-prompt="gen"-->\n<img src="gen.jpg" title="gen" alt="gen> and <img src="other.jpg">',
         },
       ];
 
@@ -181,7 +181,7 @@ describe('Chat History Pruner', () => {
 
       // Should remove the generated image but keep the other img tag
       expect(chat[0].content).toBe(
-        '<img-prompt="gen"> and <img src="other.jpg">'
+        '<!--img-prompt="gen"--> and <img src="other.jpg">'
       );
     });
 
@@ -190,13 +190,13 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            'Before <img-prompt="beautiful sunset">\n<img src="sunset.jpg" title="beautiful sunset" alt="beautiful sunset"> after',
+            'Before <!--img-prompt="beautiful sunset"-->\n<img src="sunset.jpg" title="beautiful sunset" alt="beautiful sunset> after',
         },
       ];
 
       pruneGeneratedImages(chat);
 
-      expect(chat[0].content).toContain('<img-prompt="beautiful sunset">');
+      expect(chat[0].content).toContain('<!--img-prompt="beautiful sunset"-->');
       expect(chat[0].content).not.toContain('<img src="sunset.jpg"');
     });
 
@@ -205,16 +205,16 @@ describe('Chat History Pruner', () => {
         {
           role: 'assistant',
           content:
-            'Text <img-prompt="test1">\n<img src="image1.jpg"> more text ' +
-            '<img-prompt="test2">\n<img class="foo" src="image2.jpg" id="bar"> end',
+            'Text <!--img-prompt="test1"-->\n<img src="image1.jpg"> more text ' +
+            '<!--img-prompt="test2"-->\n<img class="foo" src="image2.jpg" id="bar> end',
         },
       ];
 
       pruneGeneratedImages(chat);
 
       // Should remove both img tags regardless of attributes
-      expect(chat[0].content).toContain('<img-prompt="test1">');
-      expect(chat[0].content).toContain('<img-prompt="test2">');
+      expect(chat[0].content).toContain('<!--img-prompt="test1"-->');
+      expect(chat[0].content).toContain('<!--img-prompt="test2"-->');
       expect(chat[0].content).not.toContain('<img src="image1.jpg">');
       expect(chat[0].content).not.toContain(
         '<img class="foo" src="image2.jpg"'

@@ -52,7 +52,7 @@ describe('StreamingMonitor', () => {
     });
 
     it('should do immediate check on start', () => {
-      mockContext.chat[0].mes = '<img-prompt="test">';
+      mockContext.chat[0].mes = '<!--img-prompt="test"-->';
 
       monitor.start(0);
 
@@ -96,7 +96,7 @@ describe('StreamingMonitor', () => {
       expect(queue.size()).toBe(0);
 
       // Simulate streaming text update
-      mockContext.chat[0].mes = 'Initial text <img-prompt="sunset">';
+      mockContext.chat[0].mes = 'Initial text <!--img-prompt="sunset"-->';
       vi.advanceTimersByTime(300);
 
       expect(queue.size()).toBe(1);
@@ -108,14 +108,14 @@ describe('StreamingMonitor', () => {
       monitor.start(0);
 
       mockContext.chat[0].mes =
-        '<img-prompt="first"> text <img-prompt="second">';
+        '<!--img-prompt="first"--> text <!--img-prompt="second"-->';
       vi.advanceTimersByTime(300);
 
       expect(queue.size()).toBe(2);
     });
 
     it('should not re-add prompts already in queue', () => {
-      mockContext.chat[0].mes = '<img-prompt="test">';
+      mockContext.chat[0].mes = '<!--img-prompt="test"-->';
       monitor.start(0);
 
       expect(queue.size()).toBe(1);
@@ -127,14 +127,14 @@ describe('StreamingMonitor', () => {
     });
 
     it('should detect new prompts added to existing text', () => {
-      mockContext.chat[0].mes = '<img-prompt="first">';
+      mockContext.chat[0].mes = '<!--img-prompt="first"-->';
       monitor.start(0);
 
       expect(queue.size()).toBe(1);
 
       // Add new prompt
       mockContext.chat[0].mes =
-        '<img-prompt="first"> more text <img-prompt="second">';
+        '<!--img-prompt="first"--> more text <!--img-prompt="second"-->';
       vi.advanceTimersByTime(300);
 
       expect(queue.size()).toBe(2);
@@ -240,7 +240,7 @@ describe('StreamingMonitor', () => {
     });
 
     it('should handle malformed prompt tags', () => {
-      mockContext.chat[0].mes = '<img-prompt="incomplete';
+      mockContext.chat[0].mes = '<!--img-prompt="incomplete';
       monitor.start(0);
 
       vi.advanceTimersByTime(300);
@@ -250,7 +250,7 @@ describe('StreamingMonitor', () => {
     });
 
     it('should handle prompts with special characters', () => {
-      mockContext.chat[0].mes = '<img-prompt="test with \\"quotes\\"">';
+      mockContext.chat[0].mes = '<!--img-prompt="test with \\"quotes\\""-->';
       monitor.start(0);
 
       vi.advanceTimersByTime(300);
@@ -262,14 +262,14 @@ describe('StreamingMonitor', () => {
       monitor.start(0);
 
       // Simulate streaming updates
-      mockContext.chat[0].mes = '<img-prompt="one">';
+      mockContext.chat[0].mes = '<!--img-prompt="one"-->';
       vi.advanceTimersByTime(100);
 
-      mockContext.chat[0].mes = '<img-prompt="one"> <img-prompt="two">';
+      mockContext.chat[0].mes = '<!--img-prompt="one"--> <!--img-prompt="two"-->';
       vi.advanceTimersByTime(100);
 
       mockContext.chat[0].mes =
-        '<img-prompt="one"> <img-prompt="two"> <img-prompt="three">';
+        '<!--img-prompt="one"--> <!--img-prompt="two"--> <!--img-prompt="three"-->';
       vi.advanceTimersByTime(100);
 
       vi.advanceTimersByTime(100); // Complete one full interval
@@ -304,7 +304,7 @@ describe('StreamingMonitor', () => {
       vi.advanceTimersByTime(0);
 
       // Add prompt after polling but before stop
-      mockContext.chat[0].mes = 'Initial text <img-prompt="last moment">';
+      mockContext.chat[0].mes = 'Initial text <!--img-prompt="last moment"-->';
 
       // Do final scan
       monitor.finalScan();
@@ -318,7 +318,7 @@ describe('StreamingMonitor', () => {
       monitor.start(0);
 
       mockContext.chat[0].mes =
-        '<img-prompt="first"> <img-prompt="second"> <img-prompt="third">';
+        '<!--img-prompt="first"--> <!--img-prompt="second"--> <!--img-prompt="third"-->';
 
       monitor.finalScan();
 
@@ -326,7 +326,7 @@ describe('StreamingMonitor', () => {
     });
 
     it('should not duplicate prompts already detected', () => {
-      mockContext.chat[0].mes = '<img-prompt="existing">';
+      mockContext.chat[0].mes = '<!--img-prompt="existing"-->';
       monitor.start(0);
 
       // Initial scan detects the prompt
@@ -354,19 +354,19 @@ describe('StreamingMonitor', () => {
       monitor.start(0);
 
       // Advance through several polls
-      mockContext.chat[0].mes = 'Text is streaming <img-prompt="first">';
+      mockContext.chat[0].mes = 'Text is streaming <!--img-prompt="first"-->';
       vi.advanceTimersByTime(300);
 
       expect(queue.size()).toBe(1);
 
       // More streaming
       mockContext.chat[0].mes =
-        'Text is streaming <img-prompt="first"> more text';
+        'Text is streaming <!--img-prompt="first"--> more text';
       vi.advanceTimersByTime(300);
 
       // Last prompt added after final poll but before GENERATION_ENDED
       mockContext.chat[0].mes =
-        'Text is streaming <img-prompt="first"> more text <img-prompt="last">';
+        'Text is streaming <!--img-prompt="first"--> more text <!--img-prompt="last"-->';
 
       // Final scan catches it
       monitor.finalScan();

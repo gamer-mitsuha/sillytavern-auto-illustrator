@@ -83,13 +83,11 @@ export const MIN_GENERATION_INTERVAL = {
 /**
  * Default prompt detection patterns
  * Supports multiple tag formats for backward compatibility:
- * - HTML comment format (new, invisible, passes through DOMPurify)
- * - Hyphenated custom element (current format)
+ * - HTML comment format (primary, invisible, passes through DOMPurify)
  * - Underscore format (legacy, from old chats)
  */
 export const DEFAULT_PROMPT_DETECTION_PATTERNS = [
   '<!--img-prompt="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*-->',
-  '<img-prompt="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*>',
   '<img_prompt="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*>',
 ];
 

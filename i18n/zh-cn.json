@@ -134,5 +134,12 @@
   "prompt.enterPresetName": "输入新预设的名称：",
   "prompt.overwritePreset": "覆盖现有预设 '{name}'？",
   "prompt.deletePresetConfirm": "删除预设 '{name}'？",
-  "button.manualGenerate": "从提示词生成图像"
+  "button.manualGenerate": "从提示词生成图像",
+  "gallery.title": "图片画廊",
+  "gallery.images": "张图片",
+  "gallery.messageNumber": "消息 #{number}",
+  "gallery.noImages": "此对话中未找到图片",
+  "gallery.expand": "展开画廊",
+  "gallery.minimize": "最小化画廊",
+  "gallery.close": "关闭画廊"
 }

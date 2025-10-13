@@ -134,5 +134,12 @@
   "prompt.enterPresetName": "Enter name for new preset:",
   "prompt.overwritePreset": "Overwrite existing preset '{name}'?",
   "prompt.deletePresetConfirm": "Delete preset '{name}'?",
-  "button.manualGenerate": "Generate images from prompts"
+  "button.manualGenerate": "Generate images from prompts",
+  "gallery.title": "Image Gallery",
+  "gallery.images": "images",
+  "gallery.messageNumber": "Message #{number}",
+  "gallery.noImages": "No images found in this chat",
+  "gallery.expand": "Expand Gallery",
+  "gallery.minimize": "Minimize Gallery",
+  "gallery.close": "Close Gallery"
 }

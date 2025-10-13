@@ -5,8 +5,6 @@
 
 import type {ImagePromptMatch} from './types';
 import {
-  createImagePromptRegex,
-  unescapePromptQuotes,
   extractImagePromptsMultiPattern,
   createCombinedPromptRegex,
 } from './regex';
@@ -26,14 +24,7 @@ export function hasImagePrompts(
     return false;
   }
 
-  // Use multi-pattern regex if multiple patterns are provided
-  if (patterns.length > 1) {
-    const regex = createCombinedPromptRegex(patterns);
-    return regex.test(text);
-  }
-
-  // Single pattern - use original regex for backward compatibility
-  const regex = createImagePromptRegex();
+  const regex = createCombinedPromptRegex(patterns);
   return regex.test(text);
 }
 
@@ -51,31 +42,5 @@ export function extractImagePrompts(
     return [];
   }
 
-  // Use multi-pattern extraction if multiple patterns are provided
-  if (patterns.length > 1) {
-    return extractImagePromptsMultiPattern(text, patterns);
-  }
-
-  // Single pattern - use original extraction for backward compatibility
-  const matches: ImagePromptMatch[] = [];
-  const regex = createImagePromptRegex();
-
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    const prompt = unescapePromptQuotes(match[1]).trim();
-
-    // Skip empty prompts (malformed tags during streaming)
-    if (prompt.length === 0) {
-      continue;
-    }
-
-    matches.push({
-      fullMatch: match[0],
-      prompt: prompt,
-      startIndex: match.index,
-      endIndex: match.index + match[0].length,
-    });
-  }
-
-  return matches;
+  return extractImagePromptsMultiPattern(text, patterns);
 }
