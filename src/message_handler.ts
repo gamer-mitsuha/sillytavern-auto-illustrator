@@ -60,12 +60,10 @@ export async function processMessageImages(
 
 /**
  * Creates a message handler function for MESSAGE_RECEIVED events
- * @param context - SillyTavern context
  * @param settings - Extension settings
  * @returns Message handler function
  */
 export function createMessageHandler(
-  context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): (messageId: number) => Promise<void> {
   return async (messageId: number) => {
@@ -83,6 +81,13 @@ export function createMessageHandler(
     // No streaming active - process immediately
     // This handles both disabled streaming AND LLM streaming off (auto-fallback)
     logger.info('No streaming active, processing immediately');
+
+    // Get fresh context (never cache context!)
+    const context = SillyTavern.getContext();
+    if (!context) {
+      logger.warn('Failed to get context');
+      return;
+    }
 
     // Get the message from chat
     const message = context.chat?.[messageId];

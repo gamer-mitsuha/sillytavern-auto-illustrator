@@ -22,7 +22,13 @@ describe('StreamingMonitor', () => {
       chat_metadata: {},
     });
     mockSettings = getDefaultSettings();
-    monitor = new StreamingMonitor(queue, mockContext, mockSettings, 300);
+
+    // Mock global SillyTavern
+    global.SillyTavern = {
+      getContext: () => mockContext,
+    } as any;
+
+    monitor = new StreamingMonitor(queue, mockSettings, 300);
   });
 
   afterEach(() => {
@@ -190,12 +196,7 @@ describe('StreamingMonitor', () => {
     });
 
     it('should use custom polling interval', () => {
-      const customMonitor = new StreamingMonitor(
-        queue,
-        mockContext,
-        mockSettings,
-        500
-      );
+      const customMonitor = new StreamingMonitor(queue, mockSettings, 500);
       customMonitor.start(0);
 
       expect(customMonitor.getStatus().intervalMs).toBe(500);

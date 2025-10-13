@@ -16,6 +16,11 @@ describe('Streaming Coordination Integration', () => {
   beforeEach(() => {
     context = createMockContext();
     settings = getDefaultSettings();
+
+    // Mock global SillyTavern
+    global.SillyTavern = {
+      getContext: () => context,
+    } as any;
   });
 
   describe('barrier coordination scenarios', () => {

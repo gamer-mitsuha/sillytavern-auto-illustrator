@@ -16,6 +16,11 @@ describe('SessionManager', () => {
     manager = new SessionManager();
     context = createMockContext();
     settings = getDefaultSettings();
+
+    // Mock global SillyTavern
+    global.SillyTavern = {
+      getContext: () => context,
+    } as any;
   });
 
   describe('startSession', () => {

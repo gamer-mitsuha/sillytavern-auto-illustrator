@@ -19,7 +19,6 @@ export class StreamingMonitor {
   private lastSeenText = '';
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private queue: ImageGenerationQueue;
-  private context: SillyTavernContext;
   private settings: AutoIllustratorSettings;
   private intervalMs: number;
   private isRunning = false;
@@ -28,20 +27,17 @@ export class StreamingMonitor {
   /**
    * Creates a new streaming monitor
    * @param queue - Image generation queue
-   * @param context - SillyTavern context
    * @param settings - Extension settings
    * @param intervalMs - Polling interval in milliseconds
    * @param onNewPrompts - Optional callback when new prompts are added
    */
   constructor(
     queue: ImageGenerationQueue,
-    context: SillyTavernContext,
     settings: AutoIllustratorSettings,
     intervalMs = 300,
     onNewPrompts?: () => void
   ) {
     this.queue = queue;
-    this.context = context;
     this.settings = settings;
     this.intervalMs = intervalMs;
     this.onNewPromptsCallback = onNewPrompts;
@@ -112,8 +108,14 @@ export class StreamingMonitor {
       return;
     }
 
-    // Get current message text
-    const message = this.context.chat?.[this.messageId];
+    // Get current message text (get fresh context each time!)
+    const context = SillyTavern.getContext();
+    if (!context) {
+      logger.warn('Failed to get context');
+      return;
+    }
+
+    const message = context.chat?.[this.messageId];
     if (!message) {
       logger.warn('Message not found:', this.messageId);
       return;
@@ -153,15 +155,18 @@ export class StreamingMonitor {
 
         // Initialize prompt metadata
         if (promptIndex >= 0) {
-          const promptId = recordPrompt(match.prompt, this.context);
-          const position: PromptPosition = {
-            messageId: this.messageId,
-            promptIndex,
-          };
-          initializePromptPosition(position, promptId, this.context);
-          logger.debug(
-            `Initialized metadata for prompt at position ${this.messageId}_${promptIndex}`
-          );
+          const metadataContext = SillyTavern.getContext();
+          if (metadataContext) {
+            const promptId = recordPrompt(match.prompt, metadataContext);
+            const position: PromptPosition = {
+              messageId: this.messageId,
+              promptIndex,
+            };
+            initializePromptPosition(position, promptId, metadataContext);
+            logger.debug(
+              `Initialized metadata for prompt at position ${this.messageId}_${promptIndex}`
+            );
+          }
         }
 
         this.queue.addPrompt(

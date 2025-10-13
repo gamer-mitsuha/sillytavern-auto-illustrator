@@ -759,8 +759,6 @@ function handlePresetDelete(): void {
  * This is more reliable than GENERATION_STARTED which fires before message creation
  */
 function handleFirstStreamToken(): void {
-  const messageId = context.chat.length - 1;
-
   if (!settings.streamingEnabled) {
     logger.debug('Streaming disabled, skipping');
     return;
@@ -771,7 +769,15 @@ function handleFirstStreamToken(): void {
     return;
   }
 
-  const message = context.chat?.[messageId];
+  // Get fresh context (never cache for chat access!)
+  const freshContext = SillyTavern.getContext();
+  if (!freshContext) {
+    logger.error('Failed to get context');
+    return;
+  }
+
+  const messageId = freshContext.chat.length - 1;
+  const message = freshContext.chat?.[messageId];
   if (!message) {
     logger.error('Message not found:', messageId);
     return;
@@ -795,7 +801,11 @@ function handleFirstStreamToken(): void {
   currentGenerationType = 'streaming';
 
   // Start new session (cancels existing if any)
-  const session = sessionManager.startSession(messageId, context, settings);
+  const session = sessionManager.startSession(
+    messageId,
+    freshContext,
+    settings
+  );
 
   logger.debug(
     `Streaming monitor and processor started for session ${session.sessionId}`
@@ -972,7 +982,7 @@ function registerEventHandlers(): void {
   logger.info('Registering event handlers...');
 
   // Create message handler
-  const messageHandler = createMessageHandler(context, settings);
+  const messageHandler = createMessageHandler(settings);
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
 
@@ -981,9 +991,9 @@ function registerEventHandlers(): void {
     setTimeout(() => {
       const $mes = $(`.mes[mesid="${messageId}"]`);
       if ($mes.length > 0) {
-        addManualGenerationButton($mes, messageId, context, settings);
+        addManualGenerationButton($mes, messageId, settings);
       }
-      addImageClickHandlers(context, settings);
+      addImageClickHandlers(settings);
     }, 100);
   });
 
@@ -991,7 +1001,7 @@ function registerEventHandlers(): void {
   const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
   context.eventSource.on(MESSAGE_UPDATED, () => {
     setTimeout(() => {
-      addImageClickHandlers(context, settings);
+      addImageClickHandlers(settings);
     }, 100);
   });
 
@@ -1285,14 +1295,14 @@ function initialize(): void {
     setTimeout(() => {
       addButtonsToExistingMessages();
       // Re-add click handlers to all images
-      addImageClickHandlers(context, settings);
+      addImageClickHandlers(settings);
     }, 100);
   });
 
   // Add manual generation buttons to existing messages
   addButtonsToExistingMessages();
   // Add click handlers to existing images
-  addImageClickHandlers(context, settings);
+  addImageClickHandlers(settings);
 }
 
 /**
@@ -1308,7 +1318,7 @@ function addButtonsToExistingMessages(): void {
     if (mesId) {
       const messageId = parseInt(mesId, 10);
       if (!isNaN(messageId)) {
-        addManualGenerationButton($mes, messageId, context, settings);
+        addManualGenerationButton($mes, messageId, settings);
       }
     }
   });

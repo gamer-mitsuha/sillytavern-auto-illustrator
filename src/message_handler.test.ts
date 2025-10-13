@@ -20,11 +20,13 @@ interface GlobalWithToastr {
 };
 
 describe('message_handler', () => {
-  describe('processMessageImages', () => {
-    beforeEach(() => {
-      vi.clearAllMocks();
-    });
+  let mockContext: SillyTavernContext;
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('processMessageImages', () => {
     it('should process message with image prompts', async () => {
       const mockCallback = vi
         .fn()
@@ -99,8 +101,8 @@ describe('message_handler', () => {
   });
 
   describe('createMessageHandler', () => {
-    it('should return a function', () => {
-      const mockContext = createMockContext({
+    beforeEach(() => {
+      mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -117,8 +119,15 @@ describe('message_handler', () => {
         chat: [],
       });
 
+      // Mock global SillyTavern
+      global.SillyTavern = {
+        getContext: () => mockContext,
+      } as any;
+    });
+
+    it('should return a function', () => {
       const mockSettings = {streamingEnabled: false} as AutoIllustratorSettings;
-      const handler = createMessageHandler(mockContext, mockSettings);
+      const handler = createMessageHandler(mockSettings);
       expect(typeof handler).toBe('function');
     });
 
@@ -131,7 +140,7 @@ describe('message_handler', () => {
       const mockUpdateMessageBlock = vi.fn();
       const MESSAGE_EDITED = 'MESSAGE_EDITED';
       const MESSAGE_UPDATED = 'MESSAGE_UPDATED';
-      const mockContext = createMockContext({
+      mockContext = createMockContext({
         SlashCommandParser: {
           commands: {
             sd: {
@@ -159,8 +168,13 @@ describe('message_handler', () => {
         updateMessageBlock: mockUpdateMessageBlock,
       });
 
+      // Update global mock to return this new context
+      global.SillyTavern = {
+        getContext: () => mockContext,
+      } as any;
+
       const mockSettings = {streamingEnabled: false} as AutoIllustratorSettings;
-      const handler = createMessageHandler(mockContext, mockSettings);
+      const handler = createMessageHandler(mockSettings);
       await handler(0);
 
       // Should call updateMessageBlock to render images in DOM

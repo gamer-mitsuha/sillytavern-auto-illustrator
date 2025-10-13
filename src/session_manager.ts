@@ -56,7 +56,6 @@ export class SessionManager {
     // Create processor (will trigger on new prompts)
     const processor = new QueueProcessor(
       queue,
-      context,
       settings,
       settings.maxConcurrentGenerations
     );
@@ -64,7 +63,6 @@ export class SessionManager {
     // Create monitor (will add prompts to queue and trigger processor)
     const monitor = new StreamingMonitor(
       queue,
-      context,
       settings,
       settings.streamingPollInterval,
       () => {

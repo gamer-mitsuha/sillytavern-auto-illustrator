@@ -876,7 +876,7 @@ export async function regenerateImage(
 
         // Re-attach click handlers to all images (including the new one)
         setTimeout(() => {
-          addImageClickHandlers(context, settings);
+          addImageClickHandlers(settings);
         }, 100);
 
         return 1;
@@ -1316,7 +1316,7 @@ async function deleteImage(
 
       // Re-attach click handlers to remaining images
       setTimeout(() => {
-        addImageClickHandlers(context, settings);
+        addImageClickHandlers(settings);
       }, 100);
 
       return true;
@@ -1484,13 +1484,9 @@ async function showRegenerationDialog(
 
 /**
  * Adds click handlers to all AI-generated images in the chat
- * @param context - SillyTavern context
  * @param settings - Extension settings
  */
-export function addImageClickHandlers(
-  context: SillyTavernContext,
-  settings: AutoIllustratorSettings
-): void {
+export function addImageClickHandlers(settings: AutoIllustratorSettings): void {
   // Remove existing handlers to avoid duplicates
   $('.mes_text img[title^="AI generated image"]').off(
     'click.auto_illustrator_regen'
@@ -1525,8 +1521,12 @@ export function addImageClickHandlers(
         `Image clicked: messageId=${messageId}, src=${imageSrc.substring(0, 50)}...`
       );
 
-      // Show regeneration dialog
-      showRegenerationDialog(messageId, imageSrc, context, settings);
+      // Get fresh context when image is clicked (never cache context!)
+      const clickContext = SillyTavern.getContext();
+      if (clickContext) {
+        // Show regeneration dialog
+        showRegenerationDialog(messageId, imageSrc, clickContext, settings);
+      }
     }
   );
 
@@ -1539,15 +1539,19 @@ export function addImageClickHandlers(
  * Adds manual generation button to a message element
  * @param messageElement - jQuery message element
  * @param messageId - Message index in chat array
- * @param context - SillyTavern context
  * @param settings - Extension settings
  */
 export function addManualGenerationButton(
   messageElement: JQuery,
   messageId: number,
-  context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): void {
+  // Get fresh context to check message
+  const context = SillyTavern.getContext();
+  if (!context) {
+    return;
+  }
+
   const message = context.chat?.[messageId];
   if (!message || message.is_user) {
     return;
@@ -1585,7 +1589,11 @@ export function addManualGenerationButton(
       button.css('opacity', '0.5');
 
       try {
-        await showGenerationDialog(messageId, context, settings);
+        // Get fresh context when button is clicked (never cache context!)
+        const clickContext = SillyTavern.getContext();
+        if (clickContext) {
+          await showGenerationDialog(messageId, clickContext, settings);
+        }
       } finally {
         button.prop('disabled', false);
         button.css('opacity', '1');

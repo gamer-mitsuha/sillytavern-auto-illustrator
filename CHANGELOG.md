@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Context and chat metadata caching issues that caused stale data after chat switches (#34)
+  - All code now calls `SillyTavern.getContext()` when accessing chat or chatMetadata instead of caching context references
+  - Fixed QueueProcessor, StreamingMonitor, MessageHandler, and ManualGeneration to use fresh context
+  - Ensures extension always operates on the correct chat's metadata after switching chats
 - Extension enable/disable setting now properly controls all extension functionality
   - When disabled, no event handlers are registered, no widgets are initialized, and no automatic processing occurs
   - User is notified to reload the page when toggling the enable setting

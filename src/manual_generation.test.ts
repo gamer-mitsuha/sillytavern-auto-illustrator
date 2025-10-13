@@ -753,6 +753,11 @@ Some text here
 
       initializeI18n(mockContext);
 
+      // Mock global SillyTavern
+      global.SillyTavern = {
+        getContext: () => mockContext,
+      } as any;
+
       mockSettings = {};
 
       // Mock jQuery element
@@ -796,12 +801,7 @@ Some text here
         return mockMessageElement;
       });
 
-      addManualGenerationButton(
-        mockMessageElement,
-        0,
-        mockContext,
-        mockSettings
-      );
+      addManualGenerationButton(mockMessageElement, 0, mockSettings);
 
       // Verify button was created with correct tooltip
       expect(mockButton.attr).toHaveBeenCalledWith('title', '从提示生成图像');
