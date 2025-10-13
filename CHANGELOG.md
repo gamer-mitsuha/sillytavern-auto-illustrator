@@ -12,10 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two-level collapsible progress widget for improved scalability
   - **Widget-level collapse**: Entire widget collapses to compact bar showing summary (e.g., "✓ 3 message(s) complete (6 images) ▼")
   - **Message-level collapse**: Individual messages collapse to single line (e.g., "✓ Message #3: 2 ok (2 images) ▼")
-  - **Smart auto-expand/collapse**: Messages that are generating stay expanded, completed messages auto-collapse
+  - **Smart auto-expand/collapse**: Messages that are generating stay expanded, completed messages with images auto-expand (to show thumbnails), completed messages without images can be collapsed
   - **Manual override**: Users can click to expand/collapse any message or the entire widget
+    - Manual collapse/expand actions are persisted and respected by auto-expand logic
+    - Collapsed messages stay collapsed until user manually expands them
   - **Space efficiency**: 5 messages reduce from ~2000px to ~600px height (1 expanded + 4 collapsed)
-  - **Increased widget size**: Expanded widget max-width increased from 95% to 800px, collapsed from 400px to 600px
+  - **Increased widget size**: Widget now uses explicit width and minimum height
+    - Expanded width: `width: min(900px, 95%)` ensures full 900px width on desktop
+    - Collapsed width: `width: min(800px, 95%)` ensures full 800px width for collapsed bar
+    - Expanded height: `min-height: 350px` ensures thumbnails are fully visible without tiny scrolling
+    - Fixes issue where widget stayed narrow (~300px) and short with content
   - **Better thumbnail layout**: Thumbnails now wrap to multiple rows instead of horizontal scrolling
   - **Taller widget**: Max-height increased from 70vh to 80vh for better content visibility
   - **Smooth animations**: CSS transitions with cubic-bezier easing for polished UX

@@ -49,6 +49,7 @@ class ProgressWidgetView {
   private closedMessages = new Set<number>(); // Track manually closed messages
   private isWidgetCollapsed = false; // Track widget expansion state
   private expandedMessages = new Set<number>(); // Track which messages are expanded
+  private manuallyCollapsedMessages = new Set<number>(); // Track manually collapsed messages
   private updateTimer: number | null = null;
   private readonly THROTTLE_MS = 100; // Max 10 updates per second
   private readonly progressManager: ProgressManager;
@@ -358,12 +359,24 @@ class ProgressWidgetView {
     for (const [messageId, progress] of visibleMessages) {
       const isMessageComplete = progress.current === progress.total;
       const isExpanded = this.expandedMessages.has(messageId);
+      const hasImages = progress.completedImages.length > 0;
+      const manuallyCollapsed = this.manuallyCollapsedMessages.has(messageId);
 
-      // Auto-expand if message is not complete, auto-collapse if complete
+      // Auto-expand logic:
+      // 1. Always expand messages that are generating (not complete)
+      // 2. Auto-expand completed messages with images (unless manually collapsed)
+      // 3. Respect user's manual collapse/expand actions
       if (!isMessageComplete && !isExpanded) {
+        // Auto-expand generating messages
         this.expandedMessages.add(messageId);
-      } else if (isMessageComplete && !isExpanded) {
-        // Keep collapsed if complete
+      } else if (
+        isMessageComplete &&
+        hasImages &&
+        !isExpanded &&
+        !manuallyCollapsed
+      ) {
+        // Auto-expand completed messages with images (unless user collapsed it)
+        this.expandedMessages.add(messageId);
       }
 
       // Render message (collapsed or expanded)
@@ -426,6 +439,7 @@ class ProgressWidgetView {
     expandToggle.title = t('progress.expandWidget');
     expandToggle.addEventListener('click', () => {
       this.expandedMessages.add(messageId);
+      this.manuallyCollapsedMessages.delete(messageId); // Clear manual collapse flag
       this.scheduleUpdate();
     });
     messageHeader.appendChild(expandToggle);
@@ -436,6 +450,7 @@ class ProgressWidgetView {
       // Don't trigger if clicking the button directly
       if (e.target !== expandToggle) {
         this.expandedMessages.add(messageId);
+        this.manuallyCollapsedMessages.delete(messageId); // Clear manual collapse flag
         this.scheduleUpdate();
       }
     });
@@ -472,6 +487,7 @@ class ProgressWidgetView {
       collapseToggle.title = t('progress.collapseWidget');
       collapseToggle.addEventListener('click', () => {
         this.expandedMessages.delete(messageId);
+        this.manuallyCollapsedMessages.add(messageId); // Mark as manually collapsed
         this.scheduleUpdate();
       });
       messageHeader.appendChild(collapseToggle);
