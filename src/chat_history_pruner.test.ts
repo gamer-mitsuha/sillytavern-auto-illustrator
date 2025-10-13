@@ -18,7 +18,9 @@ describe('Chat History Pruner', () => {
 
       pruneGeneratedImages(chat);
 
-      expect(chat[0].content).toBe('Hello <!--img-prompt="test prompt"--> world');
+      expect(chat[0].content).toBe(
+        'Hello <!--img-prompt="test prompt"--> world'
+      );
     });
 
     it('should preserve standalone img tags in assistant messages', () => {

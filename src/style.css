@@ -768,9 +768,14 @@
     0 0 0 1px rgba(255, 255, 255, 0.1);
   cursor: zoom-in;
   will-change: transform;
-  transition: none;
+  transition: none; /* Will be controlled by JS for smooth animations */
   user-select: none;
   -webkit-user-drag: none;
+}
+
+/* Add smooth transition class for zoom animations */
+.ai-img-modal-image.zooming {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .ai-img-modal-image.zoomed {
@@ -923,6 +928,31 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Desktop-specific styles - hide mobile UI elements */
+@media (min-width: 769px) {
+  .ai-img-modal-swipe-hint {
+    display: none !important;
+  }
+
+  .ai-img-modal-tap-indicator {
+    display: none !important;
+  }
+}
+
+/* Mobile-specific toast positioning */
+@media (max-width: 768px) {
+  .ai-img-modal-toast {
+    /* Position at top of screen with safe area consideration */
+    top: calc(env(safe-area-inset-top, 0px) + 60px);
+    left: 50%;
+    transform: translateX(-50%);
+    /* Ensure toast fits on small screens */
+    max-width: calc(100vw - 2rem);
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
 /* Mobile optimizations for progress widget */
 @media (max-width: 768px) {
   .ai-img-progress-widget-global {
@@ -1027,9 +1057,9 @@
     position: relative;
   }
 
-  /* Swipe hint indicator on mobile */
-  .ai-img-modal-image-container::after {
-    content: '← Swipe →';
+  /* Swipe hint indicator on mobile (now a DOM element instead of pseudo-element) */
+  .ai-img-modal-swipe-hint {
+    display: block; /* Show on mobile */
     position: absolute;
     bottom: 1rem;
     left: 50%;
@@ -1112,19 +1142,14 @@
     line-height: 1.4;
   }
 
-  /* Add expand/collapse indicator */
-  .ai-img-modal-meta::after {
-    content: '▼ Tap to view prompt';
+  /* Tap to view/hide prompt indicator (now a DOM element instead of pseudo-element) */
+  .ai-img-modal-tap-indicator {
     display: block;
     font-size: 0.7rem;
     color: rgba(155, 89, 182, 0.8);
     margin-top: 0.5rem;
     text-align: center;
     cursor: pointer;
-  }
-
-  .ai-img-modal-info.expanded .ai-img-modal-meta::after {
-    content: '▲ Tap to hide prompt';
   }
 
   .ai-img-modal-action-btn {
@@ -1859,3 +1884,8 @@
 .ai-img-gallery-thumbnails::-webkit-scrollbar-corner {
   background: rgba(0, 0, 0, 0.2);
 }
+
+/* Note: :focus-visible pseudo-class cannot be used with ::-webkit-scrollbar-thumb
+   If you see console errors about "Failed to insert focus rule", this is likely
+   from external code (browser/extensions) trying to apply focus styles to scrollbars.
+   This is a known webkit limitation and not a bug in this extension. */

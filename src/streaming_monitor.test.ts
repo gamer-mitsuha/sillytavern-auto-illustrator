@@ -265,7 +265,8 @@ describe('StreamingMonitor', () => {
       mockContext.chat[0].mes = '<!--img-prompt="one"-->';
       vi.advanceTimersByTime(100);
 
-      mockContext.chat[0].mes = '<!--img-prompt="one"--> <!--img-prompt="two"-->';
+      mockContext.chat[0].mes =
+        '<!--img-prompt="one"--> <!--img-prompt="two"-->';
       vi.advanceTimersByTime(100);
 
       mockContext.chat[0].mes =

@@ -194,7 +194,12 @@ describe('QueueProcessor', () => {
 
   describe('processRemaining', () => {
     it('should wait for active generations before processing queued prompts', async () => {
-      const prompt1 = queue.addPrompt('test1', '<!--img-prompt="test1"-->', 0, 10);
+      const prompt1 = queue.addPrompt(
+        'test1',
+        '<!--img-prompt="test1"-->',
+        0,
+        10
+      );
       queue.addPrompt('test2', '<!--img-prompt="test2"-->', 20, 30);
 
       // Mark first as GENERATING

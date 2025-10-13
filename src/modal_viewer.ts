@@ -42,6 +42,11 @@ interface ZoomState {
   dragStartY: number;
   lastTouchDistance: number;
   lastTapTime: number;
+  velocityX: number;
+  velocityY: number;
+  lastMoveTime: number;
+  lastMoveX: number;
+  lastMoveY: number;
 }
 
 /**
@@ -66,6 +71,7 @@ export class ImageModalViewer {
   private promptDiv?: HTMLElement;
   private info?: HTMLElement;
   private zoomIndicator?: HTMLElement;
+  private tapIndicator?: HTMLElement;
 
   // Zoom state
   private zoomState: ZoomState = {
@@ -77,6 +83,11 @@ export class ImageModalViewer {
     dragStartY: 0,
     lastTouchDistance: 0,
     lastTapTime: 0,
+    velocityX: 0,
+    velocityY: 0,
+    lastMoveTime: 0,
+    lastMoveX: 0,
+    lastMoveY: 0,
   };
 
   // Constants
@@ -157,6 +168,13 @@ export class ImageModalViewer {
     this.zoomIndicator.style.display = 'none';
     this.imageContainer.appendChild(this.zoomIndicator);
 
+    // Mobile swipe hint (replaces CSS ::after pseudo-element)
+    const swipeHint = document.createElement('div');
+    swipeHint.className = 'ai-img-modal-swipe-hint';
+    swipeHint.textContent = t('modal.swipeToNavigate');
+    swipeHint.setAttribute('aria-hidden', 'true');
+    this.imageContainer.appendChild(swipeHint);
+
     content.appendChild(this.imageContainer);
 
     // Next button
@@ -179,6 +197,13 @@ export class ImageModalViewer {
     this.meta.className = 'ai-img-modal-meta';
     this.info.appendChild(this.meta);
 
+    // Mobile tap indicator (replaces CSS ::after pseudo-element on meta)
+    this.tapIndicator = document.createElement('div');
+    this.tapIndicator.className = 'ai-img-modal-tap-indicator';
+    this.tapIndicator.textContent = t('modal.tapToViewPrompt');
+    this.tapIndicator.setAttribute('aria-hidden', 'true');
+    this.meta.appendChild(this.tapIndicator);
+
     this.promptDiv = document.createElement('div');
     this.promptDiv.className = 'ai-img-modal-prompt';
     this.info.appendChild(this.promptDiv);
@@ -193,7 +218,12 @@ export class ImageModalViewer {
    * Setup all event handlers
    */
   private setupEventHandlers(): void {
-    if (!this.backdrop || !this.container || !this.img || !this.imageContainer) {
+    if (
+      !this.backdrop ||
+      !this.container ||
+      !this.img ||
+      !this.imageContainer
+    ) {
       return;
     }
 
@@ -242,19 +272,25 @@ export class ImageModalViewer {
       const key = e.key.toLowerCase();
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         switch (key) {
-          case 'c':
+          case 'c': {
             const currentImage = this.images[this.currentIndex];
             this.copyPromptToClipboard(currentImage.promptText);
             break;
-          case 'd':
+          }
+          case 'd': {
             const downloadImage = this.images[this.currentIndex];
-            this.downloadImage(downloadImage.imageUrl, `image-${this.currentIndex + 1}.png`);
-            this.showToast(t('modal.downloadStarted'));
+            this.downloadImage(
+              downloadImage.imageUrl,
+              `image-${this.currentIndex + 1}.png`
+            );
+            // Toast is shown inside downloadImage method based on platform
             break;
-          case 'o':
+          }
+          case 'o': {
             const openImage = this.images[this.currentIndex];
             window.open(openImage.imageUrl, '_blank', 'noopener,noreferrer');
             break;
+          }
           case 'r':
             if (this.zoomState.scale > this.MIN_ZOOM) {
               this.resetZoom();
@@ -293,6 +329,13 @@ export class ImageModalViewer {
           window.innerWidth <= 768
         ) {
           this.info!.classList.toggle('expanded');
+          // Update tap indicator text based on expanded state
+          if (this.tapIndicator) {
+            const isExpanded = this.info!.classList.contains('expanded');
+            this.tapIndicator.textContent = isExpanded
+              ? t('modal.tapToHidePrompt')
+              : t('modal.tapToViewPrompt');
+          }
         }
       });
     }
@@ -402,13 +445,18 @@ export class ImageModalViewer {
         // Start pan if zoomed
         if (this.zoomState.scale > this.MIN_ZOOM) {
           this.zoomState.isDragging = true;
-          this.zoomState.dragStartX = touches[0].clientX - this.zoomState.translateX;
-          this.zoomState.dragStartY = touches[0].clientY - this.zoomState.translateY;
+          this.zoomState.dragStartX =
+            touches[0].clientX - this.zoomState.translateX;
+          this.zoomState.dragStartY =
+            touches[0].clientY - this.zoomState.translateY;
         }
       } else if (touches.length === 2) {
         // Two fingers - pinch zoom
         e.preventDefault();
-        this.zoomState.lastTouchDistance = this.getTouchDistance(touches[0], touches[1]);
+        this.zoomState.lastTouchDistance = this.getTouchDistance(
+          touches[0],
+          touches[1]
+        );
       }
     });
 
@@ -416,10 +464,29 @@ export class ImageModalViewer {
       touches = Array.from(e.touches);
 
       if (touches.length === 1 && this.zoomState.isDragging) {
-        // Panning
+        // Panning with velocity tracking
         e.preventDefault();
-        this.zoomState.translateX = touches[0].clientX - this.zoomState.dragStartX;
-        this.zoomState.translateY = touches[0].clientY - this.zoomState.dragStartY;
+        const currentTime = Date.now();
+        const currentX = touches[0].clientX;
+        const currentY = touches[0].clientY;
+
+        // Calculate velocity
+        if (this.zoomState.lastMoveTime > 0) {
+          const timeDelta = currentTime - this.zoomState.lastMoveTime;
+          if (timeDelta > 0) {
+            this.zoomState.velocityX =
+              (currentX - this.zoomState.lastMoveX) / timeDelta;
+            this.zoomState.velocityY =
+              (currentY - this.zoomState.lastMoveY) / timeDelta;
+          }
+        }
+
+        this.zoomState.translateX = currentX - this.zoomState.dragStartX;
+        this.zoomState.translateY = currentY - this.zoomState.dragStartY;
+        this.zoomState.lastMoveTime = currentTime;
+        this.zoomState.lastMoveX = currentX;
+        this.zoomState.lastMoveY = currentY;
+
         this.constrainToBounds();
         this.updateImageTransform();
       } else if (touches.length === 2) {
@@ -432,7 +499,7 @@ export class ImageModalViewer {
         const centerX = (touches[0].clientX + touches[1].clientX) / 2;
         const centerY = (touches[0].clientY + touches[1].clientY) / 2;
 
-        this.zoomTo(newScale, centerX, centerY);
+        this.zoomTo(newScale, centerX, centerY, false); // No animation during pinch
         this.zoomState.lastTouchDistance = distance;
       }
     });
@@ -442,7 +509,10 @@ export class ImageModalViewer {
 
       if (remainingTouches.length === 0) {
         // Check for swipe
-        if (this.zoomState.scale <= this.MIN_ZOOM && !this.zoomState.isDragging) {
+        if (
+          this.zoomState.scale <= this.MIN_ZOOM &&
+          !this.zoomState.isDragging
+        ) {
           const touchEndX = e.changedTouches[0].clientX;
           const touchEndY = e.changedTouches[0].clientY;
           const deltaX = touchEndX - swipeStartX;
@@ -458,7 +528,20 @@ export class ImageModalViewer {
           }
         }
 
+        // Apply momentum if there's velocity
+        if (
+          this.zoomState.isDragging &&
+          this.zoomState.scale > this.MIN_ZOOM &&
+          (Math.abs(this.zoomState.velocityX) > 0.1 ||
+            Math.abs(this.zoomState.velocityY) > 0.1)
+        ) {
+          this.applyMomentum();
+        }
+
         this.zoomState.isDragging = false;
+        this.zoomState.velocityX = 0;
+        this.zoomState.velocityY = 0;
+        this.zoomState.lastMoveTime = 0;
       }
 
       touches = remainingTouches;
@@ -482,7 +565,11 @@ export class ImageModalViewer {
    * Navigate to a specific index
    */
   private navigateToIndex(index: number): void {
-    if (index >= 0 && index < this.images.length && index !== this.currentIndex) {
+    if (
+      index >= 0 &&
+      index < this.images.length &&
+      index !== this.currentIndex
+    ) {
       this.currentIndex = index;
       this.updateDisplay();
       this.onNavigate?.(this.currentIndex);
@@ -510,7 +597,7 @@ export class ImageModalViewer {
         <span class="ai-img-modal-meta-label">
           ${t('progress.imageIndex', {
             current: String(this.currentIndex + 1),
-            total: String(this.images.length)
+            total: String(this.images.length),
           })}
         </span>
       </div>
@@ -568,7 +655,9 @@ export class ImageModalViewer {
   private attachActionHandlers(): void {
     if (!this.meta) return;
 
-    const resetZoomBtn = this.meta.querySelector('.reset-zoom-btn') as HTMLButtonElement;
+    const resetZoomBtn = this.meta.querySelector(
+      '.reset-zoom-btn'
+    ) as HTMLButtonElement;
     const copyPromptBtn = this.meta.querySelector('.copy-prompt-btn');
     const downloadBtn = this.meta.querySelector('.download-btn');
     const openTabBtn = this.meta.querySelector('.open-tab-btn');
@@ -576,7 +665,8 @@ export class ImageModalViewer {
     // Show/hide reset button based on zoom state
     const updateResetButton = () => {
       if (resetZoomBtn) {
-        resetZoomBtn.style.display = this.zoomState.scale > this.MIN_ZOOM ? 'flex' : 'none';
+        resetZoomBtn.style.display =
+          this.zoomState.scale > this.MIN_ZOOM ? 'flex' : 'none';
       }
     };
     updateResetButton();
@@ -593,8 +683,11 @@ export class ImageModalViewer {
 
     downloadBtn?.addEventListener('click', () => {
       const currentImage = this.images[this.currentIndex];
-      this.downloadImage(currentImage.imageUrl, `image-${this.currentIndex + 1}.png`);
-      this.showToast(t('modal.downloadStarted'));
+      this.downloadImage(
+        currentImage.imageUrl,
+        `image-${this.currentIndex + 1}.png`
+      );
+      // Toast is shown inside downloadImage method based on platform
     });
 
     openTabBtn?.addEventListener('click', () => {
@@ -641,7 +734,10 @@ export class ImageModalViewer {
   /**
    * Show a toast notification
    */
-  private showToast(message: string, type: 'success' | 'error' = 'success'): void {
+  private showToast(
+    message: string,
+    type: 'success' | 'error' = 'success'
+  ): void {
     // Create toast element
     const toast = document.createElement('div');
     toast.className = `ai-img-modal-toast ai-img-modal-toast-${type}`;
@@ -668,15 +764,33 @@ export class ImageModalViewer {
   }
 
   /**
-   * Download an image
+   * Check if device is iOS
+   */
+  private isIOS(): boolean {
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  /**
+   * Download an image (with iOS fallback)
    */
   private downloadImage(url: string, filename: string): void {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (this.isIOS()) {
+      // iOS doesn't support download attribute, open in new tab instead
+      window.open(url, '_blank');
+      this.showToast(t('modal.openedForSaving'));
+    } else {
+      // Standard download for other platforms
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      this.showToast(t('modal.downloadStarted'));
+    }
   }
 
   // Zoom and pan helpers
@@ -685,7 +799,7 @@ export class ImageModalViewer {
 
     const {scale, translateX, translateY} = this.zoomState;
     this.img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-    this.img.style.transformOrigin = '0 0';
+    this.img.style.transformOrigin = 'center center';
 
     // Update cursor based on zoom state
     if (scale > this.MIN_ZOOM) {
@@ -709,17 +823,44 @@ export class ImageModalViewer {
       return;
     }
 
+    // With center transform origin, constraints are simpler
     const containerRect = this.imageContainer.getBoundingClientRect();
-    const naturalWidth = this.img.naturalWidth;
-    const naturalHeight = this.img.naturalHeight;
-    const scaledWidth = naturalWidth * this.zoomState.scale;
-    const scaledHeight = naturalHeight * this.zoomState.scale;
 
+    // Calculate the actual displayed image dimensions (accounting for object-fit: contain)
+    const imgAspect = this.img.naturalWidth / this.img.naturalHeight;
+    const containerAspect = containerRect.width / containerRect.height;
+
+    let displayedWidth: number;
+    let displayedHeight: number;
+
+    if (imgAspect > containerAspect) {
+      // Image is wider - fits to width
+      displayedWidth = containerRect.width;
+      displayedHeight = containerRect.width / imgAspect;
+    } else {
+      // Image is taller - fits to height
+      displayedHeight = containerRect.height;
+      displayedWidth = containerRect.height * imgAspect;
+    }
+
+    // When scaled, how much does the image extend beyond its original size?
+    const scaledWidth = displayedWidth * this.zoomState.scale;
+    const scaledHeight = displayedHeight * this.zoomState.scale;
+
+    // Maximum distance the image center can move from container center
+    // This ensures edges of scaled image align with container edges
     const maxX = Math.max(0, (scaledWidth - containerRect.width) / 2);
     const maxY = Math.max(0, (scaledHeight - containerRect.height) / 2);
 
-    this.zoomState.translateX = Math.max(-maxX, Math.min(maxX, this.zoomState.translateX));
-    this.zoomState.translateY = Math.max(-maxY, Math.min(maxY, this.zoomState.translateY));
+    // Constrain the translation
+    this.zoomState.translateX = Math.max(
+      -maxX,
+      Math.min(maxX, this.zoomState.translateX)
+    );
+    this.zoomState.translateY = Math.max(
+      -maxY,
+      Math.min(maxY, this.zoomState.translateY)
+    );
   }
 
   private resetZoom(): void {
@@ -729,23 +870,82 @@ export class ImageModalViewer {
     this.updateImageTransform();
   }
 
-  private zoomTo(newScale: number, centerX?: number, centerY?: number): void {
+  private applyMomentum(): void {
     if (!this.img) return;
+
+    const friction = 0.92; // Deceleration factor
+    const minVelocity = 0.1;
+
+    const animate = () => {
+      // Apply velocity to translation
+      this.zoomState.translateX += this.zoomState.velocityX * 16; // 16ms per frame
+      this.zoomState.translateY += this.zoomState.velocityY * 16;
+
+      // Apply friction
+      this.zoomState.velocityX *= friction;
+      this.zoomState.velocityY *= friction;
+
+      // Constrain bounds
+      this.constrainToBounds();
+      this.updateImageTransform();
+
+      // Continue animation if velocity is significant
+      if (
+        Math.abs(this.zoomState.velocityX) > minVelocity ||
+        Math.abs(this.zoomState.velocityY) > minVelocity
+      ) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }
+
+  private zoomTo(
+    newScale: number,
+    centerX?: number,
+    centerY?: number,
+    animate = true
+  ): void {
+    if (!this.img || !this.imageContainer) return;
 
     const oldScale = this.zoomState.scale;
     newScale = Math.max(this.MIN_ZOOM, Math.min(this.MAX_ZOOM, newScale));
 
-    if (centerX !== undefined && centerY !== undefined) {
-      const rect = this.img.getBoundingClientRect();
-      const offsetX = centerX - rect.left;
-      const offsetY = centerY - rect.top;
+    if (
+      centerX !== undefined &&
+      centerY !== undefined &&
+      oldScale !== newScale
+    ) {
+      // With center transform origin, the math is much simpler
+      const containerRect = this.imageContainer.getBoundingClientRect();
 
-      this.zoomState.translateX -= offsetX * (newScale / oldScale - 1);
-      this.zoomState.translateY -= offsetY * (newScale / oldScale - 1);
+      // Get the click point relative to the container center
+      const clickX = centerX - (containerRect.left + containerRect.width / 2);
+      const clickY = centerY - (containerRect.top + containerRect.height / 2);
+
+      // Calculate how this point moves when we scale
+      const scaleRatio = newScale / oldScale;
+
+      // The point on the image that was clicked needs to stay in the same place
+      // So we adjust the translation to compensate for the scale change
+      this.zoomState.translateX =
+        clickX + (this.zoomState.translateX - clickX) * scaleRatio;
+      this.zoomState.translateY =
+        clickY + (this.zoomState.translateY - clickY) * scaleRatio;
     }
 
     this.zoomState.scale = newScale;
     this.constrainToBounds();
+
+    // Add smooth transition for zoom
+    if (animate) {
+      this.img.classList.add('zooming');
+      setTimeout(() => {
+        this.img?.classList.remove('zooming');
+      }, 300);
+    }
+
     this.updateImageTransform();
   }
 

@@ -252,9 +252,7 @@ export class GalleryWidgetView {
       const messageText = message.mes || '';
       const images = this.extractImagesFromMessage(messageText, messageId);
 
-      logger.trace(
-        `Message ${messageId}: found ${images.length} images`
-      );
+      logger.trace(`Message ${messageId}: found ${images.length} images`);
 
       if (images.length > 0) {
         // Create message preview (first 100 chars, strip HTML)
@@ -563,7 +561,9 @@ export class GalleryWidgetView {
         logger.debug('Gallery modal closed');
       },
       onNavigate: (newIndex: number) => {
-        logger.trace(`Gallery modal navigated to image ${newIndex + 1}/${modalImages.length}`);
+        logger.trace(
+          `Gallery modal navigated to image ${newIndex + 1}/${modalImages.length}`
+        );
       },
     });
   }
@@ -593,7 +593,9 @@ export class GalleryWidgetView {
       return;
     }
 
-    logger.debug(`Opening modal with all ${allImages.length} images from ${groups.length} messages`);
+    logger.debug(
+      `Opening modal with all ${allImages.length} images from ${groups.length} messages`
+    );
 
     // Open the modal viewer with all images
     openImageModal({
@@ -604,7 +606,9 @@ export class GalleryWidgetView {
         logger.debug('All images modal closed');
       },
       onNavigate: (newIndex: number) => {
-        logger.trace(`All images modal navigated to image ${newIndex + 1}/${allImages.length}`);
+        logger.trace(
+          `All images modal navigated to image ${newIndex + 1}/${allImages.length}`
+        );
       },
     });
   }
