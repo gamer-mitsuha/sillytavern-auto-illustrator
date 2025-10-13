@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Mobile zoom/pan system redesigned for better UX
+  - Zoom now correctly centers on touch point (pinch or double-tap location)
+  - Pan works symmetrically in all directions with proper constraints
+  - Added smooth CSS transitions for zoom operations
+  - Implemented momentum scrolling with velocity tracking and friction-based deceleration
+  - Fixed toast notification positioning on mobile to avoid safe area overlap
+  - Added iOS-specific download handling (opens in new tab with long-press save instruction)
+
 ## [1.3.0] - 2025-01-13
 
 ### Fixed
