@@ -46,6 +46,7 @@ interface CompletedImage {
  */
 class ProgressWidgetView {
   private messageProgress = new Map<number, MessageProgressState>();
+  private closedMessages = new Set<number>(); // Track manually closed messages
   private updateTimer: number | null = null;
   private readonly THROTTLE_MS = 100; // Max 10 updates per second
   private readonly progressManager: ProgressManager;
@@ -117,11 +118,14 @@ class ProgressWidgetView {
 
   /**
    * Handles progress:cleared event
-   * This is when the operation is finished and widget should hide
+   * This is when the operation is finished, but widget stays visible until user closes it
    */
   private handleCleared(detail: ProgressClearedEventDetail): void {
-    logger.debug(`Cleared tracking for message ${detail.messageId}`);
-    this.messageProgress.delete(detail.messageId);
+    logger.debug(
+      `Cleared tracking for message ${detail.messageId} - marking as completed but keeping visible`
+    );
+    // Don't delete the message data - keep it visible until user manually closes
+    // Just schedule an update to change the visual state (spinner -> checkmark)
     this.scheduleUpdate();
   }
 
@@ -175,35 +179,71 @@ class ProgressWidgetView {
   private updateDisplay(): void {
     const widget = this.getOrCreateGlobalWidget();
 
+    // Filter out manually closed messages
+    const visibleMessages = Array.from(this.messageProgress.entries()).filter(
+      ([messageId]) => !this.closedMessages.has(messageId)
+    );
+
     logger.debug(
-      `Updating display: ${this.messageProgress.size} message(s), display will be: ${this.messageProgress.size === 0 ? 'none' : 'flex'}`
+      `Updating display: ${visibleMessages.length} visible message(s) (${this.closedMessages.size} closed), display will be: ${visibleMessages.length === 0 ? 'none' : 'flex'}`
     );
 
     // Clear existing content
     widget.innerHTML = '';
 
-    if (this.messageProgress.size === 0) {
-      // No active generations - hide widget
+    if (visibleMessages.length === 0) {
+      // No visible messages - hide widget
       widget.style.display = 'none';
-      logger.debug('No active messages, hiding widget');
+      logger.debug('No visible messages, hiding widget');
       return;
     }
 
     // Show widget
     widget.style.display = 'flex';
 
-    // Add header with spinner and title
+    // Determine if all visible messages are complete
+    const allComplete = visibleMessages.every(
+      ([, progress]) => progress.current === progress.total
+    );
+
+    // Add header with spinner/checkmark and title
     const header = document.createElement('div');
     header.className = 'ai-img-progress-header';
 
-    const spinner = document.createElement('div');
-    spinner.className = 'ai-img-progress-spinner';
-    header.appendChild(spinner);
+    if (allComplete) {
+      // All complete - show checkmark
+      const checkmark = document.createElement('div');
+      checkmark.className = 'ai-img-progress-checkmark';
+      checkmark.textContent = '✓';
+      header.appendChild(checkmark);
+    } else {
+      // Still generating - show spinner
+      const spinner = document.createElement('div');
+      spinner.className = 'ai-img-progress-spinner';
+      header.appendChild(spinner);
+    }
 
     const title = document.createElement('div');
     title.className = 'ai-img-progress-title';
-    title.textContent = t('progress.generatingImages');
+    title.textContent = allComplete
+      ? t('progress.imagesGenerated')
+      : t('progress.generatingImages');
     header.appendChild(title);
+
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ai-img-progress-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.title = t('progress.closeWidget');
+    closeBtn.addEventListener('click', () => {
+      // Close all visible messages
+      for (const [messageId] of visibleMessages) {
+        this.closedMessages.add(messageId);
+        this.messageProgress.delete(messageId);
+      }
+      this.scheduleUpdate();
+    });
+    header.appendChild(closeBtn);
 
     widget.appendChild(header);
 
@@ -211,7 +251,7 @@ class ProgressWidgetView {
     const container = document.createElement('div');
     container.className = 'ai-img-progress-text-container';
 
-    for (const [messageId, progress] of this.messageProgress.entries()) {
+    for (const [messageId, progress] of visibleMessages) {
       const messageSection = document.createElement('div');
       messageSection.className = 'ai-img-progress-text';
 

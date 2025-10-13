@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Progress widget now remains visible after image generation completes
+  - Widget stays open after all images finish generating, allowing users to review status at their convenience
+  - **Close button**: Added (×) button in widget header for manual dismissal
+  - **Completion indicator**: Spinner changes to green checkmark (✓) when all tasks complete
+  - **Title change**: "Generating Images" changes to "Images Generated" when done
+  - Users can inspect generated images and prompts before closing the widget
+  - Closing the widget does not remove generated images from chat
+  - Improves UX by giving users control over when to dismiss progress information
+
 - Enhanced zoom and pan controls for image modal
   - **Desktop**: Mouse wheel zoom (progressive 1x-3x), click-and-drag panning, double-click zoom toggle
   - **Mobile**: Pinch-to-zoom gesture, one-finger panning when zoomed, double-tap zoom toggle

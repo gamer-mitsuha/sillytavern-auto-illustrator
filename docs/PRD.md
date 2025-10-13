@@ -60,9 +60,13 @@ SillyTavern Auto Illustrator automatically generates inline images in conversati
 
 **PROG-002**: Update progress indicator in real-time as tasks complete (max 10 updates per second to avoid flickering)
 
-**PROG-003**: Progress indicator appears when first task starts and disappears only when the entire operation completes
+**PROG-003**: Progress indicator appears when first task starts and remains visible after operation completes until user manually closes it
 
 **PROG-004**: Multiple messages can show progress simultaneously without conflicts
+
+**PROG-005**: Users can manually close the progress widget by clicking the close button (×) in the header
+
+**PROG-006**: When all tasks complete, the spinner changes to a checkmark (✓) and title changes from "Generating Images" to "Images Generated"
 
 ### 2.3 Examples
 
@@ -83,29 +87,41 @@ During:    LLM adds 2 more prompts → "Message #42: 1 ok, 0 failed, 2 pending"
 After:     All 3 complete → indicator disappears after streaming ends
 ```
 
-**Example 3: Operation Boundaries**
+**Example 3: Operation Boundaries and Manual Close**
 ```
 Streaming Mode:
   - Indicator appears when first prompt detected
   - Stays visible even if all tasks complete (more prompts may arrive)
-  - Disappears only after LLM streaming finishes
+  - After LLM streaming finishes: spinner → checkmark, title changes
+  - Remains visible until user clicks close button (×)
 
 Batch Mode:
   - Indicator appears when batch starts
   - Stays visible until last image in batch completes
-  - Disappears immediately after batch completes
+  - After batch completes: spinner → checkmark, title changes
+  - Remains visible until user clicks close button (×)
 
 Manual Regeneration Mode:
   - Indicator appears when regeneration starts
   - Stays visible if multiple regenerations are queued
-  - Disappears only when all queued regenerations finish
+  - After all regenerations finish: spinner → checkmark, title changes
+  - Remains visible until user clicks close button (×)
+```
+
+**Example 4: Manual Close Behavior**
+```
+Scenario: User generates 3 images, all complete successfully
+Display:   Widget shows "Images Generated" with checkmark ✓
+User:      Clicks close button (×)
+Result:    Widget disappears, generated images remain in chat
 ```
 
 ### 2.4 Anti-Patterns
 
-❌ **DO NOT** hide progress indicator when tasks complete during streaming (more tasks may be added)
+❌ **DO NOT** hide progress indicator automatically when tasks complete (user must manually close)
 ❌ **DO NOT** show incorrect counts (e.g., "10/5 complete" - completed should never exceed total)
 ❌ **DO NOT** reset progress indicator when new tasks are added (update the total instead)
+❌ **DO NOT** remove generated images when user closes the widget (only hide the widget)
 
 ---
 

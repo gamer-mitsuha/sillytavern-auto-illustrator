@@ -114,6 +114,8 @@
   "progress.generatingImages": "Generating Images",
   "progress.imageIndex": "{current} of {total}",
   "progress.loading": "Loading...",
+  "progress.closeWidget": "Close",
+  "progress.imagesGenerated": "Images Generated",
   "modal.close": "Close",
   "modal.previous": "Previous",
   "modal.next": "Next",

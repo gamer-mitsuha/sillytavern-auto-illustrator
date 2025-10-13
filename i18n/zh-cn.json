@@ -114,6 +114,8 @@
   "progress.generatingImages": "正在生成图像",
   "progress.imageIndex": "{current}/{total}",
   "progress.loading": "加载中...",
+  "progress.closeWidget": "关闭",
+  "progress.imagesGenerated": "图片已生成",
   "modal.close": "关闭",
   "modal.previous": "上一张",
   "modal.next": "下一张",

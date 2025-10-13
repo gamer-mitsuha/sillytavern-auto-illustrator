@@ -70,11 +70,58 @@
   filter: drop-shadow(0 0 4px rgba(155, 89, 182, 0.5));
 }
 
+.ai-img-progress-checkmark {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #2ecc71;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(46, 204, 113, 0.5));
+}
+
 .ai-img-progress-title {
   font-size: 1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
   flex: 1;
+}
+
+.ai-img-progress-close {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.ai-img-progress-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 1);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.ai-img-progress-close:active {
+  transform: scale(0.95);
 }
 
 .ai-img-progress-text-container {
