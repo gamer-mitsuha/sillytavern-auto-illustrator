@@ -53,12 +53,51 @@ class ProgressWidgetView {
   private updateTimer: number | null = null;
   private readonly THROTTLE_MS = 100; // Max 10 updates per second
   private readonly progressManager: ProgressManager;
+  private readonly STORAGE_KEY = 'ai-img-widget-state-v1';
+
+  private loadStateFromStorage(): void {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw) as {
+        isWidgetCollapsed?: boolean;
+        manuallyCollapsedMessages?: number[];
+      };
+      if (typeof data.isWidgetCollapsed === 'boolean') {
+        this.isWidgetCollapsed = data.isWidgetCollapsed;
+      }
+      if (Array.isArray(data.manuallyCollapsedMessages)) {
+        // Cap to a reasonable size to avoid unbounded growth
+        for (const id of data.manuallyCollapsedMessages.slice(0, 200)) {
+          this.manuallyCollapsedMessages.add(id);
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to load widget state from storage', err);
+    }
+  }
+
+  private saveStateToStorage(): void {
+    try {
+      const data = {
+        isWidgetCollapsed: this.isWidgetCollapsed,
+        manuallyCollapsedMessages: Array.from(
+          this.manuallyCollapsedMessages
+        ).slice(0, 200),
+      };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+    } catch (err) {
+      logger.warn('Failed to save widget state to storage', err);
+    }
+  }
 
   /**
    * Initializes the widget and subscribes to ProgressManager events
    */
   constructor(manager: ProgressManager) {
     this.progressManager = manager;
+    // Restore persisted UI state (safe to proceed if storage unavailable)
+    this.loadStateFromStorage();
     // Subscribe to all progress events
     manager.addEventListener('progress:started', event => {
       const detail = (event as CustomEvent<ProgressStartedEventDetail>).detail;
@@ -255,6 +294,7 @@ class ProgressWidgetView {
     header.className = 'ai-img-progress-header-collapsed';
     header.addEventListener('click', () => {
       this.isWidgetCollapsed = false;
+      this.saveStateToStorage();
       this.scheduleUpdate();
     });
 
@@ -331,6 +371,7 @@ class ProgressWidgetView {
     collapseBtn.title = t('progress.collapseWidget');
     collapseBtn.addEventListener('click', () => {
       this.isWidgetCollapsed = true;
+      this.saveStateToStorage();
       this.scheduleUpdate();
     });
     header.appendChild(collapseBtn);
@@ -440,6 +481,7 @@ class ProgressWidgetView {
     expandToggle.addEventListener('click', () => {
       this.expandedMessages.add(messageId);
       this.manuallyCollapsedMessages.delete(messageId); // Clear manual collapse flag
+      this.saveStateToStorage();
       this.scheduleUpdate();
     });
     messageHeader.appendChild(expandToggle);
@@ -451,6 +493,7 @@ class ProgressWidgetView {
       if (e.target !== expandToggle) {
         this.expandedMessages.add(messageId);
         this.manuallyCollapsedMessages.delete(messageId); // Clear manual collapse flag
+        this.saveStateToStorage();
         this.scheduleUpdate();
       }
     });
@@ -488,6 +531,7 @@ class ProgressWidgetView {
       collapseToggle.addEventListener('click', () => {
         this.expandedMessages.delete(messageId);
         this.manuallyCollapsedMessages.add(messageId); // Mark as manually collapsed
+        this.saveStateToStorage();
         this.scheduleUpdate();
       });
       messageHeader.appendChild(collapseToggle);
@@ -689,6 +733,7 @@ class ProgressWidgetView {
     );
 
     let currentIndex = initialIndex;
+    const previouslyFocused = (document.activeElement as HTMLElement) || null;
 
     // Zoom and pan state
     interface ZoomState {
@@ -830,10 +875,17 @@ class ProgressWidgetView {
     // Create modal backdrop
     const backdrop = document.createElement('div');
     backdrop.className = 'ai-img-modal-backdrop';
+    // Lock background scroll when modal opens
+    document.body.classList.add('ai-img-modal-open');
 
     // Create modal container
     const container = document.createElement('div');
     container.className = 'ai-img-modal-container';
+    // Accessibility roles
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-modal', 'true');
+    container.setAttribute('aria-label', 'Image viewer');
+    container.tabIndex = -1;
 
     // Close button
     const closeBtn = document.createElement('button');
@@ -851,6 +903,7 @@ class ProgressWidgetView {
     prevBtn.className = 'ai-img-modal-nav prev';
     prevBtn.innerHTML = '▶';
     prevBtn.title = t('modal.previous');
+    prevBtn.setAttribute('aria-label', t('modal.previous'));
     content.appendChild(prevBtn);
 
     // Image container
@@ -869,6 +922,7 @@ class ProgressWidgetView {
     nextBtn.className = 'ai-img-modal-nav next';
     nextBtn.innerHTML = '▶';
     nextBtn.title = t('modal.next');
+    nextBtn.setAttribute('aria-label', t('modal.next'));
     content.appendChild(nextBtn);
 
     container.appendChild(content);
@@ -876,6 +930,8 @@ class ProgressWidgetView {
     // Info bar
     const info = document.createElement('div');
     info.className = 'ai-img-modal-info';
+    info.setAttribute('role', 'region');
+    info.setAttribute('aria-live', 'polite');
 
     const meta = document.createElement('div');
     meta.className = 'ai-img-modal-meta';
@@ -888,6 +944,19 @@ class ProgressWidgetView {
     container.appendChild(info);
 
     backdrop.appendChild(container);
+
+    // Navigation state and preload helpers
+    const updateNavButtons = () => {
+      const total = progress.completedImages.length;
+      prevBtn.disabled = total === 0 || currentIndex <= 0;
+      nextBtn.disabled = total === 0 || currentIndex >= total - 1;
+    };
+    const preloadImage = (index: number) => {
+      if (index < 0 || index >= progress.completedImages.length) return;
+      const src = progress.completedImages[index].imageUrl;
+      const pre = new Image();
+      pre.src = src;
+    };
 
     // Update display function
     const updateDisplay = () => {
@@ -907,6 +976,9 @@ class ProgressWidgetView {
           <button class="ai-img-modal-action-btn reset-zoom-btn" title="${t('modal.resetZoom')}" style="display: none;">
             ↺ ${t('modal.resetZoom')}
           </button>
+          <button class="ai-img-modal-action-btn open-tab-btn" title="${t('modal.openInNewTab')}">
+            🔗 ${t('modal.openInNewTab')}
+          </button>
           <button class="ai-img-modal-action-btn download-btn" title="${t('modal.download')}">
             💾 ${t('modal.download')}
           </button>
@@ -915,15 +987,17 @@ class ProgressWidgetView {
 
       promptDiv.textContent = currentImage.promptText;
 
-      // Update button states
-      prevBtn.disabled = currentIndex === 0;
-      nextBtn.disabled = currentIndex === progress.completedImages.length - 1;
+      // Update nav state and preload neighbors
+      updateNavButtons();
+      preloadImage(currentIndex - 1);
+      preloadImage(currentIndex + 1);
 
       // Re-attach action button handlers
       const resetZoomBtn = meta.querySelector(
         '.reset-zoom-btn'
       ) as HTMLButtonElement;
       const downloadBtn = meta.querySelector('.download-btn');
+      const openTabBtn = meta.querySelector('.open-tab-btn');
 
       // Show/hide reset button based on zoom state
       const updateResetButton = () => {
@@ -944,6 +1018,14 @@ class ProgressWidgetView {
           currentImage.imageUrl,
           `image-${currentIndex + 1}.png`
         );
+      });
+
+      openTabBtn?.addEventListener('click', () => {
+        try {
+          window.open(currentImage.imageUrl, '_blank', 'noopener,noreferrer');
+        } catch (e) {
+          logger.warn('Failed to open image in new tab', e);
+        }
       });
     };
 
@@ -1049,6 +1131,20 @@ class ProgressWidgetView {
       }
     });
 
+    // Ensure bounds after image load (natural size is ready)
+    img.addEventListener('load', () => {
+      constrainToBounds();
+      updateImageTransform();
+    });
+
+    // Keep image within bounds on viewport resize/orientation
+    const handleResize = () => {
+      constrainToBounds();
+      updateImageTransform();
+      updateNavButtons();
+    };
+    window.addEventListener('resize', handleResize);
+
     // Mobile: Touch gesture support
     let touchStartTime = 0;
     let initialTouches: Touch[] = [];
@@ -1144,6 +1240,34 @@ class ProgressWidgetView {
       }
     });
 
+    // Focus trap inside dialog
+    const getFocusable = (): HTMLElement[] => {
+      return Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
+    };
+    const focusTrapHandler = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = getFocusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          last.focus();
+          e.preventDefault();
+        }
+      } else {
+        if (document.activeElement === last) {
+          first.focus();
+          e.preventDefault();
+        }
+      }
+    };
+    container.addEventListener('keydown', focusTrapHandler);
+
     // Close handlers
     const closeModal = () => {
       backdrop.remove();
@@ -1152,6 +1276,13 @@ class ProgressWidgetView {
         'progress:image-completed',
         handleImageCompleted
       );
+      window.removeEventListener('resize', handleResize);
+      container.removeEventListener('keydown', focusTrapHandler);
+      document.body.classList.remove('ai-img-modal-open');
+      // Restore focus to previously focused element
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
       logger.debug('Image modal closed');
     };
 
@@ -1197,6 +1328,14 @@ class ProgressWidgetView {
     document.addEventListener('keydown', handleKeyboard);
 
     document.body.appendChild(backdrop);
+    // Move focus into dialog shortly after insertion
+    setTimeout(() => {
+      try {
+        closeBtn.focus();
+      } catch (e) {
+        /* ignore focus errors */
+      }
+    }, 0);
   }
 
   /**
@@ -1230,6 +1369,8 @@ class ProgressWidgetView {
     widget.id = 'ai-img-progress-global';
     widget.className = 'ai-img-progress-widget-global';
     widget.style.display = 'none'; // Start hidden, will be shown by updateDisplay()
+    widget.setAttribute('role', 'status');
+    widget.setAttribute('aria-live', 'polite');
 
     // Find #sheld and #form_sheld to insert widget in correct position
     const sheld = document.getElementById('sheld');

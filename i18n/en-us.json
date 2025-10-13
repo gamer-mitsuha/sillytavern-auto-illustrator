@@ -127,6 +127,7 @@
   "modal.next": "Next",
   "modal.zoom": "Zoom",
   "modal.resetZoom": "Reset Zoom",
+  "modal.openInNewTab": "Open in new tab",
   "modal.download": "Download",
   "modal.dimensions": "Dimensions",
   "modal.prompt": "Prompt",

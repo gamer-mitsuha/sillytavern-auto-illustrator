@@ -127,6 +127,7 @@
   "modal.next": "下一张",
   "modal.zoom": "缩放",
   "modal.resetZoom": "重置缩放",
+  "modal.openInNewTab": "在新标签页打开",
   "modal.download": "下载",
   "modal.dimensions": "尺寸",
   "modal.prompt": "提示词",
