@@ -230,12 +230,13 @@ class ProgressWidgetView {
       `Updating display: ${visibleMessages.length} visible message(s) (${this.closedMessages.size} closed), widget collapsed: ${this.isWidgetCollapsed}`
     );
 
-    // Clear existing content
-    widget.innerHTML = '';
+    // Save scroll positions before update
+    const scrollPositions = this.saveScrollPositions(widget);
 
     if (visibleMessages.length === 0) {
       // No visible messages - hide widget
       widget.style.display = 'none';
+      widget.innerHTML = ''; // Only clear when actually hiding
       logger.debug('No visible messages, hiding widget');
       return;
     }
@@ -243,12 +244,31 @@ class ProgressWidgetView {
     // Show widget
     widget.style.display = 'flex';
 
-    // Render collapsed or expanded widget
-    if (this.isWidgetCollapsed) {
-      this.renderCollapsedWidget(widget, visibleMessages);
+    // Check if we need a full rebuild (collapse state changed or first render)
+    const currentCollapseState = widget.classList.contains('collapsed');
+    const needsFullRebuild =
+      currentCollapseState !== this.isWidgetCollapsed ||
+      widget.children.length === 0;
+
+    if (needsFullRebuild) {
+      // Full rebuild needed
+      widget.innerHTML = '';
+      if (this.isWidgetCollapsed) {
+        this.renderCollapsedWidget(widget, visibleMessages);
+      } else {
+        this.renderExpandedWidget(widget, visibleMessages);
+      }
     } else {
-      this.renderExpandedWidget(widget, visibleMessages);
+      // Smart update - update existing elements
+      if (this.isWidgetCollapsed) {
+        this.updateCollapsedWidget(widget, visibleMessages);
+      } else {
+        this.updateExpandedWidget(widget, visibleMessages);
+      }
     }
+
+    // Restore scroll positions after update
+    this.restoreScrollPositions(widget, scrollPositions);
 
     // Debug logging AFTER content is added
     const computedStyle = window.getComputedStyle(widget);
@@ -266,6 +286,385 @@ class ProgressWidgetView {
     logger.debug(
       `Updated widget display: ${visibleMessages.length} visible message(s)`
     );
+  }
+
+  /**
+   * Save scroll positions of all thumbnail containers
+   */
+  private saveScrollPositions(widget: HTMLElement): Map<string, number> {
+    const positions = new Map<string, number>();
+    const thumbnailContainers = widget.querySelectorAll(
+      '.ai-img-progress-thumbnails'
+    );
+
+    thumbnailContainers.forEach((container, index) => {
+      if (container instanceof HTMLElement) {
+        const key = `thumbnails-${index}`;
+        positions.set(key, container.scrollLeft);
+      }
+    });
+
+    return positions;
+  }
+
+  /**
+   * Restore scroll positions of all thumbnail containers
+   */
+  private restoreScrollPositions(
+    widget: HTMLElement,
+    positions: Map<string, number>
+  ): void {
+    const thumbnailContainers = widget.querySelectorAll(
+      '.ai-img-progress-thumbnails'
+    );
+
+    thumbnailContainers.forEach((container, index) => {
+      if (container instanceof HTMLElement) {
+        const key = `thumbnails-${index}`;
+        const savedPosition = positions.get(key);
+        if (savedPosition !== undefined) {
+          container.scrollLeft = savedPosition;
+        }
+      }
+    });
+  }
+
+  /**
+   * Update collapsed widget without full rebuild
+   */
+  private updateCollapsedWidget(
+    widget: HTMLElement,
+    visibleMessages: Array<[number, MessageProgressState]>
+  ): void {
+    // Find existing elements
+    const header = widget.querySelector('.ai-img-progress-header-collapsed');
+    if (!header) {
+      // Fallback to full render if structure is missing
+      this.renderCollapsedWidget(widget, visibleMessages);
+      return;
+    }
+
+    // Update status icon
+    const allComplete = visibleMessages.every(
+      ([, progress]) => progress.current === progress.total
+    );
+
+    const statusIcon = header.querySelector(
+      '.ai-img-progress-checkmark, .ai-img-progress-spinner'
+    );
+    if (statusIcon) {
+      statusIcon.className = allComplete
+        ? 'ai-img-progress-checkmark'
+        : 'ai-img-progress-spinner';
+      statusIcon.textContent = allComplete ? '✓' : '';
+    }
+
+    // Update summary text
+    const summaryText = header.querySelector('.ai-img-progress-summary-text');
+    if (summaryText) {
+      const messageCount = visibleMessages.length;
+      const totalImages = visibleMessages.reduce(
+        (sum, [, progress]) => sum + progress.completedImages.length,
+        0
+      );
+      summaryText.textContent = allComplete
+        ? `${t('progress.summaryComplete', {count: String(messageCount)})} (${t('progress.imageCountTotal', {count: String(totalImages)})})`
+        : t('progress.summaryGenerating', {count: String(messageCount)});
+    }
+  }
+
+  /**
+   * Update expanded widget without full rebuild
+   */
+  private updateExpandedWidget(
+    widget: HTMLElement,
+    visibleMessages: Array<[number, MessageProgressState]>
+  ): void {
+    // Find existing elements
+    const header = widget.querySelector('.ai-img-progress-header');
+    const container = widget.querySelector('.ai-img-progress-text-container');
+
+    if (!header || !container) {
+      // Fallback to full render if structure is missing
+      this.renderExpandedWidget(widget, visibleMessages);
+      return;
+    }
+
+    // Update header status
+    const allComplete = visibleMessages.every(
+      ([, progress]) => progress.current === progress.total
+    );
+
+    // Update spinner/checkmark
+    const statusElement = header.querySelector(
+      '.ai-img-progress-spinner, .ai-img-progress-checkmark'
+    );
+    if (statusElement) {
+      if (allComplete) {
+        statusElement.className = 'ai-img-progress-checkmark';
+        statusElement.textContent = '✓';
+      } else {
+        statusElement.className = 'ai-img-progress-spinner';
+        statusElement.textContent = '';
+      }
+    }
+
+    // Update title
+    const title = header.querySelector('.ai-img-progress-title');
+    if (title) {
+      title.textContent = allComplete
+        ? t('progress.imagesGenerated')
+        : t('progress.generatingImages');
+    }
+
+    // Update message containers
+    this.updateMessageContainers(container as HTMLElement, visibleMessages);
+  }
+
+  /**
+   * Update individual message containers
+   */
+  private updateMessageContainers(
+    container: HTMLElement,
+    visibleMessages: Array<[number, MessageProgressState]>
+  ): void {
+    // Create a map of existing message elements
+    const existingMessages = new Map<number, HTMLElement>();
+    container.querySelectorAll('.ai-img-progress-message').forEach(elem => {
+      const messageId = elem.getAttribute('data-message-id');
+      if (messageId) {
+        existingMessages.set(parseInt(messageId, 10), elem as HTMLElement);
+      }
+    });
+
+    // Clear container for rebuild - we'll re-add in correct order
+    container.innerHTML = '';
+
+    // Process each visible message
+    for (const [messageId, progress] of visibleMessages) {
+      let messageElement = existingMessages.get(messageId);
+
+      const isMessageComplete = progress.current === progress.total;
+      const isExpanded = this.expandedMessages.has(messageId);
+      const hasImages = progress.completedImages.length > 0;
+      const manuallyCollapsed = this.manuallyCollapsedMessages.has(messageId);
+
+      // Auto-expand logic
+      if (!isMessageComplete && !isExpanded) {
+        this.expandedMessages.add(messageId);
+      } else if (
+        isMessageComplete &&
+        hasImages &&
+        !isExpanded &&
+        !manuallyCollapsed
+      ) {
+        this.expandedMessages.add(messageId);
+      }
+
+      // Check if we need to recreate the element (expansion state changed)
+      const currentlyExpanded = messageElement?.classList.contains('expanded');
+      const shouldBeExpanded = this.expandedMessages.has(messageId);
+
+      if (!messageElement || currentlyExpanded !== shouldBeExpanded) {
+        // Need to recreate element
+        if (shouldBeExpanded) {
+          messageElement = this.renderExpandedMessage(messageId, progress);
+        } else {
+          messageElement = this.renderCompactMessage(messageId, progress);
+        }
+      } else {
+        // Update existing element
+        if (shouldBeExpanded) {
+          this.updateExpandedMessage(messageElement, messageId, progress);
+        } else {
+          this.updateCompactMessage(messageElement, messageId, progress);
+        }
+      }
+
+      // Add data attribute for tracking
+      messageElement.setAttribute('data-message-id', String(messageId));
+      container.appendChild(messageElement);
+    }
+  }
+
+  /**
+   * Update an existing expanded message element
+   */
+  private updateExpandedMessage(
+    element: HTMLElement,
+    messageId: number,
+    progress: MessageProgressState
+  ): void {
+    const isComplete = progress.current === progress.total;
+
+    // Update status badges
+    const badgesContainer = element.querySelector(
+      '.ai-img-progress-status-badges'
+    );
+    if (badgesContainer) {
+      badgesContainer.innerHTML = '';
+
+      const pending = progress.total - progress.current;
+
+      if (progress.succeeded > 0) {
+        const badge = this.createStatusBadge(
+          '✓',
+          progress.succeeded,
+          t('progress.succeeded'),
+          'success'
+        );
+        badgesContainer.appendChild(badge);
+      }
+
+      if (progress.failed > 0) {
+        const badge = this.createStatusBadge(
+          '✗',
+          progress.failed,
+          t('progress.failed'),
+          'failed'
+        );
+        badgesContainer.appendChild(badge);
+      }
+
+      if (pending > 0) {
+        const badge = this.createStatusBadge(
+          '⏳',
+          pending,
+          t('progress.pending'),
+          'pending'
+        );
+        badgesContainer.appendChild(badge);
+      }
+    }
+
+    // Update progress bar
+    const progressBar = element.querySelector('.ai-img-progress-bar');
+    if (progressBar instanceof HTMLElement) {
+      if (isComplete) {
+        // Remove progress bar container
+        progressBar.parentElement?.remove();
+      } else {
+        const progressPercent =
+          progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+        progressBar.style.width = `${Math.min(100, Math.max(0, progressPercent))}%`;
+      }
+    }
+
+    // Update thumbnail gallery if needed
+    let gallery = element.querySelector('.ai-img-progress-gallery');
+    if (progress.completedImages.length > 0) {
+      if (!gallery) {
+        // Need to create gallery
+        gallery = this.createThumbnailGallery(
+          messageId,
+          progress.completedImages
+        );
+        element.appendChild(gallery);
+      } else {
+        // Update existing gallery
+        this.updateThumbnailGallery(
+          gallery as HTMLElement,
+          messageId,
+          progress.completedImages
+        );
+      }
+    }
+  }
+
+  /**
+   * Update an existing compact message element
+   */
+  private updateCompactMessage(
+    element: HTMLElement,
+    _messageId: number,
+    progress: MessageProgressState
+  ): void {
+    const header = element.querySelector('.ai-img-progress-message-header');
+    if (!header) return;
+
+    // Update summary
+    const summary = header.querySelector('.message-summary');
+    if (summary) {
+      summary.textContent = `${progress.succeeded} ${t('progress.succeeded')}`;
+      if (progress.failed > 0) {
+        summary.textContent += `, ${progress.failed} ${t('progress.failed')}`;
+      }
+    }
+
+    // Update image count
+    const imageCount = header.querySelector('.message-image-count');
+    if (imageCount) {
+      imageCount.textContent = `(${t('progress.imageCountTotal', {count: String(progress.completedImages.length)})})`;
+    }
+  }
+
+  /**
+   * Update an existing thumbnail gallery
+   */
+  private updateThumbnailGallery(
+    gallery: HTMLElement,
+    messageId: number,
+    images: CompletedImage[]
+  ): void {
+    const thumbnailsContainer = gallery.querySelector(
+      '.ai-img-progress-thumbnails'
+    );
+    if (!thumbnailsContainer) return;
+
+    // Get current thumbnails
+    const existingThumbnails = thumbnailsContainer.querySelectorAll(
+      '.ai-img-progress-thumbnail'
+    );
+    const existingCount = existingThumbnails.length;
+    const newCount = images.length;
+
+    // Only add new thumbnails (don't recreate existing ones)
+    if (newCount > existingCount) {
+      for (let i = existingCount; i < newCount; i++) {
+        const image = images[i];
+        const thumbnail = document.createElement('div');
+        thumbnail.className = 'ai-img-progress-thumbnail';
+        thumbnail.title = image.promptText;
+
+        // Add index badge
+        const indexBadge = document.createElement('div');
+        indexBadge.className = 'ai-img-progress-thumbnail-index';
+        indexBadge.textContent = t('progress.imageIndex', {
+          current: String(i + 1),
+          total: String(newCount),
+        });
+        thumbnail.appendChild(indexBadge);
+
+        // Create img element
+        const img = document.createElement('img');
+        img.src = image.imageUrl;
+        img.alt = image.promptPreview;
+        img.loading = 'lazy';
+        thumbnail.appendChild(img);
+
+        // Add click handler
+        thumbnail.addEventListener('click', () => {
+          this.showImageModal(messageId, i);
+        });
+
+        thumbnailsContainer.appendChild(thumbnail);
+      }
+
+      // Update indices on all thumbnails
+      thumbnailsContainer
+        .querySelectorAll('.ai-img-progress-thumbnail')
+        .forEach((thumb, index) => {
+          const indexBadge = thumb.querySelector(
+            '.ai-img-progress-thumbnail-index'
+          );
+          if (indexBadge) {
+            indexBadge.textContent = t('progress.imageIndex', {
+              current: String(index + 1),
+              total: String(newCount),
+            });
+          }
+        });
+    }
   }
 
   /**
@@ -959,15 +1358,20 @@ class ProgressWidgetView {
     };
 
     // Update display function
-    const updateDisplay = () => {
+    // changeImage: when true, updates the image src and resets zoom. When false, only updates metadata
+    const updateDisplay = (changeImage = true) => {
       const currentImage = progress.completedImages[currentIndex];
-      img.src = currentImage.imageUrl;
-      img.alt = currentImage.promptPreview;
 
-      // Reset zoom when changing images
-      resetZoom();
+      if (changeImage) {
+        img.src = currentImage.imageUrl;
+        img.alt = currentImage.promptPreview;
+        // Reset zoom when changing to a different image
+        resetZoom();
+        // Update prompt text when image changes
+        promptDiv.textContent = currentImage.promptText;
+      }
 
-      // Update metadata
+      // Always update metadata (counts, nav buttons, etc)
       meta.innerHTML = `
         <div class="ai-img-modal-meta-item">
           <span class="ai-img-modal-meta-label">${t('progress.imageIndex', {current: String(currentIndex + 1), total: String(progress.completedImages.length)})}</span>
@@ -984,8 +1388,6 @@ class ProgressWidgetView {
           </button>
         </div>
       `;
-
-      promptDiv.textContent = currentImage.promptText;
 
       // Update nav state and preload neighbors
       updateNavButtons();
@@ -1056,7 +1458,8 @@ class ProgressWidgetView {
         );
         // Refresh the display to update the count and enable navigation
         // Note: progress.completedImages is updated by handleImageCompleted()
-        updateDisplay();
+        // Don't reset zoom when just updating the count for new images
+        updateDisplay(false);
       }
     }) as EventListener;
 

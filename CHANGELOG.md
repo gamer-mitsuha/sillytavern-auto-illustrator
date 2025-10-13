@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Widget state preservation during updates
+  - **Smart DOM updates**: Progress widget now uses differential DOM updates instead of full rebuilds
+  - **Scroll position preservation**: Thumbnail gallery scroll positions are saved and restored during updates
+  - **Image viewer state maintained**: Zoom and pan states in the image modal no longer reset during progress updates
+  - **Improved performance**: Only changed elements are updated, reducing DOM thrashing
+  - Fixes UX issue where interacting with images (zooming, panning, scrolling) would reset when progress updated
+
 ### Added
 
 - Two-level collapsible progress widget for improved scalability
