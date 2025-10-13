@@ -204,6 +204,22 @@ export function createSettingsUI(): string {
             </select>
           </label>
 
+          <div style="margin-top: 1rem;">
+            <strong>${t('settings.widgetVisibility')}</strong>
+          </div>
+
+          <label class="checkbox_label" for="${UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET}">
+            <input id="${UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET}" type="checkbox" />
+            <span>${t('settings.showProgressWidget')}</span>
+            <small>${t('settings.showProgressWidgetDesc')}</small>
+          </label>
+
+          <label class="checkbox_label" for="${UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET}">
+            <input id="${UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET}" type="checkbox" />
+            <span>${t('settings.showGalleryWidget')}</span>
+            <small>${t('settings.showGalleryWidgetDesc')}</small>
+          </label>
+
           <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
             <span>${t('settings.logLevel')}</span>
             <small>${t('settings.logLevelDesc')}</small>

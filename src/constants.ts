@@ -108,6 +108,8 @@ export const DEFAULT_SETTINGS = {
   promptDetectionPatterns: DEFAULT_PROMPT_DETECTION_PATTERNS,
   commonStyleTags: '',
   commonStyleTagsPosition: 'prefix' as const,
+  showGalleryWidget: true,
+  showProgressWidget: true,
 };
 
 /**
@@ -136,5 +138,7 @@ export const UI_ELEMENT_IDS = {
   PATTERN_VALIDATION_STATUS: 'auto_illustrator_pattern_validation_status',
   COMMON_STYLE_TAGS: 'auto_illustrator_common_style_tags',
   COMMON_STYLE_TAGS_POSITION: 'auto_illustrator_common_style_tags_position',
+  SHOW_GALLERY_WIDGET: 'auto_illustrator_show_gallery_widget',
+  SHOW_PROGRESS_WIDGET: 'auto_illustrator_show_progress_widget',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;

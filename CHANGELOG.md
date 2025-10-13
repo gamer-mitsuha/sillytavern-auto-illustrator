@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Widget visibility settings to control which widgets are displayed
+  - Added "Show Progress Widget" setting to enable/disable the progress widget
+  - Added "Show Gallery Widget" setting to enable/disable the gallery widget
+  - Both widgets default to enabled (true) for backward compatibility
+  - Requires page reload to take effect when changed
 - Progress widget close functionality (PROG-005)
   - Added close button (×) to widget header to dismiss all messages at once
   - Added close button (×) to individual completed messages for selective dismissal

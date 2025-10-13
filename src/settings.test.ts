@@ -18,6 +18,8 @@ describe('settings', () => {
       expect(defaults.currentPresetId).toBe('default');
       expect(Array.isArray(defaults.customPresets)).toBe(true);
       expect(defaults.customPresets).toEqual([]);
+      expect(defaults.showGalleryWidget).toBe(true);
+      expect(defaults.showProgressWidget).toBe(true);
     });
   });
 
@@ -35,8 +37,14 @@ describe('settings', () => {
         streamingEnabled: false,
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
+        minGenerationInterval: 100,
         logLevel: 'debug',
         manualGenerationMode: 'append',
+        promptDetectionPatterns: [],
+        commonStyleTags: 'test, tags',
+        commonStyleTagsPosition: 'suffix',
+        showGalleryWidget: false,
+        showProgressWidget: false,
       };
 
       const mockContext = createMockContext({
@@ -50,6 +58,12 @@ describe('settings', () => {
       expect(loaded.enabled).toEqual(existingSettings.enabled);
       expect(loaded.currentPresetId).toEqual(existingSettings.currentPresetId);
       expect(loaded.customPresets).toEqual(existingSettings.customPresets);
+      expect(loaded.showGalleryWidget).toEqual(
+        existingSettings.showGalleryWidget
+      );
+      expect(loaded.showProgressWidget).toEqual(
+        existingSettings.showProgressWidget
+      );
     });
 
     it('should return defaults if no settings exist', () => {
@@ -98,8 +112,14 @@ describe('settings', () => {
         streamingEnabled: true,
         streamingPollInterval: 300,
         maxConcurrentGenerations: 1,
+        minGenerationInterval: 0,
         logLevel: 'info',
         manualGenerationMode: 'replace',
+        promptDetectionPatterns: [],
+        commonStyleTags: '',
+        commonStyleTagsPosition: 'prefix',
+        showGalleryWidget: true,
+        showProgressWidget: true,
       };
 
       saveSettings(settings, mockContext);
@@ -128,8 +148,14 @@ describe('settings', () => {
         streamingEnabled: false,
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
+        minGenerationInterval: 100,
         logLevel: 'warn',
         manualGenerationMode: 'append',
+        promptDetectionPatterns: [],
+        commonStyleTags: '',
+        commonStyleTagsPosition: 'prefix',
+        showGalleryWidget: false,
+        showProgressWidget: false,
       };
 
       saveSettings(newSettings, mockContext);
@@ -138,6 +164,56 @@ describe('settings', () => {
         newSettings
       );
       expect(mockSaveDebounced).toHaveBeenCalled();
+    });
+
+    it('should handle widget visibility settings correctly', () => {
+      const mockSaveDebounced = vi.fn();
+      const mockContext = createMockContext({
+        extensionSettings: {},
+        saveSettingsDebounced: mockSaveDebounced,
+      });
+
+      const settingsGalleryOnly: Partial<AutoIllustratorSettings> = {
+        showGalleryWidget: true,
+        showProgressWidget: false,
+      };
+
+      const settingsProgressOnly: Partial<AutoIllustratorSettings> = {
+        showGalleryWidget: false,
+        showProgressWidget: true,
+      };
+
+      const settingsNone: Partial<AutoIllustratorSettings> = {
+        showGalleryWidget: false,
+        showProgressWidget: false,
+      };
+
+      // Test each combination
+      const defaults = getDefaultSettings();
+
+      saveSettings({...defaults, ...settingsGalleryOnly}, mockContext);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].showGalleryWidget
+      ).toBe(true);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].showProgressWidget
+      ).toBe(false);
+
+      saveSettings({...defaults, ...settingsProgressOnly}, mockContext);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].showGalleryWidget
+      ).toBe(false);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].showProgressWidget
+      ).toBe(true);
+
+      saveSettings({...defaults, ...settingsNone}, mockContext);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].showGalleryWidget
+      ).toBe(false);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].showProgressWidget
+      ).toBe(false);
     });
   });
 });

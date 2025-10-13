@@ -126,6 +126,12 @@ function updateUI(): void {
   const manualGenModeSelect = document.getElementById(
     UI_ELEMENT_IDS.MANUAL_GEN_MODE
   ) as HTMLSelectElement;
+  const showGalleryWidgetCheckbox = document.getElementById(
+    UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET
+  ) as HTMLInputElement;
+  const showProgressWidgetCheckbox = document.getElementById(
+    UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
+  ) as HTMLInputElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -148,6 +154,10 @@ function updateUI(): void {
     commonStyleTagsPositionSelect.value = settings.commonStyleTagsPosition;
   if (manualGenModeSelect)
     manualGenModeSelect.value = settings.manualGenerationMode;
+  if (showGalleryWidgetCheckbox)
+    showGalleryWidgetCheckbox.checked = settings.showGalleryWidget;
+  if (showProgressWidgetCheckbox)
+    showProgressWidgetCheckbox.checked = settings.showProgressWidget;
 
   // Update preset dropdown with custom presets
   if (presetSelect) {
@@ -300,9 +310,17 @@ function handleSettingsChange(): void {
   const manualGenModeSelect = document.getElementById(
     UI_ELEMENT_IDS.MANUAL_GEN_MODE
   ) as HTMLSelectElement;
+  const showGalleryWidgetCheckbox = document.getElementById(
+    UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET
+  ) as HTMLInputElement;
+  const showProgressWidgetCheckbox = document.getElementById(
+    UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
+  ) as HTMLInputElement;
 
-  // Track if enabled state changed (requires page reload)
+  // Track if enabled state or widget visibility changed (requires page reload)
   const wasEnabled = settings.enabled;
+  const wasShowGalleryWidget = settings.showGalleryWidget;
+  const wasShowProgressWidget = settings.showProgressWidget;
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
   settings.streamingEnabled =
@@ -405,6 +423,10 @@ function handleSettingsChange(): void {
   settings.manualGenerationMode =
     (manualGenModeSelect?.value as 'replace' | 'append') ??
     settings.manualGenerationMode;
+  settings.showGalleryWidget =
+    showGalleryWidgetCheckbox?.checked ?? settings.showGalleryWidget;
+  settings.showProgressWidget =
+    showProgressWidgetCheckbox?.checked ?? settings.showProgressWidget;
 
   // Apply log level
   setLogLevel(settings.logLevel);
@@ -418,14 +440,30 @@ function handleSettingsChange(): void {
   // Update validation status after settings change
   updateValidationStatus();
 
-  // Notify user if enable state changed
-  if (wasEnabled !== settings.enabled) {
+  // Notify user if enable state or widget visibility changed
+  if (
+    wasEnabled !== settings.enabled ||
+    wasShowGalleryWidget !== settings.showGalleryWidget ||
+    wasShowProgressWidget !== settings.showProgressWidget
+  ) {
     toastr.info(t('toast.reloadRequired'), t('extensionName'), {
       timeOut: 5000,
     });
-    logger.info(
-      `Extension ${settings.enabled ? 'enabled' : 'disabled'} - reload required`
-    );
+    if (wasEnabled !== settings.enabled) {
+      logger.info(
+        `Extension ${settings.enabled ? 'enabled' : 'disabled'} - reload required`
+      );
+    }
+    if (wasShowGalleryWidget !== settings.showGalleryWidget) {
+      logger.info(
+        `Gallery widget ${settings.showGalleryWidget ? 'enabled' : 'disabled'} - reload required`
+      );
+    }
+    if (wasShowProgressWidget !== settings.showProgressWidget) {
+      logger.info(
+        `Progress widget ${settings.showProgressWidget ? 'enabled' : 'disabled'} - reload required`
+      );
+    }
   }
 
   logger.info('Settings updated:', settings);
@@ -1071,19 +1109,27 @@ function initialize(): void {
     sessionManager = new SessionManager();
     logger.info('Initialized SessionManager');
 
-    // Initialize progress widget (connects to progressManager via events)
-    initializeProgressWidget(progressManager);
-    logger.info('Initialized ProgressWidget with event subscriptions');
+    // Initialize progress widget if enabled (connects to progressManager via events)
+    if (settings.showProgressWidget) {
+      initializeProgressWidget(progressManager);
+      logger.info('Initialized ProgressWidget with event subscriptions');
+    } else {
+      logger.info('Progress widget disabled - skipping initialization');
+    }
 
-    // Initialize gallery widget (connects to progressManager via events)
-    initializeGalleryWidget(progressManager);
-    logger.info('Initialized GalleryWidget');
+    // Initialize gallery widget if enabled (connects to progressManager via events)
+    if (settings.showGalleryWidget) {
+      initializeGalleryWidget(progressManager);
+      logger.info('Initialized GalleryWidget');
 
-    // Show gallery widget on initialization to scan for existing images
-    const gallery = getGalleryWidget();
-    if (gallery) {
-      gallery.show();
-      logger.debug('Gallery widget shown on initialization');
+      // Show gallery widget on initialization to scan for existing images
+      const gallery = getGalleryWidget();
+      if (gallery) {
+        gallery.show();
+        logger.debug('Gallery widget shown on initialization');
+      }
+    } else {
+      logger.info('Gallery widget disabled - skipping initialization');
     }
   } else {
     logger.info(
@@ -1193,6 +1239,19 @@ function initialize(): void {
       handleSettingsChange
     );
     manualGenModeSelect?.addEventListener('change', handleSettingsChange);
+
+    const showGalleryWidgetCheckbox = document.getElementById(
+      UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET
+    ) as HTMLInputElement;
+    const showProgressWidgetCheckbox = document.getElementById(
+      UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
+    ) as HTMLInputElement;
+    showGalleryWidgetCheckbox?.addEventListener('change', handleSettingsChange);
+    showProgressWidgetCheckbox?.addEventListener(
+      'change',
+      handleSettingsChange
+    );
+
     resetButton?.addEventListener('click', handleResetSettings);
 
     // Update UI with loaded settings

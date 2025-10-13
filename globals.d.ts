@@ -129,6 +129,8 @@ declare global {
     promptDetectionPatterns: string[];
     commonStyleTags: string;
     commonStyleTagsPosition: 'prefix' | 'suffix';
+    showGalleryWidget: boolean;
+    showProgressWidget: boolean;
   }
 
   interface ImagePromptMatch {
