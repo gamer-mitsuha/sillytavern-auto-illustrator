@@ -1349,9 +1349,9 @@
 /* Gallery widget container */
 .ai-img-gallery-widget-global {
   position: fixed;
-  top: 4rem;
+  top: 5rem;
   right: 1rem;
-  z-index: 99;
+  z-index: 40; /* Lowered from 99 to avoid interfering with ST UI components */
   display: flex;
   flex-direction: column;
   width: min(400px, 90vw);
@@ -1391,6 +1391,7 @@
   transition: none; /* Disable all transitions when minimized */
   padding: 8px; /* Add padding to prevent hover scale clipping */
   overflow: visible; /* Allow FAB to expand beyond bounds on hover */
+  pointer-events: none; /* Don't block clicks when minimized */
 }
 
 /* Gallery FAB (Floating Action Button) - minimized state */
@@ -1418,6 +1419,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto; /* Ensure FAB can receive clicks even when container has pointer-events: none */
 }
 
 /* FAB icon specific styling */
@@ -1693,14 +1695,14 @@
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .ai-img-gallery-widget-global {
-    top: 3rem;
+    top: 4rem;
     right: 0.5rem;
     width: min(350px, 95vw);
     max-height: 70vh;
   }
 
   .ai-img-gallery-widget-global.minimized {
-    top: 3rem;
+    top: 4rem;
     right: 0.5rem;
   }
 
