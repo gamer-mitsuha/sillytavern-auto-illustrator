@@ -469,6 +469,8 @@
   flex: 1 1 auto;
   min-height: 0;
   max-height: 100%;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .ai-img-modal-image {
@@ -479,21 +481,43 @@
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.8),
     0 0 0 1px rgba(255, 255, 255, 0.1);
-  transition:
-    transform 0.3s,
-    filter 0.2s;
   cursor: zoom-in;
+  will-change: transform;
+  transition: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .ai-img-modal-image.zoomed {
-  cursor: zoom-out;
-  transform: scale(1.5);
+  cursor: grab;
+}
+
+.ai-img-modal-image.zoomed.dragging {
+  cursor: grabbing;
 }
 
 /* Image loading state */
 .ai-img-modal-image.loading {
   opacity: 0.5;
   filter: blur(10px);
+}
+
+/* Zoom indicator */
+.ai-img-zoom-indicator {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  z-index: 10;
+  animation: fadeIn 0.2s ease-out;
 }
 
 /* Image info bar */
@@ -785,9 +809,10 @@
     white-space: nowrap;
   }
 
-  /* Prevent zoom from being too large on mobile */
-  .ai-img-modal-image.zoomed {
-    transform: scale(1.3);
+  /* Zoom indicator on mobile */
+  .ai-img-zoom-indicator {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
   }
 }
 

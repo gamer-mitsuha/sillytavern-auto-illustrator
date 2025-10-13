@@ -118,6 +118,7 @@
   "modal.previous": "Previous",
   "modal.next": "Next",
   "modal.zoom": "Zoom",
+  "modal.resetZoom": "Reset Zoom",
   "modal.download": "Download",
   "modal.dimensions": "Dimensions",
   "modal.prompt": "Prompt",

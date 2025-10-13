@@ -118,6 +118,7 @@
   "modal.previous": "上一张",
   "modal.next": "下一张",
   "modal.zoom": "缩放",
+  "modal.resetZoom": "重置缩放",
   "modal.download": "下载",
   "modal.dimensions": "尺寸",
   "modal.prompt": "提示词",

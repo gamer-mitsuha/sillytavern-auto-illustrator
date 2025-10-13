@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Enhanced zoom and pan controls for image modal
+  - **Desktop**: Mouse wheel zoom (progressive 1x-3x), click-and-drag panning, double-click zoom toggle
+  - **Mobile**: Pinch-to-zoom gesture, one-finger panning when zoomed, double-tap zoom toggle
+  - **Zoom indicator**: Shows current zoom level (e.g., "150%") with auto-fade
+  - **Smart gestures**: Swipe navigation only works at 1x zoom, panning takes over when zoomed
+  - **Keyboard shortcuts**: `+`/`=` to zoom in, `-` to zoom out, `0` to reset
+  - **Reset button**: Dynamically appears when zoomed >1x to quickly return to fit
+  - **Boundary constraints**: Panning limited to image edges with smooth containment
+  - **Hardware accelerated**: Smooth 60fps transforms with GPU acceleration
+
 ### Fixed
 
 - Desktop: Progress widget no longer overlaps with chat input area (adjusted bottom position from 0 to 2rem)
