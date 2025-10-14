@@ -882,4 +882,194 @@ describe('Edge Cases & Robustness', () => {
       );
     }).toThrow('Prompt node not found');
   });
+
+  // ===================================================================
+  // NEW TESTS: ID Collision Handling in refinePrompt()
+  // ===================================================================
+
+  it('should handle refinePrompt ID collision: same as parent (no-op)', () => {
+    const parent = registerPrompt('original', 42, 0, 'ai-message', metadata);
+    const registry = getRegistry(metadata);
+
+    // Refine with same text (generates same ID as parent)
+    const result = refinePrompt(
+      parent.id,
+      'original',
+      'no change',
+      'ai-refined',
+      metadata
+    );
+
+    // Should return parent unchanged
+    expect(result.id).toBe(parent.id);
+    expect(result).toBe(parent);
+    expect(parent.childIds).toHaveLength(0); // No child added
+    expect(Object.keys(registry.nodes)).toHaveLength(1); // Only parent in registry
+  });
+
+  it('should handle refinePrompt ID collision: existing node reparented', () => {
+    // Scenario: Refine parent to create a child that would collide with
+    // an existing orphaned node at the same position
+    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
+
+    // Manually create an orphaned node at same position with different text
+    // (simulates a node that was orphaned after its parent was deleted)
+    const orphan = registerPrompt('orphan', 42, 0, 'ai-message', metadata);
+
+    const registry = getRegistry(metadata);
+    const initialRootCount = registry.rootPromptIds.length;
+
+    // Now refine parent with text matching the orphan
+    // This should reparent the orphan under parent
+    const result = refinePrompt(
+      parent.id,
+      'orphan',
+      'adopt orphan',
+      'ai-refined',
+      metadata
+    );
+
+    // Should return the existing orphan node, now reparented
+    expect(result.id).toBe(orphan.id);
+    expect(result).toBe(orphan);
+    expect(orphan.parentId).toBe(parent.id); // Reparented
+    expect(orphan.metadata.feedback).toBe('adopt orphan'); // Feedback updated
+    expect(parent.childIds).toEqual([orphan.id]); // Added to parent
+    // Orphan should be removed from roots
+    expect(registry.rootPromptIds).not.toContain(orphan.id);
+    expect(registry.rootPromptIds.length).toBe(initialRootCount - 1);
+  });
+
+  it('should handle refinePrompt ID collision: existing root reparented', () => {
+    const root1 = registerPrompt('r1', 42, 0, 'ai-message', metadata);
+    const root2 = registerPrompt('r2', 42, 0, 'ai-message', metadata);
+
+    const registry = getRegistry(metadata);
+    expect(registry.rootPromptIds).toContain(root1.id);
+    expect(registry.rootPromptIds).toContain(root2.id);
+
+    // Refine root1 with text matching root2 (collision - same position)
+    const result = refinePrompt(root1.id, 'r2', 'f', 'ai-refined', metadata);
+
+    // Should reparent root2 under root1
+    expect(result.id).toBe(root2.id);
+    expect(root2.parentId).toBe(root1.id);
+    expect(root1.childIds).toEqual([root2.id]);
+    expect(registry.rootPromptIds).not.toContain(root2.id); // Removed from roots
+    expect(registry.rootPromptIds).toContain(root1.id); // Still a root
+  });
+
+  // ===================================================================
+  // NEW TESTS: Children Promotion in deletePromptNode()
+  // ===================================================================
+
+  it('should promote children to roots when deleting parent', () => {
+    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
+    const child1 = refinePrompt(
+      parent.id,
+      'child1',
+      'f1',
+      'ai-refined',
+      metadata
+    );
+    const child2 = refinePrompt(
+      parent.id,
+      'child2',
+      'f2',
+      'ai-refined',
+      metadata
+    );
+
+    const registry = getRegistry(metadata);
+    expect(registry.rootPromptIds).toEqual([parent.id]);
+    expect(child1.parentId).toBe(parent.id);
+    expect(child2.parentId).toBe(parent.id);
+
+    // Delete parent
+    deletePromptNode(parent.id, metadata);
+
+    // Children should be promoted to roots
+    expect(child1.parentId).toBeNull();
+    expect(child2.parentId).toBeNull();
+    expect(registry.rootPromptIds).toContain(child1.id);
+    expect(registry.rootPromptIds).toContain(child2.id);
+    expect(registry.rootPromptIds).not.toContain(parent.id);
+    expect(registry.nodes[parent.id]).toBeUndefined(); // Parent deleted
+  });
+
+  it('should promote grandchildren correctly when deleting middle node', () => {
+    const root = registerPrompt('root', 42, 0, 'ai-message', metadata);
+    const middle = refinePrompt(
+      root.id,
+      'middle',
+      'f1',
+      'ai-refined',
+      metadata
+    );
+    const grandchild = refinePrompt(
+      middle.id,
+      'grandchild',
+      'f2',
+      'ai-refined',
+      metadata
+    );
+
+    const registry = getRegistry(metadata);
+
+    // Delete middle node
+    deletePromptNode(middle.id, metadata);
+
+    // Grandchild should be promoted to root
+    expect(grandchild.parentId).toBeNull();
+    expect(registry.rootPromptIds).toContain(grandchild.id);
+    expect(registry.rootPromptIds).toContain(root.id);
+    expect(registry.nodes[middle.id]).toBeUndefined(); // Middle deleted
+    expect(root.childIds).toEqual([]); // Middle removed from root's children
+  });
+
+  it('should handle deleting node with no children', () => {
+    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
+    const child = refinePrompt(parent.id, 'child', 'f', 'ai-refined', metadata);
+
+    const registry = getRegistry(metadata);
+
+    // Delete child (leaf node)
+    deletePromptNode(child.id, metadata);
+
+    // Parent should remain unchanged
+    expect(parent.childIds).toEqual([]);
+    expect(registry.nodes[parent.id]).toBe(parent);
+    expect(registry.rootPromptIds).toEqual([parent.id]);
+    expect(registry.nodes[child.id]).toBeUndefined(); // Child deleted
+  });
+
+  it('should handle deletePromptNode removing image associations', () => {
+    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
+    const child = refinePrompt(parent.id, 'child', 'f', 'ai-refined', metadata);
+
+    // Link images to parent
+    linkImageToPrompt(parent.id, 'http://example.com/img1.jpg', metadata);
+    linkImageToPrompt(parent.id, 'http://example.com/img2.jpg', metadata);
+
+    const registry = getRegistry(metadata);
+    expect(parent.generatedImages).toHaveLength(2);
+    expect(registry.imageToPromptId['http://example.com/img1.jpg']).toBe(
+      parent.id
+    );
+
+    // Delete parent
+    deletePromptNode(parent.id, metadata);
+
+    // Image associations should be removed
+    expect(
+      registry.imageToPromptId['http://example.com/img1.jpg']
+    ).toBeUndefined();
+    expect(
+      registry.imageToPromptId['http://example.com/img2.jpg']
+    ).toBeUndefined();
+
+    // Child should be promoted to root
+    expect(child.parentId).toBeNull();
+    expect(registry.rootPromptIds).toContain(child.id);
+  });
 });

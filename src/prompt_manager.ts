@@ -160,6 +160,8 @@ export function generatePromptId(
   const input = `${text}|${messageId}|${promptIndex}`;
 
   // Simple hash function (same as old prompt_metadata.ts for consistency)
+  // TODO: Consider upgrading to a more robust hash function (e.g., crypto-based)
+  // to reduce collision risk for very large datasets.
   let hash = 0;
   for (let i = 0; i < input.length; i++) {
     hash = (hash << 5) - hash + input.charCodeAt(i);
@@ -267,7 +269,7 @@ export function getPromptNode(
  * - Removes from parent's childIds
  * - Removes from rootPromptIds if it's a root
  * - Removes all image associations
- * - Does NOT delete children (they become orphaned)
+ * - Promotes children to roots (sets parentId=null, adds to rootPromptIds)
  *
  * @param promptId - ID of node to delete
  * @param metadata - Chat metadata
@@ -302,6 +304,18 @@ export function deletePromptNode(
     );
   }
 
+  // Promote children to roots before deleting the node
+  for (const childId of node.childIds) {
+    const child = registry.nodes[childId];
+    if (child) {
+      child.parentId = null;
+      // Add to rootPromptIds if not already there
+      if (!registry.rootPromptIds.includes(childId)) {
+        registry.rootPromptIds.push(childId);
+      }
+    }
+  }
+
   // Remove all image associations
   for (const imageUrl of node.generatedImages) {
     delete registry.imageToPromptId[imageUrl];
@@ -310,7 +324,9 @@ export function deletePromptNode(
   // Remove the node itself
   delete registry.nodes[promptId];
 
-  logger.debug(`Deleted prompt node: ${promptId}`);
+  logger.debug(
+    `Deleted prompt node: ${promptId} (promoted ${node.childIds.length} children to roots)`
+  );
 }
 
 /**
@@ -542,7 +558,55 @@ export function refinePrompt(
     throw new Error(`Cannot refine non-existent prompt: ${parentId}`);
   }
 
-  // Create child node with same messageId and promptIndex as parent
+  // Pre-compute child ID to detect collisions before mutation
+  const childId = generatePromptId(
+    newText,
+    parent.messageId,
+    parent.promptIndex
+  );
+
+  // CASE 1: New text generates same ID as parent (no change)
+  if (childId === parentId) {
+    logger.debug(
+      `Refinement produced identical ID to parent: ${parentId} (no change)`
+    );
+    return parent;
+  }
+
+  // CASE 2: Child ID already exists in registry (reparent existing node)
+  const existingNode = registry.nodes[childId];
+  if (existingNode) {
+    // Remove existing node from its current parent (if any)
+    if (existingNode.parentId) {
+      const oldParent = registry.nodes[existingNode.parentId];
+      if (oldParent) {
+        oldParent.childIds = oldParent.childIds.filter(id => id !== childId);
+      }
+    }
+
+    // Remove from rootPromptIds if it was a root
+    if (existingNode.parentId === null) {
+      registry.rootPromptIds = registry.rootPromptIds.filter(
+        id => id !== childId
+      );
+    }
+
+    // Reparent to new parent
+    existingNode.parentId = parentId;
+    existingNode.metadata.feedback = feedback;
+
+    // Add to new parent's childIds (avoid duplicates)
+    if (!parent.childIds.includes(childId)) {
+      parent.childIds.push(childId);
+    }
+
+    logger.info(
+      `Reparented existing node ${childId} to ${parentId} (feedback: "${feedback}")`
+    );
+    return existingNode;
+  }
+
+  // CASE 3: New child ID (normal case)
   const child = createPromptNode(
     newText,
     parent.messageId,
