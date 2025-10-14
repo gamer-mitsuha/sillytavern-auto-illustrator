@@ -133,6 +133,18 @@ export interface AutoIllustratorChatMetadata {
     /** Array of message IDs that are expanded in the gallery */
     expandedMessages: number[];
   };
+
+  /** New prompt registry (from prompt_manager.ts) */
+  promptRegistry?: import('./prompt_manager').PromptRegistry;
+}
+
+/**
+ * SillyTavern's chat metadata structure
+ * Contains auto_illustrator metadata and potentially other extensions' data
+ */
+export interface ChatMetadata {
+  auto_illustrator?: AutoIllustratorChatMetadata;
+  [key: string]: unknown;
 }
 
 /**
