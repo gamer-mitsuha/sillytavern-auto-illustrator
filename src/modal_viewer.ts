@@ -585,13 +585,13 @@ export class ImageModalViewer {
           const deltaX = touchEndX - swipeStartX;
           const deltaY = touchEndY - swipeStartY;
 
-          // Detect tap (minimal movement) to exit fullscreen on mobile
-          if (
-            this.isFullscreen &&
-            Math.abs(deltaX) < 10 &&
-            Math.abs(deltaY) < 10
-          ) {
-            this.exitFullscreen();
+          // Detect tap (minimal movement) to toggle fullscreen on mobile
+          if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+            if (this.isFullscreen) {
+              this.exitFullscreen();
+            } else {
+              this.enterFullscreen();
+            }
             return;
           }
 
