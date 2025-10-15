@@ -438,6 +438,14 @@ export class GalleryWidgetView {
   }
 
   /**
+   * Immediately updates the display, bypassing any throttle
+   * Used for user-triggered actions that need immediate feedback
+   */
+  private updateImmediately(): void {
+    this.updateDisplay();
+  }
+
+  /**
    * Update the gallery display
    */
   private updateDisplay(): void {
@@ -461,15 +469,30 @@ export class GalleryWidgetView {
 
     widget.style.display = 'flex';
 
-    // Clear existing content
-    widget.innerHTML = '';
+    // Check if we need a full rebuild (minimize state changed or first render)
+    const currentMinimizedState = widget.classList.contains('minimized');
+    const needsFullRebuild =
+      currentMinimizedState !== this.isWidgetMinimized ||
+      widget.children.length === 0;
 
-    if (this.isWidgetMinimized) {
-      widget.classList.add('minimized');
-      this.renderMinimizedWidget(widget);
+    if (needsFullRebuild) {
+      // Full rebuild needed
+      widget.innerHTML = '';
+
+      if (this.isWidgetMinimized) {
+        widget.classList.add('minimized');
+        this.renderMinimizedWidget(widget);
+      } else {
+        widget.classList.remove('minimized');
+        this.renderExpandedWidget(widget);
+      }
     } else {
-      widget.classList.remove('minimized');
-      this.renderExpandedWidget(widget);
+      // Smart update - only update changed parts
+      if (this.isWidgetMinimized) {
+        this.updateMinimizedWidget(widget);
+      } else {
+        this.updateExpandedWidget(widget);
+      }
     }
 
     logger.trace('Gallery widget display updated');
@@ -495,8 +518,166 @@ export class GalleryWidgetView {
     fab?.addEventListener('click', () => {
       this.isWidgetMinimized = false;
       this.saveStateToChatMetadata();
-      this.updateDisplay();
+      this.updateImmediately();
     });
+  }
+
+  /**
+   * Update minimized widget without full rebuild
+   */
+  private updateMinimizedWidget(widget: HTMLElement): void {
+    const fab = widget.querySelector('.ai-img-gallery-fab');
+    if (!fab) {
+      // Fallback to full render if structure is missing
+      this.renderMinimizedWidget(widget);
+      return;
+    }
+
+    // Calculate total images
+    const totalImages = Array.from(this.messageGroups.values()).reduce(
+      (sum, group) => sum + group.images.length,
+      0
+    );
+
+    // Update badge
+    const badge = fab.querySelector('.ai-img-gallery-fab-badge');
+    if (badge) {
+      badge.textContent = String(totalImages);
+    }
+  }
+
+  /**
+   * Update expanded widget without full rebuild
+   */
+  private updateExpandedWidget(widget: HTMLElement): void {
+    const header = widget.querySelector('.ai-img-gallery-header');
+    const content = widget.querySelector('.ai-img-gallery-content');
+
+    if (!header || !content) {
+      // Fallback to full render if structure is missing
+      this.renderExpandedWidget(widget);
+      return;
+    }
+
+    // Update total image count in header
+    const totalImages = Array.from(this.messageGroups.values()).reduce(
+      (sum, group) => sum + group.images.length,
+      0
+    );
+    const countElement = header.querySelector('.ai-img-gallery-count');
+    if (countElement) {
+      countElement.textContent = `(${totalImages} ${t('gallery.images')})`;
+    }
+
+    // Update message groups
+    this.updateMessageGroups(content as HTMLElement);
+  }
+
+  /**
+   * Update message groups in the gallery content
+   */
+  private updateMessageGroups(content: HTMLElement): void {
+    // Create a map of existing group elements
+    const existingGroups = new Map<number, HTMLElement>();
+    content.querySelectorAll('.ai-img-gallery-message-group').forEach(elem => {
+      const messageId = elem.getAttribute('data-message-id');
+      if (messageId) {
+        existingGroups.set(parseInt(messageId, 10), elem as HTMLElement);
+      }
+    });
+
+    if (this.messageGroups.size === 0) {
+      // No images - show empty state
+      content.innerHTML = `<div class="ai-img-gallery-empty">${t('gallery.noImages')}</div>`;
+      return;
+    }
+
+    // Get groups in display order (newest first)
+    const groups = Array.from(this.messageGroups.values()).reverse();
+    const groupIds = new Set(groups.map(g => g.messageId));
+
+    // Remove groups that no longer exist
+    for (const [messageId, element] of existingGroups.entries()) {
+      if (!groupIds.has(messageId)) {
+        element.remove();
+        existingGroups.delete(messageId);
+      }
+    }
+
+    // Update or create each group in order
+    let previousElement: HTMLElement | null = null;
+    for (const group of groups) {
+      let groupElement = existingGroups.get(group.messageId);
+
+      if (!groupElement) {
+        // Create new group element
+        groupElement = this.renderMessageGroup(group);
+
+        // Insert in correct position
+        if (previousElement) {
+          previousElement.after(groupElement);
+        } else {
+          content.prepend(groupElement);
+        }
+      } else {
+        // Update existing group
+        this.updateMessageGroupInPlace(groupElement, group);
+
+        // Ensure element is in correct position
+        if (previousElement) {
+          if (previousElement.nextElementSibling !== groupElement) {
+            previousElement.after(groupElement);
+          }
+        } else {
+          if (content.firstElementChild !== groupElement) {
+            content.prepend(groupElement);
+          }
+        }
+      }
+
+      previousElement = groupElement;
+    }
+  }
+
+  /**
+   * Update a message group element in place (for expand/collapse)
+   */
+  private updateMessageGroupInPlace(
+    groupElement: HTMLElement,
+    group: MessageGalleryGroup
+  ): void {
+    const header = groupElement.querySelector('.ai-img-gallery-message-header');
+    if (!header) return;
+
+    // Update toggle icon
+    const toggleBtn = header.querySelector('.ai-img-gallery-message-toggle');
+    if (toggleBtn) {
+      toggleBtn.textContent = group.isExpanded ? '▼' : '▶';
+    }
+
+    // Update image count
+    const countElement = header.querySelector('.ai-img-gallery-message-count');
+    if (countElement) {
+      countElement.textContent = `${group.images.length} ${t('gallery.images')}`;
+    }
+
+    // Handle gallery visibility
+    let gallery = groupElement.querySelector('.ai-img-gallery-thumbnails');
+
+    if (group.isExpanded) {
+      groupElement.classList.add('expanded');
+      if (!gallery) {
+        // Create gallery if it doesn't exist
+        gallery = this.createThumbnailGallery(group);
+        groupElement.appendChild(gallery);
+      }
+    } else {
+      groupElement.classList.remove('expanded');
+      if (gallery) {
+        // Remove gallery if collapsed
+        gallery.remove();
+      }
+    }
   }
 
   /**
@@ -529,7 +710,7 @@ export class GalleryWidgetView {
     minimizeBtn?.addEventListener('click', () => {
       this.isWidgetMinimized = true;
       this.saveStateToChatMetadata();
-      this.updateDisplay();
+      this.updateImmediately();
     });
 
     const viewAllBtn = header.querySelector('.view-all-btn');
@@ -586,7 +767,7 @@ export class GalleryWidgetView {
     header.addEventListener('click', () => {
       group.isExpanded = !group.isExpanded;
       this.saveStateToChatMetadata();
-      this.updateDisplay();
+      this.updateImmediately();
     });
 
     // Create thumbnail gallery if expanded
