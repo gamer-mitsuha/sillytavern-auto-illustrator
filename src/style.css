@@ -775,15 +775,13 @@
   -webkit-user-drag: none;
 }
 
-/* Swap dimensions when rotated 90° or 270° */
+/* When rotated 90 or 270 degrees, dimensions are set by JavaScript */
 .ai-img-modal-image.rotated-90-270 {
-  /* Effective dimensions are swapped, so constraints need to swap too */
-  /* Use container's dimensions (100% of container) which will be constrained */
-  max-width: 100%;
-  max-height: 100%;
-  /* But also constrain to viewport to prevent overflow */
-  max-width: min(100%, 100vh);
-  max-height: min(100%, 100vw);
+  /* JavaScript will set explicit maxWidth and maxHeight based on
+     the actual container dimensions (not viewport units which include
+     browser chrome and may cause cutoff on mobile) */
+  /* Placeholder to avoid empty ruleset */
+  position: relative;
 }
 
 /* Add smooth transition class for zoom animations */
@@ -966,7 +964,10 @@
 /* Use a class-based approach instead of :fullscreen pseudo-class for better compatibility */
 .ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-info,
 .ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-nav,
-.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-close {
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-close,
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-swipe-hint,
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-tap-indicator,
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-zoom-indicator {
   display: none !important;
 }
 
@@ -978,7 +979,8 @@
 .ai-img-modal-backdrop:fullscreen {
   padding: 0 !important;
   margin: 0 !important;
-  align-items: stretch !important; /* Stretch container to fill instead of centering */
+  align-items: center !important; /* Center image vertically */
+  justify-content: center !important; /* Center image horizontally */
 }
 
 .ai-img-modal-container.ai-img-fullscreen-active,
@@ -1021,6 +1023,19 @@
   min-height: 100dvh !important;
   margin: 0 !important;
   padding: 0 !important;
+  max-width: 100vw !important;
+  width: 100vw !important;
+}
+
+/* Ensure image itself has no spacing in fullscreen */
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-image,
+.ai-img-modal-backdrop:-webkit-full-screen .ai-img-modal-image,
+.ai-img-modal-backdrop:-moz-full-screen .ai-img-modal-image,
+.ai-img-modal-backdrop:-ms-fullscreen .ai-img-modal-image,
+.ai-img-modal-backdrop:fullscreen .ai-img-modal-image {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 /* Desktop-specific styles - hide mobile UI elements */

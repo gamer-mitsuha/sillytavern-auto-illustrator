@@ -856,36 +856,68 @@ export class GalleryWidgetView {
   }
 
   /**
-   * Show image modal viewer for a specific message group
+   * Show image modal viewer starting from a specific image
+   * Opens global viewer with ALL chat images, not just from one message
    */
   private showImageModal(
     group: MessageGalleryGroup,
-    initialIndex: number
+    initialIndexInGroup: number
   ): void {
+    // Collect all images from all message groups in configured order
+    const allImages: ModalImage[] = [];
+    const groups = this.getOrderedMessageGroups();
+
+    // Track which image was clicked to set initial index
+    let initialIndex = 0;
+    let foundClickedImage = false;
+
+    for (const g of groups) {
+      for (let i = 0; i < g.images.length; i++) {
+        const img = g.images[i];
+
+        // Check if this is the clicked image
+        if (g.messageId === group.messageId && i === initialIndexInGroup) {
+          initialIndex = allImages.length;
+          foundClickedImage = true;
+        }
+
+        allImages.push({
+          imageUrl: img.imageUrl,
+          promptText: img.promptText,
+          promptPreview: img.promptPreview,
+          messageId: img.messageId,
+          imageIndex: img.imageIndex,
+        });
+      }
+    }
+
+    if (allImages.length === 0) {
+      logger.warn('No images to display in modal');
+      return;
+    }
+
+    if (!foundClickedImage) {
+      logger.warn(
+        `Could not find clicked image (message ${group.messageId}, index ${initialIndexInGroup}), defaulting to first image`
+      );
+      initialIndex = 0;
+    }
+
     logger.debug(
-      `Opening image modal for message ${group.messageId}, image ${initialIndex + 1}/${group.images.length}`
+      `Opening global image viewer with ${allImages.length} images from ${groups.length} messages, starting at image ${initialIndex + 1}`
     );
 
-    // Convert gallery images to modal images format
-    const modalImages: ModalImage[] = group.images.map(img => ({
-      imageUrl: img.imageUrl,
-      promptText: img.promptText,
-      promptPreview: img.promptPreview,
-      messageId: img.messageId,
-      imageIndex: img.imageIndex,
-    }));
-
-    // Open the modal viewer
+    // Open the modal viewer with all images
     openImageModal({
-      images: modalImages,
+      images: allImages,
       initialIndex,
       title: t('gallery.imageViewer'),
       onClose: () => {
-        logger.debug('Gallery modal closed');
+        logger.debug('Global image viewer closed');
       },
       onNavigate: (newIndex: number) => {
         logger.trace(
-          `Gallery modal navigated to image ${newIndex + 1}/${modalImages.length}`
+          `Global viewer navigated to image ${newIndex + 1}/${allImages.length}`
         );
       },
     });

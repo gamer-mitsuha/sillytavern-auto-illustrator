@@ -276,6 +276,7 @@ export class ImageModalViewer {
           }
         }
         this.updateFullscreenButton();
+
         logger.debug(
           `Fullscreen state changed: ${this.isFullscreen ? 'entered' : 'exited'}`
         );
@@ -669,6 +670,10 @@ export class ImageModalViewer {
     const currentImage = this.images[this.currentIndex];
 
     if (changeImage) {
+      // Apply rotation class immediately before loading image
+      // This ensures CSS constraints are correct when image loads
+      this.applyImageTransform();
+
       // Wait for image to load before resetting zoom to ensure correct dimensions
       this.img.onload = () => {
         this.resetZoom(); // Reset zoom after image loads with preserved rotation
@@ -989,16 +994,30 @@ export class ImageModalViewer {
    * Adds CSS class to swap dimensions when rotated 90° or 270°
    */
   private applyImageTransform(): void {
-    if (!this.img) return;
+    if (!this.img || !this.imageContainer) return;
 
-    // Toggle CSS class for 90°/270° rotation to swap dimensions
+    // Toggle CSS class for 90°/270° rotation
     const isRotated90or270 =
       ImageModalViewer.rotationDegrees === 90 ||
       ImageModalViewer.rotationDegrees === 270;
+
     if (isRotated90or270) {
       this.img.classList.add('rotated-90-270');
+
+      // For rotated images, set explicit dimensions based on container size
+      // Use requestAnimationFrame to ensure container has correct dimensions
+      requestAnimationFrame(() => {
+        if (!this.img || !this.imageContainer) return;
+        const rect = this.imageContainer.getBoundingClientRect();
+        // When rotated 90°/270°, swap width/height constraints
+        this.img.style.maxWidth = `${rect.height}px`;
+        this.img.style.maxHeight = `${rect.width}px`;
+      });
     } else {
       this.img.classList.remove('rotated-90-270');
+      // Reset to CSS defaults
+      this.img.style.maxWidth = '';
+      this.img.style.maxHeight = '';
     }
 
     // Apply rotation, zoom, and pan transforms
