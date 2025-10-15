@@ -176,7 +176,7 @@ export class GalleryWidgetView {
    * Setup event listeners for auto-updates
    */
   private setupEventListeners(): void {
-    // Listen for new images being completed
+    // Listen for new images being completed during streaming (for live preview)
     this.progressManager.addEventListener('progress:image-completed', event => {
       const detail = (event as CustomEvent<ProgressImageCompletedEventDetail>)
         .detail;
@@ -187,8 +187,31 @@ export class GalleryWidgetView {
       this.refreshGallery();
     });
 
-    // Listen for chat changes (when user switches to a different chat)
     const context = (window as any).SillyTavern?.getContext?.();
+
+    // Listen for MESSAGE_EDITED event (when images are inserted into messages)
+    // This catches regeneration and any other message modifications
+    if (context?.eventTypes?.MESSAGE_EDITED && context?.eventSource) {
+      context.eventSource.on(
+        context.eventTypes.MESSAGE_EDITED,
+        (messageId: number) => {
+          logger.debug(
+            `Gallery notified of MESSAGE_EDITED for message ${messageId}`
+          );
+          // Rescan chat to update gallery with newly inserted images
+          this.refreshGallery();
+        }
+      );
+      logger.info(
+        '[Gallery] Successfully registered MESSAGE_EDITED event listener'
+      );
+    } else {
+      logger.warn(
+        '[Gallery] Could not register MESSAGE_EDITED listener - event system not available'
+      );
+    }
+
+    // Listen for chat changes (when user switches to a different chat)
     if (context?.eventTypes?.CHAT_CHANGED && context?.eventSource) {
       context.eventSource.on(context.eventTypes.CHAT_CHANGED, () => {
         logger.info(
@@ -206,15 +229,6 @@ export class GalleryWidgetView {
       logger.warn(
         '[Gallery] Could not register CHAT_CHANGED listener - event system not available'
       );
-    }
-
-    // Listen for message edits (images might be added/removed)
-    if (context?.eventTypes?.MESSAGE_EDITED && context?.eventSource) {
-      context.eventSource.on(context.eventTypes.MESSAGE_EDITED, () => {
-        logger.debug('MESSAGE_EDITED - rescanning chat for new images');
-        // Rescan chat to catch any new images added via manual generation
-        this.refreshGallery();
-      });
     }
 
     logger.debug('Gallery event listeners setup complete');
