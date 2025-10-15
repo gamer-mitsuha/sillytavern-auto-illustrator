@@ -16,21 +16,9 @@ import type {
   ProgressManager,
   ProgressImageCompletedEventDetail,
 } from './progress_manager';
-import {getMetadata} from './metadata';
-import {getPromptForImage} from './prompt_manager';
+import {extractImagesFromMessage} from './image_utils';
 
 const logger = createLogger('GalleryWidget');
-
-/**
- * Represents a single image in the gallery
- */
-interface GalleryImage {
-  imageUrl: string;
-  promptText: string;
-  promptPreview: string;
-  messageId: number;
-  imageIndex: number; // Index within the message (0-based)
-}
 
 /**
  * Represents a group of images from a single message
@@ -38,7 +26,7 @@ interface GalleryImage {
 interface MessageGalleryGroup {
   messageId: number;
   messagePreview: string; // First 100 chars of message text
-  images: GalleryImage[];
+  images: ModalImage[];
   isExpanded: boolean;
 }
 
@@ -309,7 +297,7 @@ export class GalleryWidgetView {
       }
 
       const messageText = message.mes || '';
-      const images = this.extractImagesFromMessage(messageText, messageId);
+      const images = extractImagesFromMessage(messageText, messageId);
 
       logger.trace(`Message ${messageId}: found ${images.length} images`);
 
@@ -337,113 +325,6 @@ export class GalleryWidgetView {
     logger.debug(
       `Scanned chat: found ${newGroups.size} messages with images (${Array.from(newGroups.values()).reduce((sum, group) => sum + group.images.length, 0)} total images)`
     );
-  }
-
-  /**
-   * Normalize image URL to pathname for PromptRegistry lookup
-   * Converts absolute URLs to relative paths
-   */
-  private normalizeImageUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-      // Return just the pathname (e.g., /user/images/test.png)
-      return urlObj.pathname;
-    } catch {
-      // If URL parsing fails, it's already a relative path
-      return url;
-    }
-  }
-
-  /**
-   * Extract images from a message text
-   * Finds all images with "AI generated image" in title (our generated images)
-   * Uses PromptRegistry to get complete prompt text
-   */
-  private extractImagesFromMessage(
-    messageText: string,
-    messageId: number
-  ): GalleryImage[] {
-    const images: GalleryImage[] = [];
-
-    // Get metadata for prompt lookup
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const context = (window as any).SillyTavern?.getContext?.();
-    const metadata = getMetadata(context);
-
-    // Find all img tags in the message
-    const imgPattern = /<img\s+([^>]+)>/g;
-    let match;
-    let imageIndex = 0;
-
-    while ((match = imgPattern.exec(messageText)) !== null) {
-      const imgAttrs = match[1];
-      const srcMatch = imgAttrs.match(/src="([^"]+)"/);
-      const titleMatch = imgAttrs.match(/title="([^"]+)"/);
-      const altMatch = imgAttrs.match(/alt="([^"]+)"/);
-
-      if (!srcMatch) {
-        continue; // No src attribute, skip
-      }
-
-      const imageUrl = srcMatch[1];
-      const title = titleMatch ? titleMatch[1] : '';
-      const alt = altMatch ? altMatch[1] : '';
-
-      // Only include images with "AI generated image" in title
-      // This filters out user-uploaded images and other content
-      if (!title.startsWith('AI generated image')) {
-        logger.trace(
-          `Skipping image (not AI generated): ${imageUrl.substring(0, 50)}...`
-        );
-        continue;
-      }
-
-      // Normalize image URL for PromptRegistry lookup
-      const normalizedUrl = this.normalizeImageUrl(imageUrl);
-
-      // Get complete prompt from PromptRegistry using normalized URL
-      const promptNode = getPromptForImage(normalizedUrl, metadata);
-
-      let promptText: string;
-      if (promptNode) {
-        // Use complete prompt from PromptRegistry
-        promptText = promptNode.text;
-        logger.trace(
-          `Found prompt in registry for ${imageUrl.substring(0, 50)}...`
-        );
-      } else {
-        // Fallback: extract from title if not in registry (legacy images)
-        promptText = title.replace(/^AI generated image:\s*/, '') || alt;
-        logger.trace(
-          `No prompt in registry for ${imageUrl.substring(0, 50)}..., using title/alt`
-        );
-      }
-
-      const promptPreview =
-        promptText.length > 50
-          ? promptText.substring(0, 50) + '...'
-          : promptText;
-
-      images.push({
-        imageUrl,
-        promptText, // Complete prompt text from PromptRegistry
-        promptPreview,
-        messageId,
-        imageIndex,
-      });
-
-      logger.trace(
-        `Found AI generated image in message ${messageId}: ${imageUrl.substring(0, 50)}...`
-      );
-
-      imageIndex++;
-    }
-
-    logger.debug(
-      `Message ${messageId}: found ${images.length} AI generated images`
-    );
-
-    return images;
   }
 
   /**
