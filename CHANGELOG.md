@@ -7,25 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-10-15
+
+### Added
+
+- **Image Rotation Feature**
+  - Rotate button in modal viewer (90° clockwise increments)
+  - Rotation persists across modal reopening within same session
+  - Rotation-aware fullscreen and image fitting
+  - Automatic dimension-swap for portrait↔landscape transitions
+  - Works seamlessly with zoom, pan, and fullscreen features
+
+- **Tap Navigation for Mobile**
+  - Tap left/right side of image to navigate between images
+  - Visual tap indicators with ripple animation
+  - Automatically disabled when image is zoomed (panning takes priority)
+  - Complements existing swipe navigation
+
+- **View All Images Button**
+  - Added to regeneration dialog (alongside Generate/Update Prompt/Delete/Cancel)
+  - Opens global image viewer starting from the clicked image
+  - Collects all AI-generated images from all messages in chronological order
+  - Allows browsing through entire chat's image collection from any starting point
+  - Shared utility functions reduce code duplication across modules
+
+- **Fullscreen Enhancements**
+  - Tap center of image to toggle fullscreen on mobile devices
+  - Immersive fullscreen mode with screen rotation lock support
+  - Icon-only action buttons on mobile for maximum screen space
+  - Improved visual feedback for fullscreen transitions
+
+- **Gallery Widget Improvements**
+  - Message order toggle button (newest-first ⇄ oldest-first)
+  - Smart DOM updates prevent duplicate elements and visual disruption
+  - Automatically refreshes when images are added/edited (MESSAGE_EDITED event)
+  - Reduced code duplication with shared image extraction utilities
+
+### Fixed
+
+- **Modal Viewer Fixes**
+  - Keyboard shortcuts no longer trigger unintended SillyTavern actions
+  - Text input fields now properly accept keyboard input during modal viewer
+  - Correct image fitting and positioning for rotated images in fullscreen
+  - Removed conflicting double-click/tap-to-zoom feature (conflicts with tap navigation)
+  - Hidden "swipe to navigate" hint text (tap navigation is now primary on mobile)
+
+- **Metadata & Context Management**
+  - PromptRegistry now persists correctly after inserting images
+  - Image URL normalization ensures consistent prompt lookups
+  - Always fetch fresh context from SillyTavern (eliminates stale data issues)
+
+- **Progress Widget Fixes**
+  - Widget state properly cleared when switching between chats
+  - No more DOM disruption during real-time updates
+
+- **Image Generation**
+  - Fixed support for manual image generation when streaming mode is disabled
+  - Event-driven session finalization (eliminates race conditions from idle timer)
+  - Improved reliability for click-to-regenerate dialog
+
 ### Changed
 
-- **Complete V2 Architecture Migration** (Internal Refactoring)
+- **Architecture Improvements** (Internal)
   - Unified streaming and regeneration into single generation pipeline
-  - Removed Barrier coordination pattern in favor of explicit await conditions
-  - Consolidated all image insertion through unified `insertDeferredImages()` function
-  - SessionManager now handles both streaming and click-to-regenerate flows
-  - Migrated to prompt_manager.ts for all prompt tracking (prompt_metadata.ts functions deprecated)
-  - All v2 modules now have comprehensive unit tests
-  - Deleted obsolete files: barrier.ts, old streaming_monitor.ts, old manual_generation.ts, old image_generator.ts
-
-### Technical Details
-
-- `insertDeferredImages()` now supports both streaming (append-after-prompt) and regeneration (replace-image, append-after-image) modes
-- SessionManager uses explicit await conditions instead of Barrier for deterministic insertion timing
-- Auto-finalize regenerations after 2s idle (debounced) for better UX
-- All prompt detection uses regex_v2.ts, all image associations use prompt_manager.ts
-- Progress tracking unified via ProgressManager.waitAllComplete()
-- No breaking changes to public API - purely internal architecture improvements
+  - Removed _v2 suffixes from all modules (migration complete)
+  - Consolidated prompt tracking via prompt_manager.ts
+  - Removed Barrier pattern in favor of explicit await conditions
+  - Comprehensive test coverage for all core modules
+  - Deleted obsolete files: barrier.ts, old module versions, deprecated metadata functions
 
 ## [1.3.0] - 2025-10-13
 

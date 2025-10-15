@@ -37,6 +37,17 @@ Automatically generates inline images in your SillyTavern conversations based on
   - Desktop: Mouse wheel zoom, click-and-drag panning, keyboard shortcuts
   - Mobile: Pinch-to-zoom, touch panning, gesture coordination
   - Hardware accelerated for smooth 60fps performance
+- 🔄 **Image Rotation** (v1.4.0+): Rotate images 90° clockwise in modal viewer
+  - Rotation persists across modal reopening
+  - Rotation-aware fullscreen and fitting
+- 📱 **Tap Navigation** (v1.4.0+): Touch-friendly image navigation on mobile
+  - Tap left/right side to navigate between images
+  - Tap center to toggle fullscreen
+  - Visual ripple indicators
+- 🖼️ **View All Images** (v1.4.0+): Browse entire chat's image collection
+  - Button in regeneration dialog
+  - Opens modal viewer at clicked image
+  - Navigate through all chat images chronologically
 - ⚙️ **Widget Visibility Controls** (v1.3.0+): Show/hide Progress and Gallery widgets independently
 - 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
 - 💾 **Persistent Images**: Generated images are automatically saved to chat history

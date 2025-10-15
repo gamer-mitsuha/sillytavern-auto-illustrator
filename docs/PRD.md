@@ -2,7 +2,7 @@
 # SillyTavern Auto Illustrator
 
 **Version**: 1.1
-**Last Updated**: 2025-10-13
+**Last Updated**: 2025-10-15
 **Purpose**: Define desired behaviors for all features to prevent regressions
 
 ---
@@ -954,7 +954,77 @@ These invariants should be verified:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2025-01-12 | Initial behavior-focused PRD with 39 concrete examples covering all features |
+| 1.0 | 2025-10-12 | Initial behavior-focused PRD with 39 concrete examples covering all features |
+| 1.1 | 2025-10-15 | Added modal viewer behaviors: image rotation, tap navigation, View All Images button |
+
+---
+
+## 12. Modal Image Viewer Behaviors
+
+### 12.1 Image Rotation
+
+**ROTATION-001**: Rotate button rotates image 90° clockwise on each click
+
+**ROTATION-002**: Rotation state persists across modal re-opening during same session
+
+**ROTATION-003**: Rotation affects fullscreen fitting (portrait↔landscape dimension swap)
+
+**ROTATION-004**: Rotation works seamlessly with zoom and pan features
+
+**Example**:
+```
+User clicks rotate button 4 times:
+0° → 90° → 180° → 270° → 0° (full circle)
+Closes and reopens modal: rotation resets to 0°
+```
+
+### 12.2 Tap Navigation (Mobile)
+
+**TAP-001**: Tapping left 40% of image navigates to previous image
+
+**TAP-002**: Tapping right 40% of image navigates to next image
+
+**TAP-003**: Tapping center 20% of image toggles fullscreen
+
+**TAP-004**: Tap navigation disabled when image is zoomed (panning takes priority)
+
+**TAP-005**: Visual ripple indicators show tap location
+
+**Example**:
+```
+At 1x zoom:
+- Tap left side → previous image
+- Tap right side → next image
+- Tap center → enter fullscreen
+
+At 2x zoom:
+- Tap anywhere → pan image (navigation disabled)
+```
+
+### 12.3 View All Images Button
+
+**VIEW-ALL-001**: "View All Images" button appears in regeneration dialog
+
+**VIEW-ALL-002**: Clicking button collects all AI-generated images from all messages
+
+**VIEW-ALL-003**: Images collected in chronological order (message 0 → last message)
+
+**VIEW-ALL-004**: Modal opens at clicked image's index in global collection
+
+**VIEW-ALL-005**: User can navigate through all chat images from any starting point
+
+**Example**:
+```
+Chat has 3 messages with images:
+- Message #5: 2 images
+- Message #12: 1 image
+- Message #20: 3 images
+
+User clicks image #2 in message #20
+→ View All collects [msg5-img1, msg5-img2, msg12-img1, msg20-img1, msg20-img2, msg20-img3]
+→ Modal opens at index 4 (msg20-img2)
+→ User can navigate: prev (msg20-img1), next (msg20-img3), then msg5-img1, etc.
+```
 
 ---
 
