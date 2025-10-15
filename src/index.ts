@@ -6,7 +6,7 @@
 import './style.css';
 import {pruneGeneratedImages} from './chat_history_pruner';
 import {sessionManager} from './session_manager';
-import {refreshMetadata} from './metadata';
+// metadata functions imported where needed
 import {
   handleStreamTokenStarted,
   handleMessageReceived,
@@ -912,9 +912,8 @@ function initialize(): void {
   initializeI18n(context);
   logger.info('Initialized i18n');
 
-  // Initialize metadata for current chat
-  refreshMetadata();
-  logger.info('Initialized metadata');
+  // Metadata is initialized lazily on first use via getMetadata()
+  logger.info('Extension initialized, metadata will be loaded on first use');
 
   // Load settings
   settings = loadSettings(context);
@@ -1088,8 +1087,8 @@ function initialize(): void {
       'CHAT_CHANGED - cancelling all sessions and reloading settings'
     );
 
-    // Refresh metadata reference for new chat
-    refreshMetadata();
+    // Metadata will be loaded fresh on next getMetadata() call
+    // No need to explicitly refresh - getMetadata() always gets latest context
 
     // Cancel all active streaming sessions
     cancelAllSessions();

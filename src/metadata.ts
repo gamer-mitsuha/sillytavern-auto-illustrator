@@ -12,72 +12,51 @@ import type {AutoIllustratorChatMetadata} from './types';
 const logger = createLogger('Metadata');
 
 /**
- * Module-level variable holding the current chat's auto-illustrator metadata
- * This is refreshed on every CHAT_CHANGED event
+ * Gets the current chat's auto-illustrator metadata
+ * Always fetches from SillyTavern context to ensure fresh data
+ *
+ * This follows the official SillyTavern extension pattern:
+ * ```js
+ * const { chatMetadata } = SillyTavern.getContext();
+ * ```
+ *
+ * @param context - Optional context (for compatibility, not used)
+ * @returns Auto-illustrator metadata for current chat
+ * @throws Error if context not available
  */
-let autoIllustratorMetadata: AutoIllustratorChatMetadata | null = null;
-
-/**
- * Initializes or refreshes the metadata from the current context
- * Called on extension load and CHAT_CHANGED events
- */
-export function refreshMetadata(): void {
+export function getMetadata(
+  _context?: SillyTavernContext
+): AutoIllustratorChatMetadata {
+  // Always get fresh context to ensure we have latest metadata (including loaded from server)
   const context = SillyTavern.getContext();
   if (!context) {
-    logger.warn('Cannot refresh metadata: context not available');
-    autoIllustratorMetadata = null;
-    return;
+    throw new Error('Cannot get metadata: SillyTavern context not available');
   }
 
-  // Initialize chatMetadata if it doesn't exist (using camelCase per official docs)
   if (!context.chatMetadata) {
     context.chatMetadata = {};
   }
 
+  // Create metadata structure if it doesn't exist (new chat or not saved yet)
   if (!context.chatMetadata.auto_illustrator) {
     context.chatMetadata.auto_illustrator = {
-      // Only PromptRegistry is needed - PromptManager handles everything
       promptRegistry: {
         nodes: {},
         imageToPromptId: {},
         rootPromptIds: [],
       },
     };
-    logger.debug('Initialized auto_illustrator metadata for new chat');
+    logger.debug('Created new metadata structure for chat');
   }
 
-  autoIllustratorMetadata = context.chatMetadata.auto_illustrator;
-  logger.debug('Refreshed metadata reference for current chat');
-}
-
-/**
- * Gets the current chat's auto-illustrator metadata
- * Returns the cached module-level reference
- *
- * @param context - Optional context (for compatibility, not used)
- * @returns Auto-illustrator metadata for current chat
- * @throws Error if metadata not initialized (call refreshMetadata first)
- */
-export function getMetadata(
-  _context?: SillyTavernContext
-): AutoIllustratorChatMetadata {
-  if (!autoIllustratorMetadata) {
-    // Try to refresh if not initialized
-    refreshMetadata();
-
-    if (!autoIllustratorMetadata) {
-      throw new Error(
-        'Metadata not initialized. Ensure refreshMetadata() is called on CHAT_CHANGED.'
-      );
-    }
-  }
-
-  return autoIllustratorMetadata;
+  return context.chatMetadata.auto_illustrator;
 }
 
 /**
  * Saves the current metadata to the server
  * Call this after modifying metadata (e.g., after registering prompts or linking images)
+ *
+ * Uses the official SillyTavern pattern: context.saveMetadata()
  */
 export async function saveMetadata(): Promise<void> {
   const context = SillyTavern.getContext();
@@ -87,9 +66,15 @@ export async function saveMetadata(): Promise<void> {
   }
 
   try {
-    // Save the metadata to the server
-    await context.saveChat();
-    logger.trace('Metadata saved to server');
+    // Use SillyTavern's saveMetadata() if available, otherwise saveChat()
+    if (context.saveMetadata) {
+      await context.saveMetadata();
+      logger.trace('Metadata saved to server via saveMetadata()');
+    } else {
+      // Fallback for older SillyTavern versions
+      await context.saveChat();
+      logger.trace('Metadata saved to server via saveChat()');
+    }
   } catch (error) {
     logger.error('Failed to save metadata:', error);
     throw error;
