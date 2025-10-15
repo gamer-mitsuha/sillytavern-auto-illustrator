@@ -778,8 +778,12 @@
 /* Swap dimensions when rotated 90° or 270° */
 .ai-img-modal-image.rotated-90-270 {
   /* Effective dimensions are swapped, so constraints need to swap too */
-  max-width: 100vh;
-  max-height: 100vw;
+  /* Use container's dimensions (100% of container) which will be constrained */
+  max-width: 100%;
+  max-height: 100%;
+  /* But also constrain to viewport to prevent overflow */
+  max-width: min(100%, 100vh);
+  max-height: min(100%, 100vw);
 }
 
 /* Add smooth transition class for zoom animations */
@@ -937,19 +941,21 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* Fullscreen mode styles */
+/* Fullscreen mode styles - backdrop is now the fullscreen element */
 .ai-img-modal-backdrop:-webkit-full-screen,
 .ai-img-modal-backdrop:-moz-full-screen,
 .ai-img-modal-backdrop:-ms-fullscreen,
 .ai-img-modal-backdrop:fullscreen {
   padding: 0;
   background: rgba(0, 0, 0, 1);
+  align-items: stretch; /* Stretch container to fill instead of centering */
 }
 
-.ai-img-modal-container:-webkit-full-screen,
-.ai-img-modal-container:-moz-full-screen,
-.ai-img-modal-container:-ms-fullscreen,
-.ai-img-modal-container:fullscreen {
+/* Ensure container fills backdrop when backdrop is fullscreen */
+.ai-img-modal-backdrop:-webkit-full-screen .ai-img-modal-container,
+.ai-img-modal-backdrop:-moz-full-screen .ai-img-modal-container,
+.ai-img-modal-backdrop:-ms-fullscreen .ai-img-modal-container,
+.ai-img-modal-backdrop:fullscreen .ai-img-modal-container {
   max-width: 100vw;
   max-height: 100vh;
   width: 100vw;
@@ -962,6 +968,59 @@
 .ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-nav,
 .ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-close {
   display: none !important;
+}
+
+/* In fullscreen, remove ALL spacing and ensure full viewport usage */
+.ai-img-modal-backdrop.ai-img-fullscreen-active,
+.ai-img-modal-backdrop:-webkit-full-screen,
+.ai-img-modal-backdrop:-moz-full-screen,
+.ai-img-modal-backdrop:-ms-fullscreen,
+.ai-img-modal-backdrop:fullscreen {
+  padding: 0 !important;
+  margin: 0 !important;
+  align-items: stretch !important; /* Stretch container to fill instead of centering */
+}
+
+.ai-img-modal-container.ai-img-fullscreen-active,
+.ai-img-modal-backdrop:-webkit-full-screen .ai-img-modal-container,
+.ai-img-modal-backdrop:-moz-full-screen .ai-img-modal-container,
+.ai-img-modal-backdrop:-ms-fullscreen .ai-img-modal-container,
+.ai-img-modal-backdrop:fullscreen .ai-img-modal-container {
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-content,
+.ai-img-modal-backdrop:-webkit-full-screen .ai-img-modal-content,
+.ai-img-modal-backdrop:-moz-full-screen .ai-img-modal-content,
+.ai-img-modal-backdrop:-ms-fullscreen .ai-img-modal-content,
+.ai-img-modal-backdrop:fullscreen .ai-img-modal-content {
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-image-container,
+.ai-img-modal-backdrop:-webkit-full-screen .ai-img-modal-image-container,
+.ai-img-modal-backdrop:-moz-full-screen .ai-img-modal-image-container,
+.ai-img-modal-backdrop:-ms-fullscreen .ai-img-modal-image-container,
+.ai-img-modal-backdrop:fullscreen .ai-img-modal-image-container {
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Desktop-specific styles - hide mobile UI elements */

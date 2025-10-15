@@ -269,8 +269,10 @@ export class ImageModalViewer {
         if (this.container) {
           if (this.isFullscreen) {
             this.container.classList.add('ai-img-fullscreen-active');
+            this.backdrop?.classList.add('ai-img-fullscreen-active');
           } else {
             this.container.classList.remove('ai-img-fullscreen-active');
+            this.backdrop?.classList.remove('ai-img-fullscreen-active');
           }
         }
         this.updateFullscreenButton();
@@ -895,21 +897,25 @@ export class ImageModalViewer {
    * Enter fullscreen mode
    */
   private async enterFullscreen(): Promise<void> {
-    if (!this.container) return;
+    if (!this.backdrop) return;
 
     try {
-      // Try standard Fullscreen API with vendor prefixes
-      if (this.container.requestFullscreen) {
-        await this.container.requestFullscreen();
-      } else if ((this.container as any).webkitRequestFullscreen) {
-        await (this.container as any).webkitRequestFullscreen();
-      } else if ((this.container as any).mozRequestFullScreen) {
-        await (this.container as any).mozRequestFullScreen();
-      } else if ((this.container as any).msRequestFullscreen) {
-        await (this.container as any).msRequestFullscreen();
+      // Request fullscreen on backdrop (parent element) instead of container
+      // This way the entire modal hierarchy is in fullscreen context
+      if (this.backdrop.requestFullscreen) {
+        await this.backdrop.requestFullscreen();
+      } else if ((this.backdrop as any).webkitRequestFullscreen) {
+        await (this.backdrop as any).webkitRequestFullscreen();
+      } else if ((this.backdrop as any).mozRequestFullScreen) {
+        await (this.backdrop as any).mozRequestFullScreen();
+      } else if ((this.backdrop as any).msRequestFullscreen) {
+        await (this.backdrop as any).msRequestFullscreen();
       }
       this.isFullscreen = true;
-      this.container.classList.add('ai-img-fullscreen-active');
+      if (this.container) {
+        this.container.classList.add('ai-img-fullscreen-active');
+      }
+      this.backdrop.classList.add('ai-img-fullscreen-active');
       this.updateFullscreenButton();
       logger.debug('Entered fullscreen mode');
     } catch (err) {
@@ -936,6 +942,7 @@ export class ImageModalViewer {
       if (this.container) {
         this.container.classList.remove('ai-img-fullscreen-active');
       }
+      this.backdrop?.classList.remove('ai-img-fullscreen-active');
       this.updateFullscreenButton();
       logger.debug('Exited fullscreen mode');
     } catch (err) {
