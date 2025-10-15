@@ -10,6 +10,7 @@ import {createLogger} from './logger';
 import {t, tCount} from './i18n';
 import {progressManager} from './progress_manager';
 import {attachRegenerationHandlers} from './manual_generation';
+import {saveMetadata} from './metadata';
 
 const logger = createLogger('Generator');
 
@@ -515,6 +516,10 @@ export async function insertDeferredImages(
   // Emit MESSAGE_UPDATED to notify other extensions
   const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
   await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+  // Save metadata to persist PromptRegistry (image-prompt associations)
+  await saveMetadata();
+  logger.debug('Metadata saved (PromptRegistry persisted)');
 
   // Save the chat to persist the inserted images
   await context.saveChat();
