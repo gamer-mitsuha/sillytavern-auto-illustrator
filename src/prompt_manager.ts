@@ -407,17 +407,36 @@ export function registerPrompt(
 }
 
 /**
+ * Normalize image URL to pathname for consistent lookups
+ * Converts absolute URLs to relative paths
+ * @param url - Image URL (absolute or relative)
+ * @returns Normalized relative path
+ */
+function normalizeImageUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    // Return just the pathname (e.g., /user/images/test.png)
+    return urlObj.pathname;
+  } catch {
+    // If URL parsing fails, it's already a relative path
+    return url;
+  }
+}
+
+/**
  * Links an image URL to a prompt
  *
  * Adds the image URL to the prompt's generatedImages array and updates
  * the imageToPromptId index for fast reverse lookup.
+ * Automatically normalizes URLs to pathname for consistency.
  *
  * @param promptId - Prompt ID
- * @param imageUrl - Image URL to link
+ * @param imageUrl - Image URL to link (absolute or relative, will be normalized)
  * @param metadata - Chat metadata
  *
  * @example
  * linkImageToPrompt("prompt_abc123", "https://example.com/image.jpg", metadata);
+ * // Stores as: "/image.jpg" -> "prompt_abc123"
  */
 export function linkImageToPrompt(
   promptId: string,
@@ -432,13 +451,17 @@ export function linkImageToPrompt(
     return;
   }
 
+  // Normalize URL to pathname for consistent lookups
+  // Converts absolute URLs (http://host/path) to relative (/path)
+  const normalizedUrl = normalizeImageUrl(imageUrl);
+
   // Add to node's generated images (avoid duplicates)
-  if (!node.generatedImages.includes(imageUrl)) {
-    node.generatedImages.push(imageUrl);
+  if (!node.generatedImages.includes(normalizedUrl)) {
+    node.generatedImages.push(normalizedUrl);
   }
 
-  // Update index
-  registry.imageToPromptId[imageUrl] = promptId;
+  // Update index with normalized URL
+  registry.imageToPromptId[normalizedUrl] = promptId;
 
   // Update last used timestamp
   updatePromptLastUsed(promptId, metadata);

@@ -11,13 +11,13 @@
 
 import {createLogger} from './logger';
 import {t} from './i18n';
-import {extractImagePrompts} from './image_extractor';
-import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
 import {openImageModal, type ModalImage} from './modal_viewer';
 import type {
   ProgressManager,
   ProgressImageCompletedEventDetail,
 } from './progress_manager';
+import {getMetadata} from './metadata';
+import {getPromptForImage} from './prompt_manager';
 
 const logger = createLogger('GalleryWidget');
 
@@ -335,7 +335,24 @@ export class GalleryWidgetView {
   }
 
   /**
+   * Normalize image URL to pathname for PromptRegistry lookup
+   * Converts absolute URLs to relative paths
+   */
+  private normalizeImageUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      // Return just the pathname (e.g., /user/images/test.png)
+      return urlObj.pathname;
+    } catch {
+      // If URL parsing fails, it's already a relative path
+      return url;
+    }
+  }
+
+  /**
    * Extract images from a message text
+   * Finds all images with "AI generated image" in title (our generated images)
+   * Uses PromptRegistry to get complete prompt text
    */
   private extractImagesFromMessage(
     messageText: string,
@@ -343,55 +360,83 @@ export class GalleryWidgetView {
   ): GalleryImage[] {
     const images: GalleryImage[] = [];
 
-    // Use existing proven image prompt extraction (handles all 3 formats)
-    const prompts = extractImagePrompts(
-      messageText,
-      DEFAULT_PROMPT_DETECTION_PATTERNS
-    );
+    // Get metadata for prompt lookup
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const context = (window as any).SillyTavern?.getContext?.();
+    const metadata = getMetadata(context);
 
-    logger.trace(
-      `Message ${messageId}: extractImagePrompts found ${prompts.length} prompts`
-    );
+    // Find all img tags in the message
+    const imgPattern = /<img\s+([^>]+)>/g;
+    let match;
+    let imageIndex = 0;
 
-    // For each prompt, find the immediately following img tag(s)
-    for (let promptIndex = 0; promptIndex < prompts.length; promptIndex++) {
-      const prompt = prompts[promptIndex];
-      const afterPrompt = messageText.substring(prompt.endIndex);
+    while ((match = imgPattern.exec(messageText)) !== null) {
+      const imgAttrs = match[1];
+      const srcMatch = imgAttrs.match(/src="([^"]+)"/);
+      const titleMatch = imgAttrs.match(/title="([^"]+)"/);
+      const altMatch = imgAttrs.match(/alt="([^"]+)"/);
 
-      logger.trace(
-        `Message ${messageId}, prompt ${promptIndex}: afterPrompt starts with: "${afterPrompt.substring(0, 100)}"`
-      );
+      if (!srcMatch) {
+        continue; // No src attribute, skip
+      }
 
-      // Match img tag immediately after prompt (with optional whitespace)
-      // Changed [^>]+ to [^>]* to allow src= to come immediately after <img
-      const imgMatch = /^\s*<img\s+[^>]*src=["']([^"']+)["'][^>]*>/.exec(
-        afterPrompt
-      );
+      const imageUrl = srcMatch[1];
+      const title = titleMatch ? titleMatch[1] : '';
+      const alt = altMatch ? altMatch[1] : '';
 
-      logger.trace(
-        `Message ${messageId}, prompt ${promptIndex}: imgMatch = ${imgMatch ? 'FOUND' : 'NULL'}`
-      );
-
-      if (imgMatch) {
-        const imageUrl = imgMatch[1];
-        const promptPreview =
-          prompt.prompt.length > 50
-            ? prompt.prompt.substring(0, 50) + '...'
-            : prompt.prompt;
-
-        images.push({
-          imageUrl,
-          promptText: prompt.prompt,
-          promptPreview,
-          messageId,
-          imageIndex: promptIndex,
-        });
-
+      // Only include images with "AI generated image" in title
+      // This filters out user-uploaded images and other content
+      if (!title.startsWith('AI generated image')) {
         logger.trace(
-          `Found image in message ${messageId}: ${imageUrl.substring(0, 50)}...`
+          `Skipping image (not AI generated): ${imageUrl.substring(0, 50)}...`
+        );
+        continue;
+      }
+
+      // Normalize image URL for PromptRegistry lookup
+      const normalizedUrl = this.normalizeImageUrl(imageUrl);
+
+      // Get complete prompt from PromptRegistry using normalized URL
+      const promptNode = getPromptForImage(normalizedUrl, metadata);
+
+      let promptText: string;
+      if (promptNode) {
+        // Use complete prompt from PromptRegistry
+        promptText = promptNode.text;
+        logger.trace(
+          `Found prompt in registry for ${imageUrl.substring(0, 50)}...`
+        );
+      } else {
+        // Fallback: extract from title if not in registry (legacy images)
+        promptText = title.replace(/^AI generated image:\s*/, '') || alt;
+        logger.trace(
+          `No prompt in registry for ${imageUrl.substring(0, 50)}..., using title/alt`
         );
       }
+
+      const promptPreview =
+        promptText.length > 50
+          ? promptText.substring(0, 50) + '...'
+          : promptText;
+
+      images.push({
+        imageUrl,
+        promptText, // Complete prompt text from PromptRegistry
+        promptPreview,
+        messageId,
+        imageIndex,
+      });
+
+      logger.trace(
+        `Found AI generated image in message ${messageId}: ${imageUrl.substring(0, 50)}...`
+      );
+
+      imageIndex++;
     }
+
+    logger.debug(
+      `Message ${messageId}: found ${images.length} AI generated images`
+    );
 
     return images;
   }

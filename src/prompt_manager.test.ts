@@ -35,6 +35,19 @@ import {
 // ============================================================================
 
 /**
+ * Helper to normalize URL (matching production behavior)
+ * URLs are normalized to pathname in linkImageToPrompt
+ */
+function normalizeUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.pathname;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Creates a fresh AutoIllustratorChatMetadata object for testing
  */
 function createTestMetadata(): AutoIllustratorChatMetadata {
@@ -150,7 +163,7 @@ describe('CRUD Operations', () => {
     expect(registry.nodes[node.id]).toBeUndefined();
     expect(registry.rootPromptIds).not.toContain(node.id);
     expect(
-      registry.imageToPromptId['http://example.com/img.jpg']
+      registry.imageToPromptId[normalizeUrl('http://example.com/img.jpg')]
     ).toBeUndefined();
   });
 
@@ -239,9 +252,11 @@ describe('Image Linking', () => {
 
     linkImageToPrompt(node.id, imageUrl, metadata);
 
-    expect(node.generatedImages).toContain(imageUrl);
+    // URLs are normalized to pathname for consistent lookups
+    const normalizedUrl = '/img.jpg';
+    expect(node.generatedImages).toContain(normalizedUrl);
     const registry = getRegistry(metadata);
-    expect(registry.imageToPromptId[imageUrl]).toBe(node.id);
+    expect(registry.imageToPromptId[normalizedUrl]).toBe(node.id);
   });
 
   it('should link multiple images to same prompt', () => {
@@ -252,8 +267,9 @@ describe('Image Linking', () => {
     linkImageToPrompt(node.id, img1, metadata);
     linkImageToPrompt(node.id, img2, metadata);
 
-    expect(node.generatedImages).toContain(img1);
-    expect(node.generatedImages).toContain(img2);
+    // URLs are normalized
+    expect(node.generatedImages).toContain(normalizeUrl(img1));
+    expect(node.generatedImages).toContain(normalizeUrl(img2));
     expect(node.generatedImages).toHaveLength(2);
   });
 
@@ -262,7 +278,8 @@ describe('Image Linking', () => {
     const imageUrl = 'http://example.com/img.jpg';
 
     linkImageToPrompt(node.id, imageUrl, metadata);
-    const retrieved = getPromptForImage(imageUrl, metadata);
+    // URLs are normalized, so look up with normalized URL
+    const retrieved = getPromptForImage(normalizeUrl(imageUrl), metadata);
 
     expect(retrieved).toBe(node);
   });
@@ -272,13 +289,14 @@ describe('Image Linking', () => {
     const imageUrl = 'http://example.com/img.jpg';
 
     linkImageToPrompt(node.id, imageUrl, metadata);
-    const result = unlinkImageFromPrompt(imageUrl, metadata);
+    // URLs are normalized, use normalized URL for unlinking
+    const result = unlinkImageFromPrompt(normalizeUrl(imageUrl), metadata);
 
     expect(result).toBe(true);
-    expect(node.generatedImages).not.toContain(imageUrl);
+    expect(node.generatedImages).not.toContain(normalizeUrl(imageUrl));
 
     const registry = getRegistry(metadata);
-    expect(registry.imageToPromptId[imageUrl]).toBeUndefined();
+    expect(registry.imageToPromptId[normalizeUrl(imageUrl)]).toBeUndefined();
   });
 
   it('should return false when unlinking non-existent image', () => {
@@ -298,7 +316,7 @@ describe('Image Linking', () => {
     linkImageToPrompt(node.id, imageUrl, metadata);
 
     expect(node.generatedImages).toHaveLength(1);
-    expect(node.generatedImages[0]).toBe(imageUrl);
+    expect(node.generatedImages[0]).toBe(normalizeUrl(imageUrl));
   });
 });
 
@@ -569,7 +587,7 @@ describe('Cleanup Operations', () => {
 
     const registry = getRegistry(metadata);
     expect(
-      registry.imageToPromptId['http://example.com/img1.jpg']
+      registry.imageToPromptId[normalizeUrl('http://example.com/img1.jpg')]
     ).toBeUndefined();
   });
 
@@ -1053,7 +1071,7 @@ describe('Edge Cases & Robustness', () => {
 
     const registry = getRegistry(metadata);
     expect(parent.generatedImages).toHaveLength(2);
-    expect(registry.imageToPromptId['http://example.com/img1.jpg']).toBe(
+    expect(registry.imageToPromptId[normalizeUrl('http://example.com/img1.jpg')]).toBe(
       parent.id
     );
 
@@ -1062,10 +1080,10 @@ describe('Edge Cases & Robustness', () => {
 
     // Image associations should be removed
     expect(
-      registry.imageToPromptId['http://example.com/img1.jpg']
+      registry.imageToPromptId[normalizeUrl('http://example.com/img1.jpg')]
     ).toBeUndefined();
     expect(
-      registry.imageToPromptId['http://example.com/img2.jpg']
+      registry.imageToPromptId[normalizeUrl('http://example.com/img2.jpg')]
     ).toBeUndefined();
 
     // Child should be promoted to root
