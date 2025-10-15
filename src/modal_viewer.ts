@@ -41,7 +41,6 @@ interface ZoomState {
   dragStartX: number;
   dragStartY: number;
   lastTouchDistance: number;
-  lastTapTime: number;
   velocityX: number;
   velocityY: number;
   lastMoveTime: number;
@@ -90,7 +89,6 @@ export class ImageModalViewer {
     dragStartX: 0,
     dragStartY: 0,
     lastTouchDistance: 0,
-    lastTapTime: 0,
     velocityX: 0,
     velocityY: 0,
     lastMoveTime: 0,
@@ -102,7 +100,6 @@ export class ImageModalViewer {
   private readonly MIN_ZOOM = 1;
   private readonly MAX_ZOOM = 3;
   private readonly ZOOM_STEP = 0.1;
-  private readonly DOUBLE_TAP_DELAY = 300; // ms
 
   // Event handlers (stored for cleanup)
   private boundHandlers: {[key: string]: EventListener} = {};
@@ -467,15 +464,7 @@ export class ImageModalViewer {
       e.preventDefault();
     });
 
-    // Desktop: Double-click to zoom
-    this.imageContainer.addEventListener('dblclick', (e: MouseEvent) => {
-      e.preventDefault();
-      if (this.zoomState.scale > this.MIN_ZOOM) {
-        this.resetZoom();
-      } else {
-        this.zoomTo(2, e.clientX, e.clientY);
-      }
-    });
+    // Double-click zoom removed - conflicts with tap navigation
 
     // Touch handlers for mobile
     this.setupTouchHandlers();
@@ -505,17 +494,7 @@ export class ImageModalViewer {
         swipeStartX = touches[0].clientX;
         swipeStartY = touches[0].clientY;
 
-        // Handle double tap
-        const now = Date.now();
-        if (now - this.zoomState.lastTapTime < this.DOUBLE_TAP_DELAY) {
-          e.preventDefault();
-          if (this.zoomState.scale > this.MIN_ZOOM) {
-            this.resetZoom();
-          } else {
-            this.zoomTo(2, touches[0].clientX, touches[0].clientY);
-          }
-        }
-        this.zoomState.lastTapTime = now;
+        // Double-tap zoom removed - conflicts with tap navigation
 
         // Start pan if zoomed
         if (this.zoomState.scale > this.MIN_ZOOM) {
