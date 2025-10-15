@@ -592,7 +592,9 @@ export async function handleImageRegenerationClick(
       }
 
       // User confirmed regeneration - apply prompt update to message text
-      logger.info('User confirmed regeneration, applying prompt update to message');
+      logger.info(
+        'User confirmed regeneration, applying prompt update to message'
+      );
       const updateSuccess = await scheduleDomOperation(
         messageId,
         async () => {

@@ -1063,9 +1063,9 @@ describe('Edge Cases & Robustness', () => {
 
     const registry = getRegistry(metadata);
     expect(parent.generatedImages).toHaveLength(2);
-    expect(registry.imageToPromptId[normalizeUrl('http://example.com/img1.jpg')]).toBe(
-      parent.id
-    );
+    expect(
+      registry.imageToPromptId[normalizeUrl('http://example.com/img1.jpg')]
+    ).toBe(parent.id);
 
     // Delete parent
     deletePromptNode(parent.id, metadata);
