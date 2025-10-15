@@ -6,7 +6,7 @@ import {describe, it, expect, beforeEach, vi, afterEach} from 'vitest';
 import {
   handleStreamTokenStarted,
   handleMessageReceived,
-} from './message_handler_v2';
+} from './message_handler';
 
 // Mock dependencies
 vi.mock('./logger', () => ({

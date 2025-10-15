@@ -15,7 +15,7 @@
 
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {QueueProcessor} from './queue_processor';
-import {StreamingMonitor} from './streaming_monitor_v2';
+import {StreamingMonitor} from './streaming_monitor';
 import {progressManager} from './progress_manager';
 import {scheduleDomOperation} from './dom_queue';
 import {createLogger} from './logger';
@@ -186,7 +186,7 @@ export class SessionManager {
 
       // Batch insertion through DOM queue
       const metadata = getMetadata(context);
-      const {insertDeferredImages} = await import('./image_generator_v2');
+      const {insertDeferredImages} = await import('./image_generator');
 
       const insertedCount = await scheduleDomOperation(
         messageId,
@@ -402,7 +402,7 @@ export class SessionManager {
 
       // Batch insertion through DOM queue
       const metadata = getMetadata(context);
-      const {insertDeferredImages} = await import('./image_generator_v2');
+      const {insertDeferredImages} = await import('./image_generator');
 
       const insertedCount = await scheduleDomOperation(
         messageId,

@@ -4,12 +4,12 @@
  *
  * Updates:
  * - Removed Barrier dependency (uses callback instead)
- * - Uses regex_v2 for prompt extraction
+ * - Uses regex for prompt extraction
  * - Uses prompt_manager for metadata tracking
  * - Updates progress manager with totals
  */
 
-import {extractImagePromptsMultiPattern} from './regex_v2';
+import {extractImagePromptsMultiPattern} from './regex';
 import {ImageGenerationQueue} from './streaming_image_queue';
 import type {ImagePromptMatch} from './types';
 import {createLogger} from './logger';
@@ -199,7 +199,7 @@ export class StreamingMonitor {
 
   /**
    * Extracts prompts that haven't been seen before and registers them in PromptManager
-   * Uses regex_v2 for pattern matching
+   * Uses regex for pattern matching
    * @param currentText - Current message text
    * @param metadata - Chat metadata for PromptManager
    * @returns Array of objects with match and registered promptId

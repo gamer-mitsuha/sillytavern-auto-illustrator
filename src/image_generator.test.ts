@@ -9,7 +9,7 @@ import {
   updateMinInterval,
   generateImage,
   insertDeferredImages,
-} from './image_generator_v2';
+} from './image_generator';
 import type {DeferredImage, QueuedPrompt} from './types';
 import type {AutoIllustratorChatMetadata} from './types';
 
@@ -24,7 +24,7 @@ vi.mock('./logger', () => ({
   }),
 }));
 
-vi.mock('./regex_v2', () => ({
+vi.mock('./regex', () => ({
   extractImagePromptsMultiPattern: vi.fn((text, patterns) => {
     // Simple mock: find <!--img-prompt="..."-->
     const matches: any[] = [];

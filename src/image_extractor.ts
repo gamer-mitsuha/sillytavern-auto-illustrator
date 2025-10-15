@@ -7,7 +7,7 @@ import type {ImagePromptMatch} from './types';
 import {
   extractImagePromptsMultiPattern,
   createCombinedPromptRegex,
-} from './regex_v2';
+} from './regex';
 import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
 
 /**

@@ -13,9 +13,9 @@ import {
   unescapePromptQuotes,
   createCombinedPromptRegex,
   extractImagePromptsMultiPattern,
-} from './regex_v2';
+} from './regex';
 
-describe('regex_v2', () => {
+describe('regex', () => {
   describe('IMG_PROMPT_COMMENT_PATTERN', () => {
     it('should match basic HTML comment prompt', () => {
       const text = '<!--img-prompt="test prompt"-->';

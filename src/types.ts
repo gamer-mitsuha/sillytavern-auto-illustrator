@@ -153,7 +153,7 @@ export interface GenerationSession {
 
   // Streaming-only (undefined for regeneration sessions)
   /** Monitor that detects new prompts during streaming (streaming only) */
-  readonly monitor?: import('./streaming_monitor_v2').StreamingMonitor;
+  readonly monitor?: import('./streaming_monitor').StreamingMonitor;
 
   /** Timestamp when session started */
   readonly startedAt: number;

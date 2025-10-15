@@ -27,7 +27,7 @@ import {
   generateUpdatedPrompt,
   applyPromptUpdate,
   type PromptNode,
-} from './prompt_updater_v2';
+} from './prompt_updater';
 import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('ManualGen');

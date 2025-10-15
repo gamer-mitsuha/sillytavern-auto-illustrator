@@ -66,7 +66,7 @@
 
 import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
-import {extractImagePromptsMultiPattern} from './regex_v2';
+import {extractImagePromptsMultiPattern} from './regex';
 
 const logger = createLogger('PromptManager');
 
@@ -979,7 +979,7 @@ export function getPromptStats(metadata: AutoIllustratorChatMetadata): {
 /**
  * Detects and registers prompts in a message
  *
- * Uses regex patterns from regex_v2.ts to extract prompts from message text,
+ * Uses regex patterns from regex.ts to extract prompts from message text,
  * then registers each detected prompt in the registry.
  *
  * @param messageId - Message ID

@@ -11,8 +11,8 @@ import {
   handleStreamTokenStarted,
   handleMessageReceived,
   handleChatChanged,
-} from './message_handler_v2';
-import {addImageClickHandlers} from './manual_generation_v2';
+} from './message_handler';
+import {addImageClickHandlers} from './manual_generation';
 import {
   loadSettings,
   saveSettings,
@@ -36,9 +36,9 @@ import {
   initializeConcurrencyLimiter,
   updateMaxConcurrent,
   updateMinInterval,
-} from './image_generator_v2';
+} from './image_generator';
 import {initializeI18n, t} from './i18n';
-import {extractImagePromptsMultiPattern} from './regex_v2';
+import {extractImagePromptsMultiPattern} from './regex';
 import {progressManager} from './progress_manager';
 import {
   initializeProgressWidget,

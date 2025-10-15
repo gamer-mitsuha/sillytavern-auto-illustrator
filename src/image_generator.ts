@@ -9,7 +9,7 @@ import type {DeferredImage} from './types';
 import {createLogger} from './logger';
 import {t, tCount} from './i18n';
 import {progressManager} from './progress_manager';
-import {attachRegenerationHandlers} from './manual_generation_v2';
+import {attachRegenerationHandlers} from './manual_generation';
 
 const logger = createLogger('Generator');
 
@@ -318,7 +318,7 @@ export function applyCommonTags(
  * Unified batch insertion for both streaming and regeneration modes
  * Handles new images (streaming) and regenerated images atomically
  *
- * Uses regex_v2 for prompt detection
+ * Uses regex for prompt detection
  * Uses prompt_manager for image associations
  *
  * @param deferredImages - Images to insert (streaming or regeneration)
@@ -360,7 +360,7 @@ export async function insertDeferredImages(
   let successCount = 0;
 
   // Import required modules
-  const {extractImagePromptsMultiPattern} = await import('./regex_v2');
+  const {extractImagePromptsMultiPattern} = await import('./regex');
   const {linkImageToPrompt} = await import('./prompt_manager');
 
   // Process each deferred image
@@ -444,7 +444,7 @@ export async function insertDeferredImages(
         // NEW IMAGE MODE (streaming): append after prompt tag
         const promptPreview = deferred.promptPreview || queuedPrompt.prompt;
 
-        // Use regex_v2 to extract prompts and find insertion position
+        // Use regex to extract prompts and find insertion position
         const matches = extractImagePromptsMultiPattern(updatedText, patterns);
 
         // Find the prompt match for this queued prompt
