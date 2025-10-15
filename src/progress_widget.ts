@@ -125,6 +125,20 @@ class ProgressWidgetView {
   }
 
   /**
+   * Clears all widget state (called when chat changes)
+   * This removes all message progress and hides the widget
+   */
+  public clearState(): void {
+    logger.info('Clearing progress widget state (chat changed)');
+    this.messageProgress.clear();
+    this.closedMessages.clear();
+    this.expandedMessages.clear();
+    // Don't clear manuallyCollapsedMessages - that's a UI preference
+    // Don't clear isWidgetCollapsed - that's also a UI preference
+    this.scheduleUpdate();
+  }
+
+  /**
    * Handles progress:started event
    */
   private handleStarted(detail: ProgressStartedEventDetail): void {
@@ -1347,4 +1361,17 @@ export function initializeProgressWidget(manager: ProgressManager): void {
 
   widgetInstance = new ProgressWidgetView(manager);
   logger.info('Progress widget initialized');
+}
+
+/**
+ * Clears the progress widget state (called when chat changes)
+ * Removes all message progress and hides the widget
+ */
+export function clearProgressWidgetState(): void {
+  if (!widgetInstance) {
+    logger.debug('No widget instance to clear');
+    return;
+  }
+
+  widgetInstance.clearState();
 }

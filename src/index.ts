@@ -40,7 +40,10 @@ import {
 import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
 import {progressManager} from './progress_manager';
-import {initializeProgressWidget} from './progress_widget';
+import {
+  initializeProgressWidget,
+  clearProgressWidgetState,
+} from './progress_widget';
 import {initializeGalleryWidget, getGalleryWidget} from './gallery_widget';
 
 const logger = createLogger('Main');
@@ -1090,6 +1093,9 @@ function initialize(): void {
 
     // Cancel all active streaming sessions
     cancelAllSessions();
+
+    // Clear progress widget state for new chat
+    clearProgressWidgetState();
 
     // Reload settings from server to ensure sync across devices
     settings = loadSettings(context);
