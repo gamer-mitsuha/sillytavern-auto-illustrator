@@ -46,6 +46,11 @@ vi.mock('./prompt_manager', () => ({
   linkImageToPrompt: vi.fn(),
 }));
 
+vi.mock('./metadata', () => ({
+  saveMetadata: vi.fn().mockResolvedValue(undefined),
+  getMetadata: vi.fn(),
+}));
+
 describe('Image Generator V2', () => {
   describe('initializeConcurrencyLimiter', () => {
     it('should initialize limiter with correct settings', () => {
