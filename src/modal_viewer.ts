@@ -249,6 +249,16 @@ export class ImageModalViewer {
 
     // Keyboard navigation and shortcuts
     this.boundHandlers.keydown = ((e: KeyboardEvent) => {
+      // Allow keyboard input in text fields (textarea, input, contenteditable)
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'INPUT' ||
+        target.isContentEditable
+      ) {
+        return; // Don't intercept keyboard events for text input fields
+      }
+
       // Stop event from bubbling to SillyTavern
       e.preventDefault();
       e.stopPropagation();
