@@ -795,8 +795,8 @@ function registerEventHandlers(): void {
 
   const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, (messageId: number) => {
-    // Handle streaming finalization
-    handleMessageReceived(messageId, context);
+    // Handle streaming finalization or non-streaming message processing
+    handleMessageReceived(messageId, context, settings);
 
     // Add image click handlers after message is received
     setTimeout(() => {

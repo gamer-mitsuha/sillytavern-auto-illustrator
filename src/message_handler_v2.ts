@@ -43,14 +43,16 @@ export async function handleStreamTokenStarted(
 
 /**
  * Handles MESSAGE_RECEIVED event
- * Finalizes streaming session if active, otherwise skips
+ * Finalizes streaming session if active, otherwise processes complete message
  *
  * @param messageId - Message ID that was received
  * @param context - SillyTavern context
+ * @param settings - Extension settings
  */
 export async function handleMessageReceived(
   messageId: number,
-  context: SillyTavernContext
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
 ): Promise<void> {
   logger.debug(`MESSAGE_RECEIVED event for message ${messageId}`);
 
@@ -77,9 +79,32 @@ export async function handleMessageReceived(
   const session = sessionManager.getSession(messageId);
 
   if (!session) {
-    logger.debug(
-      `No active session for message ${messageId}, nothing to finalize`
+    // No active session - this means streaming was disabled in SillyTavern
+    // Process the complete message directly
+    logger.info(
+      `No active session for message ${messageId}, processing as non-streaming message`
     );
+
+    try {
+      // Start a new streaming session with the complete message
+      await sessionManager.startStreamingSession(messageId, context, settings);
+
+      // Immediately finalize to process all prompts at once
+      const insertedCount = await sessionManager.finalizeStreamingAndInsert(
+        messageId,
+        context
+      );
+
+      logger.info(
+        `Processed non-streaming message ${messageId}: ${insertedCount} images inserted`
+      );
+    } catch (error) {
+      logger.error(
+        `Error processing non-streaming message ${messageId}:`,
+        error
+      );
+    }
+
     return;
   }
 
@@ -146,7 +171,7 @@ export function createEventHandlers(settings: AutoIllustratorSettings): {
         return;
       }
 
-      await handleMessageReceived(messageId, context);
+      await handleMessageReceived(messageId, context, settings);
     },
   };
 }
