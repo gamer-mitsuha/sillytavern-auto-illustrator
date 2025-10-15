@@ -1685,6 +1685,8 @@
   align-items: center;
   justify-content: center;
   pointer-events: auto; /* Ensure FAB can receive clicks even when container has pointer-events: none */
+  will-change: transform; /* Optimize for transform animations */
+  transform-origin: center center; /* Ensure transform from center */
 }
 
 /* FAB icon specific styling */
@@ -1716,7 +1718,7 @@
   position: absolute;
   top: -3px;
   right: -3px;
-  background: rgba(231, 76, 60, 0.9);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-size: 0.7rem;
   font-weight: bold;
@@ -1725,6 +1727,7 @@
   min-width: 18px;
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Gallery header */
