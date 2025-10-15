@@ -593,12 +593,25 @@ export class ImageModalViewer {
           const deltaX = touchEndX - swipeStartX;
           const deltaY = touchEndY - swipeStartY;
 
-          // Detect tap (minimal movement) to toggle fullscreen on mobile
+          // Detect tap (minimal movement)
           if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
-            if (this.isFullscreen) {
-              this.exitFullscreen();
-            } else {
-              this.enterFullscreen();
+            // Determine which part of the image was tapped
+            const tapX = e.changedTouches[0].clientX;
+            const tapY = e.changedTouches[0].clientY;
+
+            // Get navigation action based on tap position and rotation
+            const navDirection = this.getNavigationFromTap(tapX, tapY);
+
+            if (navDirection === 'fullscreen') {
+              // Tap in center area - toggle fullscreen
+              if (this.isFullscreen) {
+                this.exitFullscreen();
+              } else {
+                this.enterFullscreen();
+              }
+            } else if (navDirection !== null) {
+              // Tap on left/right (or top/bottom if rotated) - navigate
+              this.navigate(navDirection);
             }
             return;
           }
@@ -1027,6 +1040,79 @@ export class ImageModalViewer {
       scale(${scale})
       rotate(${ImageModalViewer.rotationDegrees}deg)
     `;
+  }
+
+  /**
+   * Determine navigation direction based on tap position and image rotation
+   * @param tapX - X coordinate of tap in viewport
+   * @param tapY - Y coordinate of tap in viewport
+   * @returns -1 for previous, 1 for next, 'fullscreen' for center tap, null for no action
+   */
+  private getNavigationFromTap(
+    tapX: number,
+    tapY: number
+  ): -1 | 1 | 'fullscreen' | null {
+    if (!this.img || !this.imageContainer) return null;
+
+    // Get image bounds
+    const imgRect = this.img.getBoundingClientRect();
+
+    // Check if tap is within image bounds
+    if (
+      tapX < imgRect.left ||
+      tapX > imgRect.right ||
+      tapY < imgRect.top ||
+      tapY > imgRect.bottom
+    ) {
+      return null; // Tap outside image
+    }
+
+    // Calculate relative position within image (0 to 1)
+    const relX = (tapX - imgRect.left) / imgRect.width;
+    const relY = (tapY - imgRect.top) / imgRect.height;
+
+    // Define tap zones (30% on each edge for navigation, 40% center for fullscreen)
+    const edgeZone = 0.3;
+
+    // Determine which logical "side" was tapped based on rotation
+    // For 0°: left = previous, right = next
+    // For 90°: top = previous, bottom = next
+    // For 180°: right = previous, left = next
+    // For 270°: bottom = previous, top = next
+
+    let isPrevious = false;
+    let isNext = false;
+
+    switch (ImageModalViewer.rotationDegrees) {
+      case 0:
+        // Normal orientation: left/right
+        isPrevious = relX < edgeZone;
+        isNext = relX > 1 - edgeZone;
+        break;
+      case 90:
+        // Rotated 90° clockwise: visual left is physical top
+        isPrevious = relY < edgeZone;
+        isNext = relY > 1 - edgeZone;
+        break;
+      case 180:
+        // Rotated 180°: visual left is physical right
+        isPrevious = relX > 1 - edgeZone;
+        isNext = relX < edgeZone;
+        break;
+      case 270:
+        // Rotated 270° clockwise: visual left is physical bottom
+        isPrevious = relY > 1 - edgeZone;
+        isNext = relY < edgeZone;
+        break;
+      default:
+        // Unknown rotation, use default left/right
+        isPrevious = relX < edgeZone;
+        isNext = relX > 1 - edgeZone;
+    }
+
+    if (isPrevious) return -1;
+    if (isNext) return 1;
+    return 'fullscreen'; // Center tap
   }
 
   /**
