@@ -92,36 +92,6 @@ export type ManualGenerationMode = 'replace' | 'append';
 export type StyleTagPosition = 'prefix' | 'suffix';
 
 /**
- * Immutable position identifier for a prompt in chat
- */
-export interface PromptPosition {
-  readonly messageId: number;
-  readonly promptIndex: number;
-}
-
-/**
- * Metadata for a single prompt version
- */
-export interface PromptVersionMetadata {
-  /** Unique identifier for this prompt string */
-  promptId: string;
-
-  /** User feedback that led to this version (empty string for original) */
-  feedback: string;
-
-  /** When this version was created */
-  timestamp: number;
-}
-
-/**
- * History of prompt versions at a specific position in chat
- */
-export interface PromptPositionHistory {
-  /** Chronological list of prompt versions */
-  versions: PromptVersionMetadata[];
-}
-
-/**
  * Auto-illustrator metadata stored per-chat
  */
 export interface AutoIllustratorChatMetadata {
@@ -137,13 +107,6 @@ export interface AutoIllustratorChatMetadata {
     /** Array of message IDs that are expanded in the gallery */
     expandedMessages: number[];
   };
-
-  /** @deprecated Legacy fields - use PromptRegistry instead */
-  imageUrlToPromptId?: Record<string, string>;
-  /** @deprecated Legacy fields - use PromptRegistry instead */
-  promptIdToText?: Record<string, string>;
-  /** @deprecated Legacy fields - use PromptRegistry instead */
-  promptPositionHistory?: Record<string, PromptPositionHistory>;
 }
 
 /**

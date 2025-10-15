@@ -5,7 +5,7 @@
 
 import Bottleneck from 'bottleneck';
 import {extractImagePrompts} from './image_extractor';
-import type {DeferredImage, PromptPosition} from './types';
+import type {DeferredImage} from './types';
 import {createLogger} from './logger';
 import {t, tCount} from './i18n';
 import {progressManager} from './progress_manager';

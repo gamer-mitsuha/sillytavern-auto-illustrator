@@ -114,9 +114,6 @@ describe('Image Generator V2', () => {
       };
 
       mockMetadata = {
-        imageUrlToPromptId: {},
-        promptIdToText: {},
-        promptPositionHistory: {},
         promptRegistry: {
           promptNodes: new Map(),
           imageToPromptId: new Map(),

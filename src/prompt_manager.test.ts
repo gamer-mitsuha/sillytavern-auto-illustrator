@@ -51,11 +51,7 @@ function normalizeUrl(url: string): string {
  * Creates a fresh AutoIllustratorChatMetadata object for testing
  */
 function createTestMetadata(): AutoIllustratorChatMetadata {
-  return {
-    imageUrlToPromptId: {},
-    promptIdToText: {},
-    promptPositionHistory: {},
-  };
+  return {};
 }
 
 // Removed unused helper function
@@ -860,11 +856,7 @@ describe('Edge Cases & Robustness', () => {
   });
 
   it('should handle getRegistry initializing promptRegistry if not exists', () => {
-    const emptyMetadata: AutoIllustratorChatMetadata = {
-      imageUrlToPromptId: {},
-      promptIdToText: {},
-      promptPositionHistory: {},
-    };
+    const emptyMetadata: AutoIllustratorChatMetadata = {};
 
     const registry = getRegistry(emptyMetadata);
 

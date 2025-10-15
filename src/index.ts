@@ -38,7 +38,7 @@ import {
   updateMinInterval,
 } from './image_generator_v2';
 import {initializeI18n, t} from './i18n';
-import {extractImagePromptsMultiPattern} from './regex';
+import {extractImagePromptsMultiPattern} from './regex_v2';
 import {progressManager} from './progress_manager';
 import {
   initializeProgressWidget,

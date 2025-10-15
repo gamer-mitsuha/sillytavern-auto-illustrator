@@ -76,11 +76,7 @@ export class GalleryWidgetView {
 
     // Ensure auto_illustrator subobject exists
     if (!chatMetadata.auto_illustrator) {
-      chatMetadata.auto_illustrator = {
-        imageUrlToPromptId: {},
-        promptIdToText: {},
-        promptPositionHistory: {},
-      };
+      chatMetadata.auto_illustrator = {};
     }
 
     // Initialize gallery widget state if doesn't exist
