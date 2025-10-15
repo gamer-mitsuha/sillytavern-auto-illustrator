@@ -1185,6 +1185,20 @@
     white-space: nowrap;
   }
 
+  /* Hide ALL button text on mobile, only show icons for space efficiency */
+  .ai-img-modal-action-btn {
+    padding: 0.5rem; /* Reduce padding since we're icon-only */
+  }
+
+  /* Hide all text content inside action buttons on mobile */
+  .ai-img-modal-action-btn:not(.reset-zoom-btn) {
+    font-size: 0; /* Hide text */
+  }
+
+  .ai-img-modal-action-btn i {
+    font-size: 1.1rem; /* Ensure icons are visible */
+  }
+
   /* Zoom indicator on mobile */
   .ai-img-zoom-indicator {
     font-size: 0.8rem;
