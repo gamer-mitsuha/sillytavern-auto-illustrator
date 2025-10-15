@@ -249,6 +249,10 @@ export class ImageModalViewer {
 
     // Keyboard navigation and shortcuts
     this.boundHandlers.keydown = ((e: KeyboardEvent) => {
+      // Stop event from bubbling to SillyTavern
+      e.preventDefault();
+      e.stopPropagation();
+
       // Navigation
       switch (e.key) {
         case 'ArrowLeft':
@@ -315,7 +319,8 @@ export class ImageModalViewer {
         }
       }
     }) as EventListener;
-    document.addEventListener('keydown', this.boundHandlers.keydown);
+    // Use capture phase to intercept events before SillyTavern
+    document.addEventListener('keydown', this.boundHandlers.keydown, true);
 
     // Setup zoom and pan handlers
     this.setupZoomHandlers();
@@ -982,9 +987,9 @@ export class ImageModalViewer {
    * Close the modal viewer
    */
   public close(): void {
-    // Clean up event handlers
+    // Clean up event handlers (must match capture flag used in addEventListener)
     if (this.boundHandlers.keydown) {
-      document.removeEventListener('keydown', this.boundHandlers.keydown);
+      document.removeEventListener('keydown', this.boundHandlers.keydown, true);
     }
     if (this.boundHandlers.mousemove) {
       document.removeEventListener('mousemove', this.boundHandlers.mousemove);
