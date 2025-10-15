@@ -331,6 +331,113 @@ export class ProgressManager extends EventTarget {
   }
 
   /**
+   * Waits for all tasks to complete for a specific message
+   * Returns a promise that resolves when completed >= total
+   * Used for explicit await conditions in unified generation pipeline
+   *
+   * @param messageId - Message ID to wait for
+   * @param options - Optional timeout and abort signal
+   * @returns Promise that resolves when all tasks complete
+   * @throws Error if timeout expires or operation is aborted
+   */
+  async waitAllComplete(
+    messageId: number,
+    options?: {timeoutMs?: number; signal?: AbortSignal}
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const state = this.states.get(messageId);
+
+      // If not tracking or already complete, resolve immediately
+      if (!state) {
+        logger.debug(
+          `waitAllComplete: message ${messageId} not tracked, resolving immediately`
+        );
+        resolve();
+        return;
+      }
+
+      if (state.completed >= state.total) {
+        logger.debug(
+          `waitAllComplete: message ${messageId} already complete (${state.completed}/${state.total}), resolving immediately`
+        );
+        resolve();
+        return;
+      }
+
+      // Set up listeners and cleanup
+      let timer: ReturnType<typeof setTimeout> | null = null;
+
+      const checkComplete = (event: Event) => {
+        const detail = (event as CustomEvent<ProgressUpdatedEventDetail>)
+          .detail;
+        if (detail.messageId === messageId) {
+          const currentState = this.states.get(messageId);
+          if (!currentState || currentState.completed >= currentState.total) {
+            cleanup();
+            logger.debug(
+              `waitAllComplete: message ${messageId} completed (${currentState?.completed}/${currentState?.total})`
+            );
+            resolve();
+          }
+        }
+      };
+
+      const onTimeout = () => {
+        cleanup();
+        const currentState = this.states.get(messageId);
+        const progress = currentState
+          ? `${currentState.completed}/${currentState.total}`
+          : 'unknown';
+        reject(
+          new Error(
+            `Timeout waiting for message ${messageId} tasks to complete (progress: ${progress})`
+          )
+        );
+      };
+
+      const onAbort = () => {
+        cleanup();
+        reject(new Error(`Aborted waiting for message ${messageId}`));
+      };
+
+      const cleanup = () => {
+        this.removeEventListener('progress:updated', checkComplete);
+        this.removeEventListener('progress:all-tasks-complete', checkComplete);
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        if (options?.signal) {
+          options.signal.removeEventListener('abort', onAbort);
+        }
+      };
+
+      // Listen for progress updates
+      this.addEventListener('progress:updated', checkComplete);
+      this.addEventListener('progress:all-tasks-complete', checkComplete);
+
+      // Set up timeout if specified
+      if (options?.timeoutMs) {
+        timer = setTimeout(onTimeout, options.timeoutMs);
+      }
+
+      // Set up abort signal if provided
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          cleanup();
+          reject(new Error('Already aborted'));
+          return;
+        }
+        options.signal.addEventListener('abort', onAbort);
+      }
+
+      logger.debug(
+        `waitAllComplete: waiting for message ${messageId} (${state.completed}/${state.total})`
+      );
+    });
+  }
+
+  /**
    * Decrements the total count (used when a task is cancelled before starting)
    * Emits progress:updated event
    *

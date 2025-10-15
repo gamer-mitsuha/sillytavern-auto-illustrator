@@ -4,6 +4,9 @@
   "rules": {
     "n/no-unsupported-features/es-builtins": ["error", {
       "version": ">=16.0.0"
+    }],
+    "n/no-unsupported-features/node-builtins": ["error", {
+      "version": ">=16.0.0"
     }]
   }
 }

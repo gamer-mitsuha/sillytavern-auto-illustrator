@@ -99,6 +99,7 @@ export const DEFAULT_SETTINGS = {
   enabled: true,
   streamingEnabled: true,
   streamingPollInterval: STREAMING_POLL_INTERVAL.DEFAULT,
+  monitorPollingInterval: STREAMING_POLL_INTERVAL.DEFAULT,
   maxConcurrentGenerations: MAX_CONCURRENT_GENERATIONS.DEFAULT,
   minGenerationInterval: MIN_GENERATION_INTERVAL.DEFAULT,
   logLevel: DEFAULT_LOG_LEVEL,
@@ -110,6 +111,7 @@ export const DEFAULT_SETTINGS = {
   commonStyleTagsPosition: 'prefix' as const,
   showGalleryWidget: true,
   showProgressWidget: true,
+  enableClickToRegenerate: true,
 };
 
 /**

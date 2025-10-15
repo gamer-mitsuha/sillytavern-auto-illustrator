@@ -35,13 +35,21 @@ export class ImageGenerationQueue {
    * @param fullMatch - The full matched tag string
    * @param startIndex - Start position in message
    * @param endIndex - End position in message
+   * @param regenerationMetadata - Optional metadata for regeneration requests
+   * @param promptId - Optional ID from PromptManager (for linking images to prompts)
    * @returns The queued prompt, or null if already exists
    */
   addPrompt(
     prompt: string,
     fullMatch: string,
     startIndex: number,
-    endIndex: number
+    endIndex: number,
+    regenerationMetadata?: {
+      targetImageUrl?: string;
+      targetPromptId?: string;
+      insertionMode?: import('./types').ImageInsertionMode;
+    },
+    promptId?: string
   ): QueuedPrompt | null {
     const id = generatePromptId(prompt, startIndex);
 
@@ -50,6 +58,9 @@ export class ImageGenerationQueue {
       logger.info('Prompt already queued:', id);
       return null;
     }
+
+    // Determine targetPromptId: use regeneration metadata if provided, otherwise use promptId
+    const targetPromptId = regenerationMetadata?.targetPromptId || promptId;
 
     const queuedPrompt: QueuedPrompt = {
       id,
@@ -60,6 +71,13 @@ export class ImageGenerationQueue {
       state: 'QUEUED',
       attempts: 0,
       detectedAt: Date.now(),
+      // Set targetPromptId for both streaming (from PromptManager) and regeneration
+      ...(targetPromptId && {targetPromptId}),
+      // Add other regeneration metadata if provided
+      ...(regenerationMetadata && {
+        targetImageUrl: regenerationMetadata.targetImageUrl,
+        insertionMode: regenerationMetadata.insertionMode,
+      }),
     };
 
     this.prompts.set(id, queuedPrompt);

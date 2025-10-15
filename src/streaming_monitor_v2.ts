@@ -1,13 +1,21 @@
 /**
- * Streaming Monitor Module
+ * Streaming Monitor Module (v2)
  * Monitors streaming text for new image prompts
+ *
+ * Updates:
+ * - Removed Barrier dependency (uses callback instead)
+ * - Uses regex_v2 for prompt extraction
+ * - Uses prompt_manager for metadata tracking
+ * - Updates progress manager with totals
  */
 
-import {extractImagePrompts} from './image_extractor';
+import {extractImagePromptsMultiPattern} from './regex_v2';
 import {ImageGenerationQueue} from './streaming_image_queue';
-import type {ImagePromptMatch, PromptPosition} from './types';
+import type {ImagePromptMatch} from './types';
 import {createLogger} from './logger';
-import {recordPrompt, initializePromptPosition} from './prompt_metadata';
+import {progressManager} from './progress_manager';
+import {registerPrompt} from './prompt_manager';
+import {getMetadata} from './metadata';
 
 const logger = createLogger('Monitor');
 
@@ -23,6 +31,7 @@ export class StreamingMonitor {
   private intervalMs: number;
   private isRunning = false;
   private onNewPromptsCallback?: () => void;
+  private hasSeenFirstToken = false;
 
   /**
    * Creates a new streaming monitor
@@ -56,6 +65,7 @@ export class StreamingMonitor {
     this.messageId = messageId;
     this.lastSeenText = '';
     this.isRunning = true;
+    this.hasSeenFirstToken = false;
 
     logger.debug(
       `Starting monitor for message ${messageId} (interval: ${this.intervalMs}ms)`
@@ -103,7 +113,7 @@ export class StreamingMonitor {
    * Checks for new prompts in the current message text
    * Called by the polling interval
    */
-  private checkForNewPrompts(): void {
+  private async checkForNewPrompts(): Promise<void> {
     if (!this.isRunning || this.messageId < 0) {
       return;
     }
@@ -117,7 +127,10 @@ export class StreamingMonitor {
 
     const message = context.chat?.[this.messageId];
     if (!message) {
-      logger.warn('Message not found:', this.messageId);
+      // Message may not exist yet during early streaming - this is normal
+      logger.trace(
+        `Message ${this.messageId} not found yet (will retry on next poll)`
+      );
       return;
     }
 
@@ -128,53 +141,51 @@ export class StreamingMonitor {
       return;
     }
 
-    logger.trace(
-      `Text changed (${this.lastSeenText.length} -> ${currentText.length} chars)`
+    // Only log on first token to reduce noise
+    if (!this.hasSeenFirstToken) {
+      logger.debug(
+        `First token received for message ${this.messageId} (${currentText.length} chars)`
+      );
+      this.hasSeenFirstToken = true;
+    } else {
+      logger.trace(
+        `Text changed (${this.lastSeenText.length} -> ${currentText.length} chars)`
+      );
+    }
+
+    // Extract new prompts and register them in PromptManager
+    const metadata = getMetadata(context);
+    const newPromptsWithIds = this.extractAndRegisterNewPrompts(
+      currentText,
+      metadata
     );
 
-    // Extract new prompts
-    const newPrompts = this.extractNewPrompts(currentText);
+    if (newPromptsWithIds.length > 0) {
+      logger.debug(`Found ${newPromptsWithIds.length} new prompts`);
 
-    if (newPrompts.length > 0) {
-      logger.debug(`Found ${newPrompts.length} new prompts`);
-
-      // Get all prompts to determine correct indices
-      const allPrompts = extractImagePrompts(
-        currentText,
-        this.settings.promptDetectionPatterns
-      );
-
-      for (const match of newPrompts) {
-        // Find the index of this prompt in the full list
-        const promptIndex = allPrompts.findIndex(
-          p =>
-            p.startIndex === match.startIndex &&
-            p.endIndex === match.endIndex &&
-            p.prompt === match.prompt
-        );
-
-        // Initialize prompt metadata
-        if (promptIndex >= 0) {
-          const metadataContext = SillyTavern.getContext();
-          if (metadataContext) {
-            const promptId = recordPrompt(match.prompt, metadataContext);
-            const position: PromptPosition = {
-              messageId: this.messageId,
-              promptIndex,
-            };
-            initializePromptPosition(position, promptId, metadataContext);
-            logger.debug(
-              `Initialized metadata for prompt at position ${this.messageId}_${promptIndex}`
-            );
-          }
-        }
-
+      // Add each new prompt to queue with its registered ID
+      for (const {match, promptId} of newPromptsWithIds) {
         this.queue.addPrompt(
           match.prompt,
           match.fullMatch,
           match.startIndex,
-          match.endIndex
+          match.endIndex,
+          undefined, // No regeneration metadata for new prompts
+          promptId // Pass the registered prompt ID from PromptManager
         );
+      }
+
+      // Update progress manager with new total
+      const newTotal = this.queue.size();
+
+      if (!progressManager.isTracking(this.messageId)) {
+        // Initialize tracking if this is the first prompt detection
+        progressManager.registerTask(this.messageId, newTotal);
+        logger.debug(`Initialized progress tracking: ${newTotal} prompts`);
+      } else {
+        // Update existing tracking with new total
+        progressManager.updateTotal(this.messageId, newTotal);
+        logger.debug(`Updated progress total: ${newTotal} prompts`);
       }
 
       // Notify processor that new prompts are available
@@ -187,26 +198,46 @@ export class StreamingMonitor {
   }
 
   /**
-   * Extracts prompts that haven't been seen before
+   * Extracts prompts that haven't been seen before and registers them in PromptManager
+   * Uses regex_v2 for pattern matching
    * @param currentText - Current message text
-   * @returns Array of new prompt matches
+   * @param metadata - Chat metadata for PromptManager
+   * @returns Array of objects with match and registered promptId
    */
-  private extractNewPrompts(currentText: string): ImagePromptMatch[] {
-    const allPrompts = extractImagePrompts(
-      currentText,
-      this.settings.promptDetectionPatterns
-    );
-    const newPrompts: ImagePromptMatch[] = [];
+  private extractAndRegisterNewPrompts(
+    currentText: string,
+    metadata: import('./types').AutoIllustratorChatMetadata
+  ): Array<{match: ImagePromptMatch; promptId: string}> {
+    const patterns = this.settings.promptDetectionPatterns || [];
+    const allPrompts = extractImagePromptsMultiPattern(currentText, patterns);
+    const newPromptsWithIds: Array<{
+      match: ImagePromptMatch;
+      promptId: string;
+    }> = [];
 
-    for (const match of allPrompts) {
+    for (let i = 0; i < allPrompts.length; i++) {
+      const match = allPrompts[i];
+
       // Check if this prompt text is already in the queue (ignore position)
       // This prevents duplicates when text positions shift after image insertion
       if (!this.queue.hasPromptByText(match.prompt)) {
-        newPrompts.push(match);
+        // Register this prompt in PromptManager with correct index
+        const promptNode = registerPrompt(
+          match.prompt,
+          this.messageId,
+          i, // Use index in allPrompts array
+          'ai-message',
+          metadata
+        );
+
+        newPromptsWithIds.push({
+          match,
+          promptId: promptNode.id,
+        });
       }
     }
 
-    return newPrompts;
+    return newPromptsWithIds;
   }
 
   /**

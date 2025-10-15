@@ -41,6 +41,14 @@ export interface QueuedPrompt {
   generationStartedAt?: number;
   /** Timestamp when completed/failed */
   completedAt?: number;
+
+  // Regeneration metadata (presence indicates this is a regeneration request)
+  /** Which image to replace (URL of existing image) */
+  targetImageUrl?: string;
+  /** Prompt being regenerated (links to PromptNode.id from prompt_manager) */
+  targetPromptId?: string;
+  /** How to insert the regenerated image (default: 'replace-image') */
+  insertionMode?: ImageInsertionMode;
 }
 
 /**
@@ -51,6 +59,8 @@ export interface DeferredImage {
   prompt: QueuedPrompt;
   /** Generated image URL */
   imageUrl: string;
+  /** Links to PromptNode.id from prompt_manager for image association tracking */
+  promptId: string;
   /** Prompt text preview (truncated for display) */
   promptPreview?: string;
   /** Timestamp when image was generated */
@@ -115,14 +125,8 @@ export interface PromptPositionHistory {
  * Auto-illustrator metadata stored per-chat
  */
 export interface AutoIllustratorChatMetadata {
-  /** Maps image URL to the prompt ID used to generate it */
-  imageUrlToPromptId: Record<string, string>;
-
-  /** Maps prompt ID to actual prompt text (de-duplicated storage) */
-  promptIdToText: Record<string, string>;
-
-  /** Maps prompt position key to version history */
-  promptPositionHistory: Record<string, PromptPositionHistory>;
+  /** Prompt registry (from prompt_manager.ts) - primary storage for all prompt data */
+  promptRegistry?: import('./prompt_manager').PromptRegistry;
 
   /** Gallery widget state (per-chat) */
   galleryWidget?: {
@@ -134,8 +138,12 @@ export interface AutoIllustratorChatMetadata {
     expandedMessages: number[];
   };
 
-  /** New prompt registry (from prompt_manager.ts) */
-  promptRegistry?: import('./prompt_manager').PromptRegistry;
+  /** @deprecated Legacy fields - use PromptRegistry instead */
+  imageUrlToPromptId?: Record<string, string>;
+  /** @deprecated Legacy fields - use PromptRegistry instead */
+  promptIdToText?: Record<string, string>;
+  /** @deprecated Legacy fields - use PromptRegistry instead */
+  promptPositionHistory?: Record<string, PromptPositionHistory>;
 }
 
 /**
@@ -148,24 +156,44 @@ export interface ChatMetadata {
 }
 
 /**
- * Represents a streaming session with all its components
- * Used by SessionManager to track active streaming state
+ * Session type - streaming or regeneration (mutually exclusive)
  */
-export interface StreamingSession {
+export type SessionType = 'streaming' | 'regeneration';
+
+/**
+ * Image insertion modes for controlling where images are placed
+ */
+export type ImageInsertionMode =
+  | 'replace-image' // Replace existing image (default for regeneration)
+  | 'append-after-image' // Append after existing image (regeneration variant)
+  | 'append-after-prompt'; // Append after prompt tag (streaming default)
+
+/**
+ * Represents a generation session (streaming or regeneration) with all its components
+ * Used by SessionManager to track active generation state
+ */
+export interface GenerationSession {
   /** Unique identifier for this session */
   readonly sessionId: string;
-  /** Message ID being streamed */
+  /** Message ID being processed */
   readonly messageId: number;
-  /** Barrier for coordinating generation completion + message finalization */
-  readonly barrier: import('./barrier').Barrier;
-  /** AbortController for cancelling this session */
-  readonly abortController: AbortController;
+  /** Type of session - streaming or regeneration */
+  readonly type: SessionType;
+
+  // Shared components for both session types
   /** Queue of prompts for this session */
   readonly queue: import('./streaming_image_queue').ImageGenerationQueue;
-  /** Monitor that detects new prompts during streaming */
-  readonly monitor: import('./streaming_monitor').StreamingMonitor;
   /** Processor that generates images */
   readonly processor: import('./queue_processor').QueueProcessor;
+  /** AbortController for cancelling this session */
+  readonly abortController: AbortController;
+
+  // Streaming-only (undefined for regeneration sessions)
+  /** Monitor that detects new prompts during streaming (streaming only) */
+  readonly monitor?: import('./streaming_monitor_v2').StreamingMonitor;
+
   /** Timestamp when session started */
   readonly startedAt: number;
 }
+
+// Old StreamingSession interface removed - use GenerationSession instead

@@ -1,237 +1,577 @@
 /**
  * Session Manager Module
- * Manages streaming session lifecycle and ensures only one active session at a time
+ * Unified coordinator for streaming and regeneration sessions
+ *
+ * Architecture:
+ * - Single pipeline for both streaming and click-to-regenerate modes
+ * - One GenerationSession per message (mutually exclusive types)
+ * - Explicit await conditions instead of Barrier
+ * - Auto-finalize regenerations after 2s idle (debounced)
+ *
+ * Session Lifecycle:
+ * 1. Streaming: startStreamingSession → finalizeStreamingAndInsert → endSession
+ * 2. Regeneration: queueRegeneration → (auto-finalize after 2s idle) → endSession
  */
 
 import {ImageGenerationQueue} from './streaming_image_queue';
-import {StreamingMonitor} from './streaming_monitor';
 import {QueueProcessor} from './queue_processor';
-import {Barrier} from './barrier';
-import {createLogger} from './logger';
-import type {StreamingSession} from './types';
+import {StreamingMonitor} from './streaming_monitor_v2';
 import {progressManager} from './progress_manager';
+import {scheduleDomOperation} from './dom_queue';
+import {createLogger} from './logger';
+import type {GenerationSession, SessionType, ImageInsertionMode} from './types';
+import {getMetadata} from './metadata';
+import {getPromptNode} from './prompt_manager';
 
 const logger = createLogger('SessionManager');
 
+// Session ID counter for unique identification
+let sessionIdCounter = 0;
+
 /**
- * Manages streaming session lifecycle
- * Supports multiple concurrent sessions (one per message)
- * Each session independently monitors, queues, and processes image generation
- * Image generation is globally rate-limited via Bottleneck limiter
+ * Generates a unique session ID
+ */
+function generateSessionId(): string {
+  return `session_${Date.now()}_${++sessionIdCounter}`;
+}
+
+/**
+ * Session Manager - Unified coordinator for streaming and regeneration
  */
 export class SessionManager {
-  private sessions: Map<number, StreamingSession> = new Map();
+  private sessions: Map<number, GenerationSession> = new Map();
+  private regenerationTimers: Map<number, ReturnType<typeof setTimeout>> =
+    new Map();
+
+  //==========================================================================
+  // Streaming Session Methods
+  //==========================================================================
 
   /**
-   * Starts a new streaming session for a message
-   * If a session already exists for this message, it will be cancelled first
-   * Multiple sessions can exist concurrently for different messages
+   * Starts a streaming session for a message
+   * Creates queue, processor, and monitor for detecting prompts
    *
-   * @param messageId - Message being streamed
+   * @param messageId - Message ID being streamed
    * @param context - SillyTavern context
    * @param settings - Extension settings
-   * @returns The new streaming session
+   * @returns The created streaming session
    */
-  startSession(
+  async startStreamingSession(
     messageId: number,
-    context: SillyTavernContext,
+    _context: SillyTavernContext,
     settings: AutoIllustratorSettings
-  ): StreamingSession {
-    // Cancel existing session for this specific message if any
-    const existing = this.sessions.get(messageId);
-    if (existing) {
-      logger.warn(
-        `Message ${messageId} already has active session ${existing.sessionId}, cancelling it`
+  ): Promise<GenerationSession> {
+    // Check if session already exists - don't recreate it!
+    // STREAM_TOKEN_RECEIVED fires multiple times, we only want one session
+    const existingSession = this.getSession(messageId);
+    if (existingSession && existingSession.type === 'streaming') {
+      logger.trace(
+        `Streaming session ${existingSession.sessionId} already exists for message ${messageId}, reusing it`
       );
+      return existingSession;
+    }
+
+    // Cancel any other type of session for this message
+    if (existingSession) {
       this.cancelSession(messageId);
     }
 
-    const sessionId = `session_${messageId}_${Date.now()}`;
-    const barrier = new Barrier(['genDone', 'messageReceived'], 1200000); // 1200s timeout (20 minutes)
-    const abortController = new AbortController();
-
-    // Create queue
+    // Create shared queue and processor
     const queue = new ImageGenerationQueue();
+    const processor = new QueueProcessor(queue, settings);
 
-    // Create processor (will trigger on new prompts)
-    const processor = new QueueProcessor(
-      queue,
-      settings,
-      settings.maxConcurrentGenerations
-    );
-
-    // Create monitor (will add prompts to queue and trigger processor)
+    // Create monitor with callback to trigger processor
     const monitor = new StreamingMonitor(
       queue,
       settings,
-      settings.streamingPollInterval,
+      settings.monitorPollingInterval || 300,
       () => {
-        // Callback when new prompts detected
-        const newTotal = queue.size();
-
-        // Initialize tracking if this is the first prompt detection
-        if (!progressManager.isTracking(messageId)) {
-          progressManager.registerTask(messageId, newTotal);
-        } else {
-          // Update existing tracking with new total
-          progressManager.updateTotal(messageId, newTotal);
-        }
-
-        // Trigger processor to start generating
+        // Callback: trigger processor when new prompts detected
         processor.trigger();
       }
     );
 
-    const session: StreamingSession = {
-      sessionId,
+    // Create session
+    const session: GenerationSession = {
+      sessionId: generateSessionId(),
       messageId,
-      barrier,
-      abortController,
+      type: 'streaming',
       queue,
-      monitor,
       processor,
+      monitor,
+      abortController: new AbortController(),
       startedAt: Date.now(),
     };
 
     this.sessions.set(messageId, session);
 
-    logger.debug(
-      `Started streaming session ${sessionId} for message ${messageId} (${this.sessions.size} total active)`
-    );
-
-    // Start monitor and processor
+    // Start monitoring and processing
     monitor.start(messageId);
-    processor.start(messageId, barrier);
+    processor.start(messageId);
+
+    logger.debug(
+      `Streaming session ${session.sessionId} started for message ${messageId}`
+    );
 
     return session;
   }
 
   /**
-   * Cancels a specific streaming session
-   * Aborts ongoing operations and stops components
-   * @param messageId - Message ID of the session to cancel
+   * Finalizes streaming and inserts all deferred images
+   * Uses explicit await conditions instead of Barrier
+   *
+   * Steps:
+   * 1. Stop monitor and seal totals (EXPLICIT CONDITION 1)
+   * 2. Wait for all tasks to complete (EXPLICIT CONDITION 2)
+   * 3. Batch insert all deferred images
+   * 4. Cleanup
+   *
+   * @param messageId - Message ID to finalize
+   * @param context - SillyTavern context
+   * @returns Number of images successfully inserted
+   */
+  async finalizeStreamingAndInsert(
+    messageId: number,
+    context: SillyTavernContext
+  ): Promise<number> {
+    const session = this.getSession(messageId);
+
+    if (!session || session.type !== 'streaming') {
+      logger.warn(
+        `No streaming session found for message ${messageId}, cannot finalize`
+      );
+      return 0;
+    }
+
+    if (!session.monitor) {
+      logger.error(
+        `Streaming session ${session.sessionId} missing monitor, cannot finalize`
+      );
+      return 0;
+    }
+
+    logger.info(
+      `Finalizing streaming session ${session.sessionId} for message ${messageId}`
+    );
+
+    try {
+      // EXPLICIT CONDITION 1: Stop monitor and seal totals
+      session.monitor.stop();
+      const finalTotal = session.queue.size();
+      progressManager.updateTotal(messageId, finalTotal);
+      logger.info(
+        `Monitor stopped, sealed ${finalTotal} prompts for message ${messageId}`
+      );
+
+      // EXPLICIT CONDITION 2: Wait for all tasks to complete
+      logger.info(
+        `Waiting for ${finalTotal} tasks to complete for message ${messageId}`
+      );
+      await session.processor.processRemaining();
+      await progressManager.waitAllComplete(messageId, {
+        timeoutMs: 300000, // 5 minute timeout
+        signal: session.abortController.signal,
+      });
+
+      logger.info(`All tasks complete for message ${messageId}`);
+
+      // Get deferred images for batch insertion
+      const deferred = session.processor.getDeferredImages();
+
+      if (deferred.length === 0) {
+        logger.info(`No deferred images to insert for message ${messageId}`);
+        progressManager.clear(messageId);
+        this.endSession(messageId);
+        return 0;
+      }
+
+      // Batch insertion through DOM queue
+      const metadata = getMetadata(context);
+      const {insertDeferredImages} = await import('./image_generator_v2');
+
+      const insertedCount = await scheduleDomOperation(
+        messageId,
+        async () => {
+          return insertDeferredImages(deferred, messageId, context, metadata);
+        },
+        'streaming-insertion'
+      );
+
+      // Cleanup
+      progressManager.clear(messageId);
+      this.endSession(messageId);
+
+      logger.info(
+        `Inserted ${insertedCount}/${deferred.length} images for message ${messageId}`
+      );
+
+      return insertedCount;
+    } catch (error) {
+      logger.error(
+        `Error finalizing streaming session for message ${messageId}:`,
+        error
+      );
+      progressManager.clear(messageId);
+      this.endSession(messageId);
+      throw error;
+    }
+  }
+
+  //==========================================================================
+  // Regeneration Session Methods
+  //==========================================================================
+
+  /**
+   * Queues a regeneration request for a specific image
+   * Creates or reuses regeneration session for the message
+   * Schedules auto-finalize after 2s idle (debounced)
+   *
+   * @param messageId - Message ID containing the image
+   * @param promptId - Prompt ID being regenerated (PromptNode.id)
+   * @param imageUrl - URL of image to regenerate/replace
+   * @param context - SillyTavern context
+   * @param settings - Extension settings
+   * @param mode - Insertion mode (default: 'replace-image')
+   */
+  async queueRegeneration(
+    messageId: number,
+    promptId: string,
+    imageUrl: string,
+    context: SillyTavernContext,
+    settings: AutoIllustratorSettings,
+    mode: ImageInsertionMode = 'replace-image'
+  ): Promise<void> {
+    logger.info(
+      `Queueing regeneration for prompt ${promptId} in message ${messageId} (mode: ${mode})`
+    );
+
+    // Get or create regeneration session
+    let session = this.getSession(messageId);
+
+    if (!session) {
+      // Create new regeneration session
+      logger.info(`Creating new regeneration session for message ${messageId}`);
+
+      const queue = new ImageGenerationQueue();
+      const processor = new QueueProcessor(queue, settings);
+
+      session = {
+        sessionId: generateSessionId(),
+        messageId,
+        type: 'regeneration',
+        queue,
+        processor,
+        abortController: new AbortController(),
+        startedAt: Date.now(),
+      };
+
+      this.sessions.set(messageId, session);
+      processor.start(messageId);
+    }
+
+    // Validate session type
+    if (session.type !== 'regeneration') {
+      throw new Error(
+        `Cannot queue regeneration - message ${messageId} has ${session.type} session`
+      );
+    }
+
+    // Get prompt details from prompt_manager
+    const metadata = getMetadata(context);
+    const promptNode = getPromptNode(promptId, metadata);
+
+    if (!promptNode) {
+      throw new Error(`Prompt node not found: ${promptId}`);
+    }
+
+    // Add to queue with regeneration metadata
+    session.queue.addPrompt(
+      promptNode.text,
+      '', // fullMatch not needed for regeneration
+      0, // startIndex not needed
+      0, // endIndex not needed
+      {
+        targetImageUrl: imageUrl,
+        targetPromptId: promptId,
+        insertionMode: mode,
+      }
+    );
+
+    // Track progress
+    progressManager.registerTask(messageId, 1);
+    logger.info(
+      `Queued regeneration for prompt ${promptId} in message ${messageId}`
+    );
+
+    // Trigger processing
+    session.processor.trigger();
+
+    // Auto-finalize after 2s idle (debounced)
+    this.scheduleAutoFinalize(messageId, context);
+  }
+
+  /**
+   * Schedules auto-finalization after 2s idle
+   * Debounced - each new regeneration resets the timer
+   *
+   * @param messageId - Message ID
+   * @param context - SillyTavern context
+   */
+  private scheduleAutoFinalize(
+    messageId: number,
+    context: SillyTavernContext
+  ): void {
+    // Clear existing timer
+    const existingTimer = this.regenerationTimers.get(messageId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      logger.debug(
+        `Cleared existing auto-finalize timer for message ${messageId}`
+      );
+    }
+
+    // Schedule new timer (2s idle → auto-finalize)
+    const timer = setTimeout(() => {
+      logger.info(
+        `Auto-finalize triggered for message ${messageId} after 2s idle`
+      );
+      this.finalizeRegenerationAndInsert(messageId, context);
+    }, 2000);
+
+    this.regenerationTimers.set(messageId, timer);
+    logger.debug(`Scheduled auto-finalize for message ${messageId} in 2s`);
+  }
+
+  /**
+   * Finalizes regeneration session and inserts all deferred images
+   *
+   * Steps:
+   * 1. Wait for all regenerations to complete
+   * 2. Batch insert all deferred images
+   * 3. Cleanup
+   *
+   * @param messageId - Message ID to finalize
+   * @param context - SillyTavern context
+   * @returns Number of images successfully inserted
+   */
+  async finalizeRegenerationAndInsert(
+    messageId: number,
+    context: SillyTavernContext
+  ): Promise<number> {
+    const session = this.getSession(messageId);
+
+    if (!session || session.type !== 'regeneration') {
+      logger.warn(
+        `No regeneration session found for message ${messageId}, cannot finalize`
+      );
+      return 0;
+    }
+
+    logger.info(
+      `Finalizing regeneration session ${session.sessionId} for message ${messageId}`
+    );
+
+    // Clear auto-finalize timer
+    const timer = this.regenerationTimers.get(messageId);
+    if (timer) {
+      clearTimeout(timer);
+      this.regenerationTimers.delete(messageId);
+    }
+
+    try {
+      // Wait for all regenerations to complete
+      logger.info(
+        `Waiting for regenerations to complete for message ${messageId}`
+      );
+      await session.processor.processRemaining();
+      await progressManager.waitAllComplete(messageId, {
+        timeoutMs: 300000, // 5 minute timeout
+        signal: session.abortController.signal,
+      });
+
+      logger.info(`All regenerations complete for message ${messageId}`);
+
+      // Get deferred images for batch insertion
+      const deferred = session.processor.getDeferredImages();
+
+      if (deferred.length === 0) {
+        logger.info(`No deferred images to insert for message ${messageId}`);
+        progressManager.clear(messageId);
+        this.endSession(messageId);
+        return 0;
+      }
+
+      // Batch insertion through DOM queue
+      const metadata = getMetadata(context);
+      const {insertDeferredImages} = await import('./image_generator_v2');
+
+      const insertedCount = await scheduleDomOperation(
+        messageId,
+        async () => {
+          return insertDeferredImages(deferred, messageId, context, metadata);
+        },
+        'regeneration-insertion'
+      );
+
+      // Cleanup
+      progressManager.clear(messageId);
+      this.endSession(messageId);
+
+      logger.info(
+        `Regenerated ${insertedCount}/${deferred.length} images for message ${messageId}`
+      );
+
+      return insertedCount;
+    } catch (error) {
+      logger.error(
+        `Error finalizing regeneration session for message ${messageId}:`,
+        error
+      );
+      progressManager.clear(messageId);
+      this.endSession(messageId);
+      throw error;
+    }
+  }
+
+  //==========================================================================
+  // Lifecycle Methods
+  //==========================================================================
+
+  /**
+   * Cancels an active session and cleans up resources
+   * Does NOT insert deferred images - use finalize methods for that
+   *
+   * @param messageId - Message ID to cancel
    */
   cancelSession(messageId: number): void {
-    const session = this.sessions.get(messageId);
+    const session = this.getSession(messageId);
     if (!session) {
       return;
     }
 
-    const {sessionId, abortController, monitor, processor} = session;
-
-    logger.debug(
-      `Cancelling streaming session ${sessionId} for message ${messageId}`
+    logger.info(
+      `Cancelling ${session.type} session ${session.sessionId} for message ${messageId}`
     );
 
-    // Signal cancellation
-    abortController.abort();
+    // Abort ongoing operations
+    session.abortController.abort();
 
-    // Stop components
-    monitor.stop();
-    processor.stop();
+    // Stop processor
+    session.processor.stop();
 
-    // Remove from map
+    // Stop monitor if streaming
+    if (session.monitor) {
+      session.monitor.stop();
+    }
+
+    // Clear progress tracking
+    progressManager.clear(messageId);
+
+    // Remove session
     this.sessions.delete(messageId);
-    logger.debug(
-      `Cancelled session for message ${messageId} (${this.sessions.size} remaining)`
-    );
+
+    // Clear regeneration timer if exists
+    const timer = this.regenerationTimers.get(messageId);
+    if (timer) {
+      clearTimeout(timer);
+      this.regenerationTimers.delete(messageId);
+    }
+
+    logger.info(`Session ${session.sessionId} cancelled`);
   }
 
   /**
-   * Ends a specific session gracefully (completed, not cancelled)
-   * Assumes monitor and processor have already been stopped by caller
-   * @param messageId - Message ID of the session to end
+   * Ends a session normally (after successful completion)
+   *
+   * @param messageId - Message ID
    */
   endSession(messageId: number): void {
     const session = this.sessions.get(messageId);
-    if (!session) {
-      return;
+    if (session) {
+      logger.info(
+        `Ending ${session.type} session ${session.sessionId} for message ${messageId}`
+      );
+      this.sessions.delete(messageId);
     }
-
-    const {sessionId, startedAt} = session;
-    const duration = Date.now() - startedAt;
-
-    logger.debug(
-      `Ending streaming session ${sessionId} for message ${messageId} (duration: ${duration}ms)`
-    );
-
-    // Remove from map (monitor/processor already stopped by caller)
-    this.sessions.delete(messageId);
-    logger.debug(
-      `Ended session for message ${messageId} (${this.sessions.size} remaining)`
-    );
   }
 
   /**
-   * Gets a specific session by message ID
-   * @param messageId - Message ID to get session for
-   * @returns Session for the message or null if none exists
+   * Gets the active session for a message
+   *
+   * @param messageId - Message ID
+   * @returns Active session or null if none exists
    */
-  getSession(messageId: number): StreamingSession | null {
-    return this.sessions.get(messageId) ?? null;
-  }
-
-  /**
-   * Gets the most recent session (last one added to map)
-   * @deprecated Use getSession(messageId) instead for explicit session lookup
-   * @returns Most recent session or null if none active
-   */
-  getCurrentSession(): StreamingSession | null {
-    if (this.sessions.size === 0) {
-      return null;
-    }
-    const sessions = Array.from(this.sessions.values());
-    return sessions[sessions.length - 1];
+  getSession(messageId: number): GenerationSession | null {
+    return this.sessions.get(messageId) || null;
   }
 
   /**
    * Gets all active sessions
-   * @returns Array of all active streaming sessions
+   *
+   * @returns Array of all active sessions
    */
-  getAllSessions(): StreamingSession[] {
+  getAllSessions(): GenerationSession[] {
     return Array.from(this.sessions.values());
   }
 
   /**
-   * Checks if streaming is active
-   * @param messageId - Optional message ID to check if THIS specific message is streaming
-   * @returns True if streaming is active (optionally for specific message)
+   * Checks if a session is active for a specific message or any message
+   *
+   * @param messageId - Optional message ID to check
+   * @returns True if session(s) exist
    */
   isActive(messageId?: number): boolean {
-    if (messageId === undefined) {
-      // Check if any session is active
-      return this.sessions.size > 0;
+    if (messageId !== undefined) {
+      return this.sessions.has(messageId);
     }
-
-    // Check if specific message has an active session
-    return this.sessions.has(messageId);
+    return this.sessions.size > 0;
   }
 
   /**
-   * Gets status information for debugging
-   * @returns Status object with details for all active sessions
+   * Gets session type for a message
+   *
+   * @param messageId - Message ID
+   * @returns Session type or null if no session
+   */
+  getSessionType(messageId: number): SessionType | null {
+    const session = this.sessions.get(messageId);
+    return session ? session.type : null;
+  }
+
+  /**
+   * Gets status summary of all active sessions
+   *
+   * @returns Status object with session counts and details
    */
   getStatus(): {
-    activeSessionCount: number;
+    totalSessions: number;
+    streamingSessions: number;
+    regenerationSessions: number;
     sessions: Array<{
-      sessionId: string;
       messageId: number;
-      duration: number;
+      sessionId: string;
+      type: SessionType;
       queueSize: number;
-      monitorActive: boolean;
-      processorActive: boolean;
+      uptime: number;
     }>;
   } {
+    const sessions = Array.from(this.sessions.values());
+
     return {
-      activeSessionCount: this.sessions.size,
-      sessions: Array.from(this.sessions.values()).map(s => ({
-        sessionId: s.sessionId,
+      totalSessions: sessions.length,
+      streamingSessions: sessions.filter(s => s.type === 'streaming').length,
+      regenerationSessions: sessions.filter(s => s.type === 'regeneration')
+        .length,
+      sessions: sessions.map(s => ({
         messageId: s.messageId,
-        duration: Date.now() - s.startedAt,
+        sessionId: s.sessionId,
+        type: s.type,
         queueSize: s.queue.size(),
-        monitorActive: s.monitor.isActive(),
-        processorActive: s.processor.getStatus().isRunning,
+        uptime: Date.now() - s.startedAt,
       })),
     };
   }
 }
+
+// Export singleton instance
+export const sessionManager = new SessionManager();

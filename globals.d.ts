@@ -72,7 +72,8 @@ declare global {
       }
     >;
     chat: any[];
-    chat_metadata: Record<string, any>;
+    chatMetadata: Record<string, any>; // Official property name (camelCase)
+    chat_metadata: Record<string, any>; // Legacy alias
     characters: any[];
     this_chid: number;
     saveSettingsDebounced(): void;
@@ -122,6 +123,7 @@ declare global {
     customPresets: MetaPromptPreset[];
     streamingEnabled: boolean;
     streamingPollInterval: number;
+    monitorPollingInterval: number;
     maxConcurrentGenerations: number;
     minGenerationInterval: number;
     logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
@@ -131,6 +133,7 @@ declare global {
     commonStyleTagsPosition: 'prefix' | 'suffix';
     showGalleryWidget: boolean;
     showProgressWidget: boolean;
+    enableClickToRegenerate: boolean;
   }
 
   interface ImagePromptMatch {

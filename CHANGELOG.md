@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Complete V2 Architecture Migration** (Internal Refactoring)
+  - Unified streaming and regeneration into single generation pipeline
+  - Removed Barrier coordination pattern in favor of explicit await conditions
+  - Consolidated all image insertion through unified `insertDeferredImages()` function
+  - SessionManager now handles both streaming and click-to-regenerate flows
+  - Migrated to prompt_manager.ts for all prompt tracking (prompt_metadata.ts functions deprecated)
+  - All v2 modules now have comprehensive unit tests
+  - Deleted obsolete files: barrier.ts, old streaming_monitor.ts, old manual_generation.ts, old image_generator.ts
+
+### Technical Details
+
+- `insertDeferredImages()` now supports both streaming (append-after-prompt) and regeneration (replace-image, append-after-image) modes
+- SessionManager uses explicit await conditions instead of Barrier for deterministic insertion timing
+- Auto-finalize regenerations after 2s idle (debounced) for better UX
+- All prompt detection uses regex_v2.ts, all image associations use prompt_manager.ts
+- Progress tracking unified via ProgressManager.waitAllComplete()
+- No breaking changes to public API - purely internal architecture improvements
+
 ## [1.3.0] - 2025-10-13
 
 ### Added

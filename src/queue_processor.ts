@@ -4,9 +4,8 @@
  */
 
 import {ImageGenerationQueue} from './streaming_image_queue';
-import {generateImage} from './image_generator';
+import {generateImage} from './image_generator_v2';
 import type {QueuedPrompt, DeferredImage} from './types';
-import type {Barrier} from './barrier';
 import {createLogger} from './logger';
 import {progressManager} from './progress_manager';
 
@@ -25,7 +24,6 @@ export class QueueProcessor {
   private activeGenerations = 0;
   private processPromise: Promise<void> | null = null;
   private deferredImages: DeferredImage[] = [];
-  private barrier: Barrier | null = null;
 
   /**
    * Creates a new queue processor
@@ -47,9 +45,8 @@ export class QueueProcessor {
    * Starts processing the queue with deferred insertions
    * Images are generated during processing but inserted in batch after completion
    * @param messageId - Message being generated
-   * @param barrier - Optional barrier for coordinating with streaming events
    */
-  start(messageId: number, barrier?: Barrier): void {
+  start(messageId: number): void {
     if (this.isRunning) {
       logger.warn('Already running, stopping previous processor');
       this.stop();
@@ -59,10 +56,9 @@ export class QueueProcessor {
     this.isRunning = true;
     this.activeGenerations = 0;
     this.deferredImages = [];
-    this.barrier = barrier ?? null;
 
     logger.debug(
-      `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent}) ${barrier ? 'with barrier' : 'without barrier'}`
+      `Starting processor for message ${messageId} (max concurrent: ${this.maxConcurrent})`
     );
 
     // Note: Progress tracking is initialized by session_manager callback
@@ -179,9 +175,22 @@ export class QueueProcessor {
           prompt.prompt.length > 60
             ? prompt.prompt.substring(0, 57) + '...'
             : prompt.prompt;
+
+        // Use targetPromptId from PromptManager (set by streaming_monitor or manual_generation)
+        const promptId = prompt.targetPromptId || '';
+
+        if (!promptId) {
+          logger.error(
+            `No promptId found for prompt "${prompt.prompt.substring(0, 50)}..." - images will not be linked correctly`
+          );
+        } else {
+          logger.debug(`Using promptId from PromptManager: ${promptId}`);
+        }
+
         this.deferredImages.push({
           prompt,
           imageUrl,
+          promptId,
           promptPreview,
           completedAt: Date.now(),
         });
@@ -229,15 +238,6 @@ export class QueueProcessor {
    */
   async processRemaining(): Promise<void> {
     logger.debug('Processing remaining prompts...');
-
-    // Signal barrier FIRST before waiting, since we're done queueing new work
-    // This prevents barrier timeout while waiting for active generations
-    if (this.barrier && 'arrive' in this.barrier) {
-      logger.debug(
-        'Signaling genDone to barrier (before waiting for completions)'
-      );
-      this.barrier.arrive('genDone');
-    }
 
     // Wait for any active generations to complete first
     // This prevents concurrent execution beyond maxConcurrent limit

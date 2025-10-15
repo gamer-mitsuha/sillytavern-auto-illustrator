@@ -4,10 +4,15 @@
  */
 
 import './style.css';
-import {createMessageHandler} from './message_handler';
 import {pruneGeneratedImages} from './chat_history_pruner';
-import {SessionManager} from './session_manager';
-import {insertDeferredImages} from './image_generator';
+import {sessionManager} from './session_manager';
+import {refreshMetadata} from './metadata';
+import {
+  handleStreamTokenStarted,
+  handleMessageReceived,
+  handleChatChanged,
+} from './message_handler_v2';
+import {addImageClickHandlers} from './manual_generation_v2';
 import {
   loadSettings,
   saveSettings,
@@ -28,14 +33,10 @@ import {
   isPredefinedPresetName,
 } from './meta_prompt_presets';
 import {
-  addManualGenerationButton,
-  addImageClickHandlers,
-} from './manual_generation';
-import {
   initializeConcurrencyLimiter,
   updateMaxConcurrent,
   updateMinInterval,
-} from './image_generator';
+} from './image_generator_v2';
 import {initializeI18n, t} from './i18n';
 import {extractImagePromptsMultiPattern} from './regex';
 import {progressManager} from './progress_manager';
@@ -51,9 +52,6 @@ let isEditingPreset = false; // Track if user is currently editing a preset
 
 // Generation state
 export let currentGenerationType: string | null = null; // Track generation type for filtering
-
-// Streaming state - managed by SessionManager
-let sessionManager: SessionManager;
 
 /**
  * Checks if streaming generation is currently active
@@ -754,210 +752,6 @@ function handlePresetDelete(): void {
 }
 
 /**
- * Handles first streaming token to initialize streaming for the correct message
- * STREAM_TOKEN_RECEIVED fires during streaming, so message definitely exists
- * This is more reliable than GENERATION_STARTED which fires before message creation
- */
-function handleFirstStreamToken(): void {
-  if (!settings.streamingEnabled) {
-    logger.debug('Streaming disabled, skipping');
-    return;
-  }
-
-  if (!settings.enabled) {
-    logger.debug('Extension disabled, skipping streaming');
-    return;
-  }
-
-  // Get fresh context (never cache for chat access!)
-  const freshContext = SillyTavern.getContext();
-  if (!freshContext) {
-    logger.error('Failed to get context');
-    return;
-  }
-
-  const messageId = freshContext.chat.length - 1;
-  const message = freshContext.chat?.[messageId];
-  if (!message) {
-    logger.error('Message not found:', messageId);
-    return;
-  }
-
-  if (message.is_user || message.is_system) {
-    return;
-  }
-
-  // Note: DOM queue will automatically serialize with any manual generation operations
-
-  // Check if already streaming this message
-  if (sessionManager.isActive(messageId)) {
-    logger.trace('Already streaming this message, ignoring duplicate token');
-    return;
-  }
-
-  logger.debug(
-    `First token received for message ${messageId}, starting streaming`
-  );
-  currentGenerationType = 'streaming';
-
-  // Start new session (cancels existing if any)
-  const session = sessionManager.startSession(
-    messageId,
-    freshContext,
-    settings
-  );
-
-  logger.debug(
-    `Streaming monitor and processor started for session ${session.sessionId}`
-  );
-}
-
-/**
- * Handles MESSAGE_RECEIVED event when in streaming mode
- * Signals that the message has been finalized and deferred images can be inserted
- * @param messageId - ID of the message that was received
- * @param type - Type of generation (e.g., 'normal', 'regenerate', 'swipe')
- */
-export function handleMessageReceivedForStreaming(
-  messageId: number,
-  type: string
-): void {
-  logger.debug(
-    `MESSAGE_RECEIVED event for message ${messageId}, type: ${type}`
-  );
-
-  const session = sessionManager.getSession(messageId);
-  if (!session) {
-    logger.debug(`No active session for message ${messageId}`);
-    return;
-  }
-
-  logger.debug(`MESSAGE_RECEIVED for message ${messageId}, signaling barrier`);
-  session.barrier.arrive('messageReceived');
-}
-
-/**
- * Handles GENERATION_ENDED event
- * @param chatLength - Length of chat array when event fired (messageId = chatLength - 1)
- */
-async function handleGenerationEnded(chatLength: number): Promise<void> {
-  currentGenerationType = null;
-
-  // GENERATION_ENDED passes chat.length, so messageId is chat.length - 1
-  const messageId = chatLength - 1;
-  logger.debug(
-    `GENERATION_ENDED event (chatLength: ${chatLength}, messageId: ${messageId})`
-  );
-
-  const session = sessionManager.getSession(messageId);
-  if (!session) {
-    logger.debug(`No active session for message ${messageId}`);
-    return;
-  }
-
-  logger.debug(`GENERATION_ENDED for message ${messageId}, finalizing session`);
-
-  const {sessionId, barrier, monitor, processor, queue} = session;
-
-  // Final scan for any remaining prompts
-  monitor.finalScan();
-
-  // Stop monitoring (no more new prompts)
-  monitor.stop();
-
-  // Process remaining prompts and signal barrier
-  await processor.processRemaining();
-  // Note: processor.processRemaining() calls barrier.arrive('genDone')
-
-  // Get deferred images
-  const deferredImages = processor.getDeferredImages();
-  logger.debug(`${deferredImages.length} images ready for insertion`);
-
-  // Stop processor
-  processor.stop();
-
-  // Log stats
-  const stats = queue.getStats();
-  logger.debug('Final stats:', stats);
-
-  // Wait for barrier and insert deferred images
-  if (deferredImages.length > 0) {
-    // Don't wrap in scheduleDomOperation - insertDeferredImages does that internally
-    // Wrapping would cause deadlock since DOM ops for same message are serialized
-    (async () => {
-      logger.debug('Waiting for barrier (genDone + messageReceived)...');
-
-      try {
-        await barrier.whenReady;
-        logger.debug('Barrier resolved, inserting deferred images');
-
-        // Check session still current (not cancelled)
-        const currentSession = sessionManager.getSession(messageId);
-        logger.debug(
-          `Session check for message ${messageId}: current=${currentSession?.sessionId}, expected=${sessionId}`
-        );
-
-        if (currentSession?.sessionId !== sessionId) {
-          logger.warn(
-            `Session changed for message ${messageId}, skipping insertion (current: ${currentSession?.sessionId}, expected: ${sessionId})`
-          );
-          return;
-        }
-
-        // Insert images (this internally uses scheduleDomOperation)
-        logger.debug(
-          `Inserting ${deferredImages.length} deferred images for message ${messageId}`
-        );
-        await insertDeferredImages(deferredImages, messageId, context);
-
-        logger.debug('Deferred images inserted successfully');
-
-        // Show success notification (extended display time: 5 seconds)
-        toastr.success(
-          t('toast.streamingSuccess', {count: deferredImages.length}),
-          t('extensionName'),
-          {timeOut: 5000}
-        );
-
-        // End session after successful insertion
-        sessionManager.endSession(messageId);
-        progressManager.clear(messageId);
-        logger.debug(
-          `Session ended for message ${messageId} after successful insertion`
-        );
-      } catch (error) {
-        logger.error('Barrier failed or insertion error:', error);
-        toastr.error('Failed to insert generated images', t('extensionName'));
-
-        // End session even on error
-        sessionManager.endSession(messageId);
-        progressManager.clear(messageId);
-        logger.debug('Session ended after error');
-      }
-    })();
-  } else {
-    // No deferred images, end session immediately and clear progress tracking
-    sessionManager.endSession(messageId);
-    progressManager.clear(messageId);
-    logger.debug(`Session ended for message ${messageId} (no deferred images)`);
-
-    // Show info notification that no prompts were detected (extended display time: 5 seconds)
-    toastr.info(t('toast.streamingNoPrompts'), t('extensionName'), {
-      timeOut: 5000,
-    });
-  }
-
-  // Show notification if failures (extended display time: 5 seconds)
-  if (stats.FAILED > 0) {
-    toastr.warning(
-      t('toast.streamingFailed', {count: stats.FAILED}),
-      t('extensionName'),
-      {timeOut: 5000}
-    );
-  }
-}
-
-/**
  * Cancels all active streaming sessions
  * Used when chat is cleared or reset
  */
@@ -981,18 +775,28 @@ function cancelAllSessions(): void {
 function registerEventHandlers(): void {
   logger.info('Registering event handlers...');
 
-  // Create message handler
-  const messageHandler = createMessageHandler(settings);
-  const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
-  context.eventSource.on(MESSAGE_RECEIVED, messageHandler);
+  // Register streaming handlers using v2 message handlers
+  const STREAM_TOKEN_RECEIVED = context.eventTypes.STREAM_TOKEN_RECEIVED;
+  context.eventSource.on(STREAM_TOKEN_RECEIVED, () => {
+    if (!settings.streamingEnabled || !settings.enabled) {
+      return;
+    }
+    // STREAM_TOKEN_RECEIVED doesn't provide messageId - get it from chat
+    const messageId = context.chat.length - 1;
+    if (messageId < 0) {
+      logger.warn('No messages in chat, cannot start streaming session');
+      return;
+    }
+    handleStreamTokenStarted(messageId, context, settings);
+  });
 
-  // Add manual generation buttons and image click handlers on message received
+  const MESSAGE_RECEIVED = context.eventTypes.MESSAGE_RECEIVED;
   context.eventSource.on(MESSAGE_RECEIVED, (messageId: number) => {
+    // Handle streaming finalization
+    handleMessageReceived(messageId, context);
+
+    // Add image click handlers after message is received
     setTimeout(() => {
-      const $mes = $(`.mes[mesid="${messageId}"]`);
-      if ($mes.length > 0) {
-        addManualGenerationButton($mes, messageId, settings);
-      }
       addImageClickHandlers(settings);
     }, 100);
   });
@@ -1005,7 +809,7 @@ function registerEventHandlers(): void {
     }, 100);
   });
 
-  // Track generation type
+  // Track generation type to filter out quiet/impersonate modes
   const GENERATION_STARTED = context.eventTypes.GENERATION_STARTED;
   context.eventSource.on(
     GENERATION_STARTED,
@@ -1017,7 +821,7 @@ function registerEventHandlers(): void {
         return;
       }
       currentGenerationType = type;
-      logger.info('Generation started (actual)', {type});
+      logger.info('Generation started', {type});
     }
   );
 
@@ -1037,18 +841,17 @@ function registerEventHandlers(): void {
     // Prune generated images from chat history
     pruneGeneratedImages(eventData.chat);
 
-    // Inject meta-prompt
+    // Inject meta-prompt (filter out quiet/impersonate modes)
     const effectiveType = currentGenerationType || 'normal';
     const shouldInject =
       settings.enabled &&
       settings.metaPrompt &&
+      settings.metaPrompt.length > 0 &&
       !['quiet', 'impersonate'].includes(effectiveType);
 
     if (shouldInject) {
       logger.info('Injecting meta-prompt as last system message', {
-        currentGenerationType,
-        effectiveType,
-        metaPromptLength: settings.metaPrompt.length,
+        generationType: effectiveType,
       });
 
       eventData.chat.push({
@@ -1059,31 +862,31 @@ function registerEventHandlers(): void {
       logger.info('Skipping meta-prompt injection', {
         enabled: settings.enabled,
         hasMetaPrompt: !!settings.metaPrompt,
-        currentGenerationType,
-        effectiveType,
+        generationType: effectiveType,
         reason: !settings.enabled
           ? 'extension disabled'
           : !settings.metaPrompt
             ? 'no meta-prompt'
-            : `generation type is ${effectiveType}`,
+            : ['quiet', 'impersonate'].includes(effectiveType)
+              ? `filtered generation type: ${effectiveType}`
+              : 'unknown',
       });
     }
   });
 
-  // Register streaming handlers
-  const STREAM_TOKEN_RECEIVED = context.eventTypes.STREAM_TOKEN_RECEIVED;
-  context.eventSource.on(STREAM_TOKEN_RECEIVED, handleFirstStreamToken);
-
-  const GENERATION_ENDED = context.eventTypes.GENERATION_ENDED;
-  context.eventSource.on(GENERATION_ENDED, handleGenerationEnded);
+  // Handle chat changes
+  const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
+  context.eventSource.on(CHAT_CHANGED, () => {
+    handleChatChanged();
+  });
 
   logger.info('Event handlers registered:', {
+    STREAM_TOKEN_RECEIVED,
     MESSAGE_RECEIVED,
     MESSAGE_UPDATED,
     GENERATION_STARTED,
     CHAT_COMPLETION_PROMPT_READY,
-    STREAM_TOKEN_RECEIVED,
-    GENERATION_ENDED,
+    CHAT_CHANGED,
   });
 }
 
@@ -1106,6 +909,10 @@ function initialize(): void {
   initializeI18n(context);
   logger.info('Initialized i18n');
 
+  // Initialize metadata for current chat
+  refreshMetadata();
+  logger.info('Initialized metadata');
+
   // Load settings
   settings = loadSettings(context);
   logger.info('Loaded settings:', settings);
@@ -1115,9 +922,8 @@ function initialize(): void {
 
   // Conditionally initialize extension components based on settings.enabled
   if (settings.enabled) {
-    // Initialize SessionManager
-    sessionManager = new SessionManager();
-    logger.info('Initialized SessionManager');
+    // SessionManager is already a singleton, no initialization needed
+    logger.info('SessionManager ready (singleton)');
 
     // Initialize progress widget if enabled (connects to progressManager via events)
     if (settings.showProgressWidget) {
@@ -1279,6 +1085,9 @@ function initialize(): void {
       'CHAT_CHANGED - cancelling all sessions and reloading settings'
     );
 
+    // Refresh metadata reference for new chat
+    refreshMetadata();
+
     // Cancel all active streaming sessions
     cancelAllSessions();
 
@@ -1291,37 +1100,14 @@ function initialize(): void {
     // Update UI with refreshed settings
     updateUI();
 
-    // Re-add buttons to all messages when chat changes
+    // Re-add click handlers to all images when chat changes
     setTimeout(() => {
-      addButtonsToExistingMessages();
-      // Re-add click handlers to all images
       addImageClickHandlers(settings);
     }, 100);
   });
 
-  // Add manual generation buttons to existing messages
-  addButtonsToExistingMessages();
   // Add click handlers to existing images
   addImageClickHandlers(settings);
-}
-
-/**
- * Adds manual generation buttons to all existing messages in the chat
- */
-function addButtonsToExistingMessages(): void {
-  logger.debug('Adding manual generation buttons to existing messages');
-
-  $('.mes').each((_index: number, element: HTMLElement) => {
-    const $mes = $(element);
-    const mesId = $mes.attr('mesid');
-
-    if (mesId) {
-      const messageId = parseInt(mesId, 10);
-      if (!isNaN(messageId)) {
-        addManualGenerationButton($mes, messageId, settings);
-      }
-    }
-  });
 }
 
 // Initialize when extension loads

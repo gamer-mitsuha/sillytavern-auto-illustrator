@@ -8,14 +8,8 @@ import {extractImagePrompts} from './image_extractor';
 import type {DeferredImage, PromptPosition} from './types';
 import {createLogger} from './logger';
 import {t, tCount} from './i18n';
-import {
-  getCurrentPromptId,
-  recordImagePrompt,
-  recordPrompt,
-  initializePromptPosition,
-} from './prompt_metadata';
 import {progressManager} from './progress_manager';
-import {scheduleDomOperation} from './dom_queue';
+import {attachRegenerationHandlers} from './manual_generation_v2';
 
 const logger = createLogger('Generator');
 
@@ -321,274 +315,233 @@ export function applyCommonTags(
 }
 
 /**
- * Replaces all image prompts in text with actual generated images
- * @param text - Text containing image prompts
- * @param context - SillyTavern context
- * @param patterns - Optional array of regex pattern strings to use for detection
- * @param commonTags - Optional common style tags to apply
- * @param tagsPosition - Position for common tags ('prefix' or 'suffix')
- * @param messageId - Optional message ID for metadata tracking
- * @returns Text with prompts replaced by image tags
- */
-export async function replacePromptsWithImages(
-  text: string,
-  context: SillyTavernContext,
-  patterns?: string[],
-  commonTags?: string,
-  tagsPosition?: 'prefix' | 'suffix',
-  messageId?: number
-): Promise<string> {
-  const matches = extractImagePrompts(text, patterns);
-
-  logger.info('Found', matches.length, 'image prompts to process');
-
-  if (matches.length === 0) {
-    return text;
-  }
-
-  logger.info(
-    'Extracted prompts:',
-    matches.map(m => m.prompt)
-  );
-
-  // Initialize prompt metadata if messageId is provided
-  if (messageId !== undefined) {
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i];
-      const promptId = recordPrompt(match.prompt, context);
-      const position: PromptPosition = {messageId, promptIndex: i};
-      initializePromptPosition(position, promptId, context);
-      logger.debug(
-        `Initialized metadata for prompt at position ${messageId}_${i}`
-      );
-    }
-  }
-
-  // Show notification that image generation is starting
-  const imageCount = matches.length;
-  toastr.info(tCount(imageCount, 'toast.generatingImages'), t('extensionName'));
-
-  // Register progress tracking if messageId is provided
-  if (messageId !== undefined) {
-    progressManager.registerTask(messageId, imageCount);
-  }
-
-  // Generate images sequentially to avoid rate limiting
-  const batchStartTime = performance.now();
-  const imageUrls: (string | null)[] = [];
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    const imageUrl = await generateImage(
-      match.prompt,
-      context,
-      commonTags,
-      tagsPosition
-    );
-    imageUrls.push(imageUrl);
-
-    // Update progress after each image
-    if (messageId !== undefined) {
-      if (imageUrl) {
-        progressManager.completeTask(messageId);
-      } else {
-        progressManager.failTask(messageId);
-      }
-    }
-  }
-
-  const batchDuration = performance.now() - batchStartTime;
-  const successCount = imageUrls.filter(u => u).length;
-  logger.info(
-    `Generated ${successCount} images successfully (total time: ${batchDuration.toFixed(0)}ms, avg: ${(batchDuration / imageCount).toFixed(0)}ms per image)`
-  );
-
-  // Show completion notification
-  if (successCount === imageCount) {
-    toastr.success(
-      tCount(successCount, 'toast.successGenerated'),
-      t('extensionName')
-    );
-  } else if (successCount > 0) {
-    toastr.warning(
-      t('toast.partialGenerated', {success: successCount, total: imageCount}),
-      t('extensionName')
-    );
-  } else {
-    toastr.error(t('toast.failedToGenerate'), t('extensionName'));
-  }
-
-  // Replace prompts with images in reverse order to preserve indices
-  let result = text;
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const match = matches[i];
-    const imageUrl = imageUrls[i];
-
-    if (imageUrl) {
-      // Use helper to insert image after prompt
-      const insertion = insertImageAfterPrompt(
-        result,
-        match.fullMatch,
-        imageUrl,
-        i
-      );
-      if (insertion.success) {
-        result = insertion.text;
-        logger.info('Added image after prompt at index', i);
-
-        // Record image-prompt association if messageId is provided
-        if (messageId !== undefined) {
-          const position: PromptPosition = {messageId, promptIndex: i};
-          const promptId = getCurrentPromptId(position, context);
-          if (promptId) {
-            recordImagePrompt(imageUrl, promptId, context);
-            logger.debug(
-              `Recorded image-prompt association: ${imageUrl} -> ${promptId}`
-            );
-          } else {
-            logger.warn(`No promptId found for position ${messageId}_${i}`);
-          }
-        }
-      }
-    } else {
-      // Keep the prompt tag even if generation failed
-      // This allows users to see what was attempted and enables manual retry
-      logger.info(
-        'Image generation failed for prompt at index',
-        i,
-        '- keeping tag'
-      );
-    }
-  }
-
-  // Clear progress tracking if messageId is provided
-  if (messageId !== undefined) {
-    progressManager.clear(messageId);
-  }
-
-  return result;
-}
-
-/**
- * Inserts all deferred images into a message after streaming completes
- * Scheduled through DOM queue to prevent races with other operations
- * Builds complete final text with all images, then sets message.mes once
- * This avoids race conditions with SillyTavern's streaming finalization
- * @param deferredImages - Array of deferred images to insert
+ * Unified batch insertion for both streaming and regeneration modes
+ * Handles new images (streaming) and regenerated images atomically
+ *
+ * Uses regex_v2 for prompt detection
+ * Uses prompt_manager for image associations
+ *
+ * @param deferredImages - Images to insert (streaming or regeneration)
  * @param messageId - Message ID to update
  * @param context - SillyTavern context
+ * @param metadata - Auto-illustrator chat metadata
  * @returns Number of successfully inserted images
  */
 export async function insertDeferredImages(
   deferredImages: DeferredImage[],
   messageId: number,
-  context: SillyTavernContext
+  context: SillyTavernContext,
+  metadata: import('./types').AutoIllustratorChatMetadata
 ): Promise<number> {
   if (deferredImages.length === 0) {
+    logger.debug(`No deferred images to insert for message ${messageId}`);
     return 0;
   }
 
-  // Schedule through DOM queue to serialize with other operations
-  return scheduleDomOperation(
-    messageId,
-    async () => {
-      logger.info(
-        `Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
-      );
+  logger.info(
+    `Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
+  );
 
-      // Get current message
-      const message = context.chat?.[messageId];
-      if (!message) {
-        logger.warn('Message not found for batch insertion:', messageId);
-        return 0;
-      }
+  // Get current message
+  const message = context.chat?.[messageId];
+  if (!message) {
+    logger.warn(`Message ${messageId} not found, skipping insertion`);
+    return 0;
+  }
 
-      // Read message text ONCE at start
-      let finalText = message.mes || '';
-      const originalLength = finalText.length;
+  // Read message text ONCE at start
+  let updatedText = message.mes || '';
+  const originalLength = updatedText.length;
 
-      // Sort images by position (first to last)
-      const sortedImages = [...deferredImages].sort(
-        (a, b) => a.prompt.startIndex - b.prompt.startIndex
-      );
+  // Get settings for prompt patterns
+  const settings = context.extensionSettings?.auto_illustrator;
+  const patterns = settings?.promptDetectionPatterns || [];
 
-      let successCount = 0;
+  let successCount = 0;
 
-      // Insert images in reverse order to preserve positions
-      // (inserting from end backwards keeps earlier positions valid)
-      for (let i = sortedImages.length - 1; i >= 0; i--) {
-        const {prompt, imageUrl} = sortedImages[i];
+  // Import required modules
+  const {extractImagePromptsMultiPattern} = await import('./regex_v2');
+  const {linkImageToPrompt} = await import('./prompt_manager');
 
-        // Use helper to insert image
-        const insertion = insertImageAfterPrompt(
-          finalText,
-          prompt.fullMatch,
-          imageUrl,
-          i
+  // Process each deferred image
+  for (const deferred of deferredImages) {
+    const queuedPrompt = deferred.prompt;
+
+    try {
+      // REGENERATION MODE: targetImageUrl present
+      if (queuedPrompt.targetImageUrl) {
+        const mode = queuedPrompt.insertionMode || 'replace-image';
+        const targetUrl = queuedPrompt.targetImageUrl;
+        const promptPreview = deferred.promptPreview || queuedPrompt.prompt;
+
+        // Create title with "AI generated image" prefix for CSS selector compatibility
+        const imageTitle = `AI generated image: ${promptPreview}`;
+
+        // Create new image tag with escaped attributes
+        const newImgTag = `<img src="${escapeHtmlAttribute(deferred.imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}">`;
+
+        logger.debug(
+          `Regeneration mode: ${mode} for ${targetUrl.substring(0, 50)}...`
         );
 
-        if (insertion.success) {
-          finalText = insertion.text;
-          successCount++;
-
-          // Record image-prompt association in metadata
-          // Extract all prompts from current message to determine index
-          const allPrompts = extractImagePrompts(finalText);
-          const promptIndex = allPrompts.findIndex(
-            p =>
-              p.startIndex === prompt.startIndex &&
-              p.endIndex === prompt.endIndex &&
-              p.prompt === prompt.prompt
+        if (mode === 'replace-image') {
+          // Replace existing <img> tag
+          const escapedTargetUrl = escapeRegexSpecialChars(targetUrl);
+          const imgPattern = new RegExp(
+            `<img[^>]*src="${escapedTargetUrl}"[^>]*>`,
+            'g'
           );
 
-          if (promptIndex >= 0) {
-            const position: PromptPosition = {messageId, promptIndex};
-            const promptId = getCurrentPromptId(position, context);
-            if (promptId) {
-              recordImagePrompt(imageUrl, promptId, context);
-              logger.debug(
-                `Recorded image-prompt association: ${imageUrl} -> ${promptId}`
-              );
-            } else {
-              logger.warn(
-                `No promptId found for position ${messageId}_${promptIndex}`
-              );
-            }
+          const beforeReplace = updatedText.length;
+          updatedText = updatedText.replace(imgPattern, newImgTag);
+
+          if (
+            updatedText.length !== beforeReplace ||
+            !imgPattern.test(message.mes)
+          ) {
+            logger.debug(`Replaced image: ${targetUrl.substring(0, 50)}...`);
+            successCount++;
           } else {
-            logger.warn('Could not find prompt index after insertion');
+            logger.warn(
+              `Failed to find/replace image: ${targetUrl.substring(0, 50)}...`
+            );
+          }
+        } else if (mode === 'append-after-image') {
+          // Insert after existing <img> tag
+          const escapedTargetUrl = escapeRegexSpecialChars(targetUrl);
+          const imgPattern = new RegExp(
+            `(<img[^>]*src="${escapedTargetUrl}"[^>]*>)`,
+            'g'
+          );
+
+          const beforeAppend = updatedText.length;
+          updatedText = updatedText.replace(imgPattern, `$1\n${newImgTag}`);
+
+          if (updatedText.length > beforeAppend) {
+            logger.debug(
+              `Appended after image: ${targetUrl.substring(0, 50)}...`
+            );
+            successCount++;
+          } else {
+            logger.warn(
+              `Failed to find image for append: ${targetUrl.substring(0, 50)}...`
+            );
           }
         }
+
+        // Link new image to prompt (updates or replaces old association)
+        if (queuedPrompt.targetPromptId) {
+          linkImageToPrompt(
+            queuedPrompt.targetPromptId,
+            deferred.imageUrl,
+            metadata
+          );
+          logger.debug(
+            `Linked regenerated image to prompt: ${queuedPrompt.targetPromptId}`
+          );
+        }
+      } else {
+        // NEW IMAGE MODE (streaming): append after prompt tag
+        const promptPreview = deferred.promptPreview || queuedPrompt.prompt;
+
+        // Use regex_v2 to extract prompts and find insertion position
+        const matches = extractImagePromptsMultiPattern(updatedText, patterns);
+
+        // Find the prompt match for this queued prompt
+        // Match by prompt text only (positions shift after each insertion)
+        const matchIndex = matches.findIndex(
+          m => m.prompt === queuedPrompt.prompt
+        );
+
+        if (matchIndex >= 0) {
+          const match = matches[matchIndex];
+          const insertPosition = match.endIndex;
+
+          // Create title with "AI generated image" prefix for CSS selector compatibility
+          const imageTitle = `AI generated image: ${promptPreview}`;
+
+          // Create new image tag
+          const newImgTag = `\n<img src="${escapeHtmlAttribute(deferred.imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}">`;
+
+          // Insert after prompt tag
+          updatedText =
+            updatedText.substring(0, insertPosition) +
+            newImgTag +
+            updatedText.substring(insertPosition);
+
+          successCount++;
+
+          logger.debug(
+            `Inserted new image after prompt at position ${insertPosition}`
+          );
+
+          // Link image to prompt using prompt_manager
+          linkImageToPrompt(deferred.promptId, deferred.imageUrl, metadata);
+          logger.debug(`Linked new image to prompt: ${deferred.promptId}`);
+        } else {
+          logger.warn(
+            `Could not find prompt match for insertion: "${queuedPrompt.prompt.substring(0, 50)}..."`
+          );
+        }
       }
-
-      // Set message.mes ONCE with all images inserted
-      message.mes = finalText;
-
-      logger.info(
-        `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} -> ${finalText.length} chars)`
+    } catch (error) {
+      logger.error(
+        `Error inserting image for prompt "${queuedPrompt.prompt.substring(0, 50)}...":`,
+        error
       );
+    }
+  }
 
-      // Emit MESSAGE_EDITED first to trigger regex "Run on Edit"
-      // This allows regex scripts to modify message.mes before rendering
-      const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-      await context.eventSource.emit(MESSAGE_EDITED, messageId);
+  // Single atomic write
+  message.mes = updatedText;
 
-      // Re-render the message block to display images in DOM
-      // This calls messageFormatting() which processes <img> tags into rendered HTML
-      // Same approach used by updateMessageBlock in reasoning.js and translate extension
-      context.updateMessageBlock(messageId, message);
-
-      // Emit MESSAGE_UPDATED to notify other extensions
-      const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-      await context.eventSource.emit(MESSAGE_UPDATED, messageId);
-
-      // Save the chat to persist the inserted images
-      await context.saveChat();
-      logger.debug('Chat saved after inserting deferred images');
-
-      // Clear progress tracking
-      progressManager.clear(messageId);
-
-      return successCount;
-    },
-    'batch deferred image insertion'
+  logger.info(
+    `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} → ${updatedText.length} chars)`
   );
+
+  // Emit MESSAGE_EDITED first to trigger regex "Run on Edit"
+  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+  await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+  // Re-render the message block to display images in DOM
+  context.updateMessageBlock(messageId, message);
+
+  // Attach click handlers to newly inserted images
+  if (settings) {
+    attachRegenerationHandlers(messageId, context, settings);
+    logger.debug('Attached click handlers to newly inserted images');
+  }
+
+  // Emit MESSAGE_UPDATED to notify other extensions
+  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+  // Save the chat to persist the inserted images
+  await context.saveChat();
+  logger.debug('Chat saved after inserting deferred images');
+
+  return successCount;
+}
+
+/**
+ * Escapes HTML attribute values to prevent injection
+ * @param str - String to escape
+ * @returns Escaped string safe for HTML attributes
+ */
+function escapeHtmlAttribute(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Escapes special regex characters for use in RegExp constructor
+ * @param str - String to escape
+ * @returns Escaped string safe for regex
+ */
+function escapeRegexSpecialChars(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
