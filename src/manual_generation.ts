@@ -28,9 +28,69 @@ import {
   applyPromptUpdate,
   type PromptNode,
 } from './prompt_updater';
+import {openImageModal} from './modal_viewer';
 import {scheduleDomOperation} from './dom_queue';
+import {collectAllImagesFromChat, normalizeImageUrl} from './image_utils';
 
 const logger = createLogger('ManualGen');
+
+/**
+ * Opens the global image viewer starting from a specific image
+ * Collects all AI-generated images from all messages in chat order
+ * @param imageUrl - URL of the clicked image (absolute or relative)
+ */
+function openGlobalViewerFromImage(imageUrl: string): void {
+  logger.info('Opening global viewer from image:', imageUrl);
+
+  // Get SillyTavern context
+  const context = SillyTavern.getContext();
+  if (!context?.chat) {
+    logger.error('Cannot open viewer: no context or chat');
+    toastr.error(t('toast.messageNotFound'), t('extensionName'));
+    return;
+  }
+
+  // Collect all AI-generated images from chat
+  const allImages = collectAllImagesFromChat(context);
+
+  if (allImages.length === 0) {
+    logger.warn('No AI-generated images found in chat');
+    toastr.warning(t('toast.noPromptsFound'), t('extensionName'));
+    return;
+  }
+
+  // Find the clicked image in the collection
+  const normalizedClickedUrl = normalizeImageUrl(imageUrl);
+  let clickedImageIndex = allImages.findIndex(
+    img => normalizeImageUrl(img.imageUrl) === normalizedClickedUrl
+  );
+
+  if (clickedImageIndex === -1) {
+    logger.warn(
+      'Could not find clicked image in chat, defaulting to first image'
+    );
+    clickedImageIndex = 0;
+  }
+
+  logger.info(
+    `Opening global viewer with ${allImages.length} images, starting at index ${clickedImageIndex}`
+  );
+
+  // Open the modal viewer
+  openImageModal({
+    images: allImages,
+    initialIndex: clickedImageIndex,
+    title: t('gallery.imageViewer'),
+    onClose: () => {
+      logger.debug('Global viewer closed');
+    },
+    onNavigate: (newIndex: number) => {
+      logger.trace(
+        `Global viewer navigated to image ${newIndex + 1}/${allImages.length}`
+      );
+    },
+  });
+}
 
 /**
  * Shows regeneration dialog and returns user's choice
@@ -142,6 +202,17 @@ async function showRegenerationDialog(
         resolve(null);
       });
 
+    const viewAllBtn = $('<button>')
+      .text(t('dialog.viewAll'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        // Open global image viewer starting from this image
+        openGlobalViewerFromImage(imageUrl);
+        resolve(null);
+      });
+
     const cancelBtn = $('<button>')
       .text(t('dialog.cancel'))
       .addClass('menu_button')
@@ -155,6 +226,7 @@ async function showRegenerationDialog(
       .append(generateBtn)
       .append(updateBtn)
       .append(deleteBtn)
+      .append(viewAllBtn)
       .append(cancelBtn);
     dialog.append(buttons);
 
@@ -417,23 +489,6 @@ async function deleteImage(imageUrl: string): Promise<void> {
   }
 
   toastr.error(t('toast.imageNotFound'), 'Auto Illustrator');
-}
-
-/**
- * Normalizes an image URL by converting absolute URLs to relative paths
- * This is needed because img.src returns absolute URL but we store relative paths
- * @param url - Image URL (absolute or relative)
- * @returns Normalized relative path
- */
-function normalizeImageUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    // Return just the pathname (e.g., /user/images/test.png)
-    return urlObj.pathname;
-  } catch {
-    // If URL parsing fails, it's already a relative path
-    return url;
-  }
 }
 
 /**

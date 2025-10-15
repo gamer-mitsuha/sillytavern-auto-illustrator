@@ -61,6 +61,7 @@
   "dialog.generate": "生成",
   "dialog.cancel": "取消",
   "dialog.delete": "删除",
+  "dialog.viewAll": "查看所有图像",
   "dialog.whatToDo": "您想对此图像执行什么操作？",
   "dialog.replaceRegen": "删除并重新生成",
   "dialog.appendRegen": "保留并在其后添加新图像",

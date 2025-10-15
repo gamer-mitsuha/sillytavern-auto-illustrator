@@ -61,6 +61,7 @@
   "dialog.generate": "Generate",
   "dialog.cancel": "Cancel",
   "dialog.delete": "Delete",
+  "dialog.viewAll": "View All Images",
   "dialog.whatToDo": "What would you like to do with this image?",
   "dialog.replaceRegen": "Delete and regenerate",
   "dialog.appendRegen": "Keep and add new image after it",
