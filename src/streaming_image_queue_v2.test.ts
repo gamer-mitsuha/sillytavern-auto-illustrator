@@ -100,5 +100,60 @@ describe('ImageGenerationQueue with regeneration metadata', () => {
       expect(next).toBeDefined();
       expect(next?.targetImageUrl).toBe('http://example.com/old.jpg');
     });
+
+    it('should allow multiple regenerations of same prompt with different timestamps', () => {
+      // Simulate multiple regeneration requests for the same prompt text
+      // by using different timestamps as startIndex (as done in session_manager)
+      const timestamp1 = Date.now();
+      const timestamp2 = timestamp1 + 1;
+      const timestamp3 = timestamp1 + 2;
+
+      const regen1 = queue.addPrompt(
+        'same prompt',
+        '',
+        timestamp1,
+        timestamp1,
+        {
+          targetImageUrl: '/images/test1.png',
+          targetPromptId: 'prompt-123',
+          insertionMode: 'replace-image',
+        }
+      );
+
+      const regen2 = queue.addPrompt(
+        'same prompt',
+        '',
+        timestamp2,
+        timestamp2,
+        {
+          targetImageUrl: '/images/test2.png',
+          targetPromptId: 'prompt-123',
+          insertionMode: 'replace-image',
+        }
+      );
+
+      const regen3 = queue.addPrompt(
+        'same prompt',
+        '',
+        timestamp3,
+        timestamp3,
+        {
+          targetImageUrl: '/images/test1.png',
+          targetPromptId: 'prompt-123',
+          insertionMode: 'append-after-image',
+        }
+      );
+
+      // All three should be queued (not deduplicated)
+      expect(regen1).toBeDefined();
+      expect(regen2).toBeDefined();
+      expect(regen3).toBeDefined();
+      expect(queue.size()).toBe(3);
+
+      // Verify they have different IDs
+      expect(regen1?.id).not.toBe(regen2?.id);
+      expect(regen2?.id).not.toBe(regen3?.id);
+      expect(regen1?.id).not.toBe(regen3?.id);
+    });
   });
 });

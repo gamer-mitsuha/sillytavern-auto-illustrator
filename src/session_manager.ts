@@ -6,11 +6,11 @@
  * - Single pipeline for both streaming and click-to-regenerate modes
  * - One GenerationSession per message (mutually exclusive types)
  * - Explicit await conditions instead of Barrier
- * - Auto-finalize regenerations after 2s idle (debounced)
+ * - Auto-finalize regenerations when all tasks complete (event-driven)
  *
  * Session Lifecycle:
  * 1. Streaming: startStreamingSession → finalizeStreamingAndInsert → endSession
- * 2. Regeneration: queueRegeneration → (auto-finalize after 2s idle) → endSession
+ * 2. Regeneration: queueRegeneration → (auto-finalize on progress:all-tasks-complete) → endSession
  */
 
 import {ImageGenerationQueue} from './streaming_image_queue';
@@ -40,8 +40,7 @@ function generateSessionId(): string {
  */
 export class SessionManager {
   private sessions: Map<number, GenerationSession> = new Map();
-  private regenerationTimers: Map<number, ReturnType<typeof setTimeout>> =
-    new Map();
+  private completionListeners: Map<number, (event: Event) => void> = new Map();
 
   //==========================================================================
   // Streaming Session Methods
@@ -224,7 +223,7 @@ export class SessionManager {
   /**
    * Queues a regeneration request for a specific image
    * Creates or reuses regeneration session for the message
-   * Schedules auto-finalize after 2s idle (debounced)
+   * Auto-finalizes when all queued tasks complete (event-driven)
    *
    * @param messageId - Message ID containing the image
    * @param promptId - Prompt ID being regenerated (PromptNode.id)
@@ -285,17 +284,27 @@ export class SessionManager {
     }
 
     // Add to queue with regeneration metadata
-    session.queue.addPrompt(
+    // Use Date.now() as startIndex to ensure each regeneration request gets a unique ID
+    // This allows multiple regenerations of the same prompt to be queued
+    const uniqueIndex = Date.now();
+    const queuedPrompt = session.queue.addPrompt(
       promptNode.text,
       '', // fullMatch not needed for regeneration
-      0, // startIndex not needed
-      0, // endIndex not needed
+      uniqueIndex, // Use timestamp to ensure unique ID for each regeneration
+      uniqueIndex, // endIndex matches startIndex
       {
         targetImageUrl: imageUrl,
         targetPromptId: promptId,
         insertionMode: mode,
       }
     );
+
+    if (!queuedPrompt) {
+      logger.info(
+        `Prompt already queued for regeneration, skipping duplicate: ${promptId}`
+      );
+      return; // Don't register duplicate task or reset timer
+    }
 
     // Track progress
     progressManager.registerTask(messageId, 1);
@@ -306,40 +315,45 @@ export class SessionManager {
     // Trigger processing
     session.processor.trigger();
 
-    // Auto-finalize after 2s idle (debounced)
-    this.scheduleAutoFinalize(messageId, context);
+    // Set up completion listener if this is the first regeneration
+    if (!this.completionListeners.has(messageId)) {
+      this.setupCompletionListener(messageId, context);
+    }
   }
 
   /**
-   * Schedules auto-finalization after 2s idle
-   * Debounced - each new regeneration resets the timer
+   * Sets up completion listener for regeneration session
+   * Listens for progress:all-tasks-complete event and triggers finalization
    *
    * @param messageId - Message ID
    * @param context - SillyTavern context
    */
-  private scheduleAutoFinalize(
+  private setupCompletionListener(
     messageId: number,
     context: SillyTavernContext
   ): void {
-    // Clear existing timer
-    const existingTimer = this.regenerationTimers.get(messageId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      logger.debug(
-        `Cleared existing auto-finalize timer for message ${messageId}`
-      );
-    }
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail.messageId === messageId) {
+        logger.info(
+          `All tasks complete for message ${messageId}, finalizing regeneration`
+        );
+        // Remove listener to avoid duplicate calls
+        progressManager.removeEventListener(
+          'progress:all-tasks-complete',
+          handler
+        );
+        this.completionListeners.delete(messageId);
+        // Trigger finalization
+        this.finalizeRegenerationAndInsert(messageId, context);
+      }
+    };
 
-    // Schedule new timer (2s idle → auto-finalize)
-    const timer = setTimeout(() => {
-      logger.info(
-        `Auto-finalize triggered for message ${messageId} after 2s idle`
-      );
-      this.finalizeRegenerationAndInsert(messageId, context);
-    }, 2000);
-
-    this.regenerationTimers.set(messageId, timer);
-    logger.debug(`Scheduled auto-finalize for message ${messageId} in 2s`);
+    progressManager.addEventListener('progress:all-tasks-complete', handler);
+    this.completionListeners.set(messageId, handler);
+    logger.debug(
+      `Set up completion listener for regeneration session ${messageId}`
+    );
   }
 
   /**
@@ -371,24 +385,9 @@ export class SessionManager {
       `Finalizing regeneration session ${session.sessionId} for message ${messageId}`
     );
 
-    // Clear auto-finalize timer
-    const timer = this.regenerationTimers.get(messageId);
-    if (timer) {
-      clearTimeout(timer);
-      this.regenerationTimers.delete(messageId);
-    }
-
     try {
-      // Wait for all regenerations to complete
-      logger.info(
-        `Waiting for regenerations to complete for message ${messageId}`
-      );
-      await session.processor.processRemaining();
-      await progressManager.waitAllComplete(messageId, {
-        timeoutMs: 300000, // 5 minute timeout
-        signal: session.abortController.signal,
-      });
-
+      // Note: This is called from progress:all-tasks-complete event handler,
+      // so all regenerations are already complete. No need to wait.
       logger.info(`All regenerations complete for message ${messageId}`);
 
       // Get deferred images for batch insertion
@@ -467,15 +466,18 @@ export class SessionManager {
     // Clear progress tracking
     progressManager.clear(messageId);
 
+    // Clean up completion listener (regeneration)
+    const listener = this.completionListeners.get(messageId);
+    if (listener) {
+      progressManager.removeEventListener(
+        'progress:all-tasks-complete',
+        listener
+      );
+      this.completionListeners.delete(messageId);
+    }
+
     // Remove session
     this.sessions.delete(messageId);
-
-    // Clear regeneration timer if exists
-    const timer = this.regenerationTimers.get(messageId);
-    if (timer) {
-      clearTimeout(timer);
-      this.regenerationTimers.delete(messageId);
-    }
 
     logger.info(`Session ${session.sessionId} cancelled`);
   }
