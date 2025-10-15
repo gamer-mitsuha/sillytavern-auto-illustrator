@@ -163,5 +163,7 @@
   "gallery.close": "关闭画廊",
   "gallery.viewAll": "查看所有图片",
   "gallery.imageViewer": "图片查看器",
-  "gallery.allImages": "所有对话图片"
+  "gallery.allImages": "所有对话图片",
+  "gallery.sortNewestFirst": "按最新优先排序",
+  "gallery.sortOldestFirst": "按最旧优先排序"
 }

@@ -163,5 +163,7 @@
   "gallery.close": "Close Gallery",
   "gallery.viewAll": "View All Images",
   "gallery.imageViewer": "Image Viewer",
-  "gallery.allImages": "All Chat Images"
+  "gallery.allImages": "All Chat Images",
+  "gallery.sortNewestFirst": "Sort newest first",
+  "gallery.sortOldestFirst": "Sort oldest first"
 }

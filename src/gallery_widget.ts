@@ -51,6 +51,7 @@ export class GalleryWidgetView {
   private messageGroups: Map<number, MessageGalleryGroup> = new Map();
   private isWidgetVisible = true; // Default visible for new chats
   private isWidgetMinimized = false;
+  private messageOrder: 'newest-first' | 'oldest-first' = 'newest-first';
 
   constructor(manager: ProgressManager) {
     this.progressManager = manager;
@@ -88,7 +89,13 @@ export class GalleryWidgetView {
         visible: true, // Default visible for new chats
         minimized: false,
         expandedMessages: [],
+        messageOrder: 'newest-first',
       };
+    }
+
+    // Ensure messageOrder exists (for backwards compatibility)
+    if (!chatMetadata.auto_illustrator.galleryWidget.messageOrder) {
+      chatMetadata.auto_illustrator.galleryWidget.messageOrder = 'newest-first';
     }
 
     // Log the actual state we're returning from metadata
@@ -107,9 +114,10 @@ export class GalleryWidgetView {
       if (state) {
         this.isWidgetVisible = state.visible;
         this.isWidgetMinimized = state.minimized;
+        this.messageOrder = state.messageOrder || 'newest-first';
 
         logger.info(
-          `[Gallery] Loaded state from chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, expandedMessages=${state.expandedMessages?.length || 0}`
+          `[Gallery] Loaded state from chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, messageOrder=${this.messageOrder}, expandedMessages=${state.expandedMessages?.length || 0}`
         );
       } else {
         logger.warn('[Gallery] No state found in chat metadata');
@@ -128,6 +136,7 @@ export class GalleryWidgetView {
       if (state) {
         state.visible = this.isWidgetVisible;
         state.minimized = this.isWidgetMinimized;
+        state.messageOrder = this.messageOrder;
         state.expandedMessages = Array.from(this.messageGroups.entries())
           .filter(([, group]) => group.isExpanded)
           .map(([messageId]) => messageId);
@@ -138,7 +147,7 @@ export class GalleryWidgetView {
           await context.saveMetadata();
 
           logger.info(
-            `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, expandedMessages=${state.expandedMessages.length}`
+            `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, messageOrder=${this.messageOrder}, expandedMessages=${state.expandedMessages.length}`
           );
         } else {
           logger.warn(
@@ -438,6 +447,15 @@ export class GalleryWidgetView {
   }
 
   /**
+   * Get message groups in the configured display order
+   */
+  private getOrderedMessageGroups(): MessageGalleryGroup[] {
+    const groups = Array.from(this.messageGroups.values());
+    // Newest first is the reverse of natural order (lower message IDs are older)
+    return this.messageOrder === 'newest-first' ? groups.reverse() : groups;
+  }
+
+  /**
    * Immediately updates the display, bypassing any throttle
    * Used for user-triggered actions that need immediate feedback
    */
@@ -592,8 +610,8 @@ export class GalleryWidgetView {
       return;
     }
 
-    // Get groups in display order (newest first)
-    const groups = Array.from(this.messageGroups.values()).reverse();
+    // Get groups in display order
+    const groups = this.getOrderedMessageGroups();
     const groupIds = new Set(groups.map(g => g.messageId));
 
     // Remove groups that no longer exist
@@ -692,6 +710,16 @@ export class GalleryWidgetView {
     // Create header
     const header = document.createElement('div');
     header.className = 'ai-img-gallery-header';
+
+    const orderIcon =
+      this.messageOrder === 'newest-first'
+        ? 'fa-arrow-down-9-1'
+        : 'fa-arrow-down-1-9';
+    const orderTitle =
+      this.messageOrder === 'newest-first'
+        ? t('gallery.sortOldestFirst')
+        : t('gallery.sortNewestFirst');
+
     header.innerHTML = `
       <div class="ai-img-gallery-title">
         <i class="ai-img-gallery-icon fa-solid fa-images"></i>
@@ -699,6 +727,7 @@ export class GalleryWidgetView {
         <span class="ai-img-gallery-count">(${totalImages} ${t('gallery.images')})</span>
       </div>
       <div class="ai-img-gallery-actions">
+        <button class="ai-img-gallery-btn order-toggle-btn" title="${orderTitle}"><i class="fa-solid ${orderIcon}"></i></button>
         <button class="ai-img-gallery-btn view-all-btn" title="${t('gallery.viewAll')}"><i class="fa-solid fa-eye"></i></button>
         <button class="ai-img-gallery-btn minimize-btn" title="${t('gallery.minimize')}"><i class="fa-solid fa-minus"></i></button>
       </div>
@@ -706,6 +735,14 @@ export class GalleryWidgetView {
     widget.appendChild(header);
 
     // Add button event listeners
+    const orderToggleBtn = header.querySelector('.order-toggle-btn');
+    orderToggleBtn?.addEventListener('click', () => {
+      this.messageOrder =
+        this.messageOrder === 'newest-first' ? 'oldest-first' : 'newest-first';
+      this.saveStateToChatMetadata();
+      this.updateImmediately();
+    });
+
     const minimizeBtn = header.querySelector('.minimize-btn');
     minimizeBtn?.addEventListener('click', () => {
       this.isWidgetMinimized = true;
@@ -729,8 +766,8 @@ export class GalleryWidgetView {
       emptyState.textContent = t('gallery.noImages');
       content.appendChild(emptyState);
     } else {
-      // Render message groups (reverse order: newest first)
-      const groups = Array.from(this.messageGroups.values()).reverse();
+      // Render message groups in configured order
+      const groups = this.getOrderedMessageGroups();
       for (const group of groups) {
         const groupElement = this.renderMessageGroup(group);
         content.appendChild(groupElement);
@@ -858,9 +895,9 @@ export class GalleryWidgetView {
    * Show all images from all messages in a single modal
    */
   private showAllImagesModal(): void {
-    // Collect all images from all message groups (newest first)
+    // Collect all images from all message groups in configured order
     const allImages: ModalImage[] = [];
-    const groups = Array.from(this.messageGroups.values()).reverse();
+    const groups = this.getOrderedMessageGroups();
 
     for (const group of groups) {
       for (const img of group.images) {
