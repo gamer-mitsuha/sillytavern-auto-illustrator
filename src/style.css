@@ -757,9 +757,11 @@
 }
 
 .ai-img-modal-image {
-  /* Ensure the full image fits inside the container without clipping */
-  width: 100%;
-  height: 100%;
+  /* Use max constraints instead of fixed 100% to allow dynamic resizing */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   image-orientation: from-image;
   border-radius: 12px;
@@ -771,6 +773,13 @@
   transition: none; /* Will be controlled by JS for smooth animations */
   user-select: none;
   -webkit-user-drag: none;
+}
+
+/* Swap dimensions when rotated 90° or 270° */
+.ai-img-modal-image.rotated-90-270 {
+  /* Effective dimensions are swapped, so constraints need to swap too */
+  max-width: 100vh;
+  max-height: 100vw;
 }
 
 /* Add smooth transition class for zoom animations */

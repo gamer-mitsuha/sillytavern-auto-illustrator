@@ -73,11 +73,13 @@ export class ImageModalViewer {
   private zoomIndicator?: HTMLElement;
   private tapIndicator?: HTMLElement;
   private fullscreenBtn?: HTMLButtonElement;
-  private rotationBtn?: HTMLButtonElement;
+  private rotateBtn?: HTMLButtonElement;
 
   // Fullscreen state
   private isFullscreen = false;
-  private isRotationLocked = false;
+
+  // Image rotation state (in degrees, clockwise) - static to persist across modal instances
+  private static rotationDegrees = 0;
 
   // Zoom state
   private zoomState: ZoomState = {
@@ -361,6 +363,9 @@ export class ImageModalViewer {
             if (this.zoomState.scale > this.MIN_ZOOM) {
               this.resetZoom();
             }
+            break;
+          case 't':
+            this.rotateImage();
             break;
           case '+':
           case '=':
@@ -662,9 +667,12 @@ export class ImageModalViewer {
     const currentImage = this.images[this.currentIndex];
 
     if (changeImage) {
+      // Wait for image to load before resetting zoom to ensure correct dimensions
+      this.img.onload = () => {
+        this.resetZoom(); // Reset zoom after image loads with preserved rotation
+      };
       this.img.src = currentImage.imageUrl;
       this.img.alt = currentImage.promptPreview;
-      this.resetZoom();
       this.promptDiv.textContent = currentImage.promptText;
     }
 
@@ -685,8 +693,8 @@ export class ImageModalViewer {
         <button class="ai-img-modal-action-btn fullscreen-btn" title="${t('modal.fullscreen')} (F)">
           <i class="fa fa-expand"></i> <span class="fullscreen-text">${t('modal.fullscreen')}</span>
         </button>
-        <button class="ai-img-modal-action-btn rotation-btn" title="${t('modal.lockRotation')}" style="display: none;">
-          <i class="fa fa-mobile-screen-button"></i> <span class="rotation-text">${t('modal.lockRotation')}</span>
+        <button class="ai-img-modal-action-btn rotate-btn" title="${t('modal.rotateImage')} (T)">
+          <i class="fa fa-rotate-right"></i> ${t('modal.rotateImage')}
         </button>
         <button class="ai-img-modal-action-btn copy-prompt-btn" title="${t('modal.copyPrompt')} (C)">
           <i class="fa fa-copy"></i> ${t('modal.copyPrompt')}
@@ -744,8 +752,8 @@ export class ImageModalViewer {
     this.fullscreenBtn = this.meta.querySelector(
       '.fullscreen-btn'
     ) as HTMLButtonElement;
-    this.rotationBtn = this.meta.querySelector(
-      '.rotation-btn'
+    this.rotateBtn = this.meta.querySelector(
+      '.rotate-btn'
     ) as HTMLButtonElement;
     const copyPromptBtn = this.meta.querySelector('.copy-prompt-btn');
     const downloadBtn = this.meta.querySelector('.download-btn');
@@ -793,9 +801,9 @@ export class ImageModalViewer {
       this.toggleFullscreen();
     });
 
-    // Rotation button
-    this.rotationBtn?.addEventListener('click', () => {
-      this.toggleRotation();
+    // Rotate button
+    this.rotateBtn?.addEventListener('click', () => {
+      this.rotateImage();
     });
   }
 
@@ -949,98 +957,50 @@ export class ImageModalViewer {
       icon?.classList.add('fa-compress');
       if (text) text.textContent = t('modal.exitFullscreen');
       this.fullscreenBtn.title = `${t('modal.exitFullscreen')} (F)`;
-
-      // Show rotation button on mobile when in fullscreen
-      if (this.isMobile() && this.rotationBtn) {
-        this.rotationBtn.style.display = '';
-      }
     } else {
       icon?.classList.remove('fa-compress');
       icon?.classList.add('fa-expand');
       if (text) text.textContent = t('modal.fullscreen');
       this.fullscreenBtn.title = `${t('modal.fullscreen')} (F)`;
-
-      // Hide rotation button when exiting fullscreen
-      if (this.rotationBtn) {
-        this.rotationBtn.style.display = 'none';
-      }
     }
   }
 
   /**
-   * Toggle screen rotation lock (mobile only)
+   * Rotate the image 90 degrees clockwise
    */
-  private async toggleRotation(): Promise<void> {
-    if (this.isRotationLocked) {
-      await this.unlockOrientation();
+  private rotateImage(): void {
+    ImageModalViewer.rotationDegrees =
+      (ImageModalViewer.rotationDegrees + 90) % 360;
+    this.updateImageTransform();
+    logger.debug(
+      `Rotated image to ${ImageModalViewer.rotationDegrees} degrees`
+    );
+  }
+
+  /**
+   * Apply rotation and zoom transform to the image
+   * Adds CSS class to swap dimensions when rotated 90° or 270°
+   */
+  private applyImageTransform(): void {
+    if (!this.img) return;
+
+    // Toggle CSS class for 90°/270° rotation to swap dimensions
+    const isRotated90or270 =
+      ImageModalViewer.rotationDegrees === 90 ||
+      ImageModalViewer.rotationDegrees === 270;
+    if (isRotated90or270) {
+      this.img.classList.add('rotated-90-270');
     } else {
-      await this.lockOrientation();
-    }
-  }
-
-  /**
-   * Lock screen orientation to landscape (mobile only)
-   */
-  private async lockOrientation(): Promise<void> {
-    // Check if Screen Orientation API is available
-    const orientation = screen.orientation as any;
-    if (!orientation || typeof orientation.lock !== 'function') {
-      this.showToast(t('modal.rotationNotSupported'), 'error');
-      return;
+      this.img.classList.remove('rotated-90-270');
     }
 
-    try {
-      await orientation.lock('landscape');
-      this.isRotationLocked = true;
-      this.updateRotationButton();
-      this.showToast(t('modal.rotationLocked'), 'success');
-      logger.debug('Locked screen orientation to landscape');
-    } catch (err) {
-      logger.warn('Failed to lock orientation', err);
-      this.showToast(t('modal.rotationNotSupported'), 'error');
-    }
-  }
-
-  /**
-   * Unlock screen orientation
-   */
-  private async unlockOrientation(): Promise<void> {
-    const orientation = screen.orientation as any;
-    if (!orientation || typeof orientation.unlock !== 'function') {
-      return;
-    }
-
-    try {
-      orientation.unlock();
-      this.isRotationLocked = false;
-      this.updateRotationButton();
-      this.showToast(t('modal.rotationUnlocked'), 'success');
-      logger.debug('Unlocked screen orientation');
-    } catch (err) {
-      logger.warn('Failed to unlock orientation', err);
-    }
-  }
-
-  /**
-   * Update rotation button state
-   */
-  private updateRotationButton(): void {
-    if (!this.rotationBtn) return;
-
-    const icon = this.rotationBtn.querySelector('i');
-    const text = this.rotationBtn.querySelector('.rotation-text');
-
-    if (this.isRotationLocked) {
-      icon?.classList.remove('fa-mobile-screen-button');
-      icon?.classList.add('fa-rotate');
-      if (text) text.textContent = t('modal.unlockRotation');
-      this.rotationBtn.title = t('modal.unlockRotation');
-    } else {
-      icon?.classList.remove('fa-rotate');
-      icon?.classList.add('fa-mobile-screen-button');
-      if (text) text.textContent = t('modal.lockRotation');
-      this.rotationBtn.title = t('modal.lockRotation');
-    }
+    // Apply rotation, zoom, and pan transforms
+    const {scale, translateX, translateY} = this.zoomState;
+    this.img.style.transform = `
+      translate(${translateX}px, ${translateY}px)
+      scale(${scale})
+      rotate(${ImageModalViewer.rotationDegrees}deg)
+    `;
   }
 
   /**
@@ -1074,11 +1034,12 @@ export class ImageModalViewer {
   private updateImageTransform(): void {
     if (!this.img) return;
 
-    const {scale, translateX, translateY} = this.zoomState;
-    this.img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    // Apply rotation and zoom transform
+    this.applyImageTransform();
     this.img.style.transformOrigin = 'center center';
 
     // Update cursor based on zoom state
+    const {scale} = this.zoomState;
     if (scale > this.MIN_ZOOM) {
       this.img.style.cursor = this.zoomState.isDragging ? 'grabbing' : 'grab';
       this.img.classList.add('zoomed');
@@ -1262,11 +1223,6 @@ export class ImageModalViewer {
     // Exit fullscreen if currently in fullscreen mode
     if (this.isFullscreen) {
       this.exitFullscreen();
-    }
-
-    // Unlock orientation if locked
-    if (this.isRotationLocked) {
-      this.unlockOrientation();
     }
 
     // Clean up event handlers (must match capture flag used in addEventListener)
