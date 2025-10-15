@@ -928,6 +928,33 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Fullscreen mode styles */
+.ai-img-modal-backdrop:-webkit-full-screen,
+.ai-img-modal-backdrop:-moz-full-screen,
+.ai-img-modal-backdrop:-ms-fullscreen,
+.ai-img-modal-backdrop:fullscreen {
+  padding: 0;
+  background: rgba(0, 0, 0, 1);
+}
+
+.ai-img-modal-container:-webkit-full-screen,
+.ai-img-modal-container:-moz-full-screen,
+.ai-img-modal-container:-ms-fullscreen,
+.ai-img-modal-container:fullscreen {
+  max-width: 100vw;
+  max-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Hide ALL UI elements in fullscreen for truly immersive image-only viewing */
+/* Use a class-based approach instead of :fullscreen pseudo-class for better compatibility */
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-info,
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-nav,
+.ai-img-modal-container.ai-img-fullscreen-active .ai-img-modal-close {
+  display: none !important;
+}
+
 /* Desktop-specific styles - hide mobile UI elements */
 @media (min-width: 769px) {
   .ai-img-modal-swipe-hint {

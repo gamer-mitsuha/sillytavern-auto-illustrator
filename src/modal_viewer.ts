@@ -72,6 +72,12 @@ export class ImageModalViewer {
   private info?: HTMLElement;
   private zoomIndicator?: HTMLElement;
   private tapIndicator?: HTMLElement;
+  private fullscreenBtn?: HTMLButtonElement;
+  private rotationBtn?: HTMLButtonElement;
+
+  // Fullscreen state
+  private isFullscreen = false;
+  private isRotationLocked = false;
 
   // Zoom state
   private zoomState: ZoomState = {
@@ -247,6 +253,49 @@ export class ImageModalViewer {
     this.prevBtn?.addEventListener('click', () => this.navigate(-1));
     this.nextBtn?.addEventListener('click', () => this.navigate(1));
 
+    // Fullscreen change event listener (handle ESC key exit)
+    this.boundHandlers.fullscreenchange = (() => {
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+
+      if (this.isFullscreen !== isCurrentlyFullscreen) {
+        this.isFullscreen = isCurrentlyFullscreen;
+        if (this.container) {
+          if (this.isFullscreen) {
+            this.container.classList.add('ai-img-fullscreen-active');
+          } else {
+            this.container.classList.remove('ai-img-fullscreen-active');
+          }
+        }
+        this.updateFullscreenButton();
+        logger.debug(
+          `Fullscreen state changed: ${this.isFullscreen ? 'entered' : 'exited'}`
+        );
+      }
+    }) as EventListener;
+
+    // Listen for all vendor-prefixed fullscreen change events
+    document.addEventListener(
+      'fullscreenchange',
+      this.boundHandlers.fullscreenchange
+    );
+    document.addEventListener(
+      'webkitfullscreenchange',
+      this.boundHandlers.fullscreenchange
+    );
+    document.addEventListener(
+      'mozfullscreenchange',
+      this.boundHandlers.fullscreenchange
+    );
+    document.addEventListener(
+      'MSFullscreenChange',
+      this.boundHandlers.fullscreenchange
+    );
+
     // Keyboard navigation and shortcuts
     this.boundHandlers.keydown = ((e: KeyboardEvent) => {
       // Allow keyboard input in text fields (textarea, input, contenteditable)
@@ -305,6 +354,9 @@ export class ImageModalViewer {
             window.open(openImage.imageUrl, '_blank', 'noopener,noreferrer');
             break;
           }
+          case 'f':
+            this.toggleFullscreen();
+            break;
           case 'r':
             if (this.zoomState.scale > this.MIN_ZOOM) {
               this.resetZoom();
@@ -620,6 +672,12 @@ export class ImageModalViewer {
         <button class="ai-img-modal-action-btn reset-zoom-btn" title="${t('modal.resetZoom')}" style="display: none;">
           <i class="fa fa-undo"></i> ${t('modal.resetZoom')}
         </button>
+        <button class="ai-img-modal-action-btn fullscreen-btn" title="${t('modal.fullscreen')} (F)">
+          <i class="fa fa-expand"></i> <span class="fullscreen-text">${t('modal.fullscreen')}</span>
+        </button>
+        <button class="ai-img-modal-action-btn rotation-btn" title="${t('modal.lockRotation')}" style="display: none;">
+          <i class="fa fa-mobile-screen-button"></i> <span class="rotation-text">${t('modal.lockRotation')}</span>
+        </button>
         <button class="ai-img-modal-action-btn copy-prompt-btn" title="${t('modal.copyPrompt')} (C)">
           <i class="fa fa-copy"></i> ${t('modal.copyPrompt')}
         </button>
@@ -673,6 +731,12 @@ export class ImageModalViewer {
     const resetZoomBtn = this.meta.querySelector(
       '.reset-zoom-btn'
     ) as HTMLButtonElement;
+    this.fullscreenBtn = this.meta.querySelector(
+      '.fullscreen-btn'
+    ) as HTMLButtonElement;
+    this.rotationBtn = this.meta.querySelector(
+      '.rotation-btn'
+    ) as HTMLButtonElement;
     const copyPromptBtn = this.meta.querySelector('.copy-prompt-btn');
     const downloadBtn = this.meta.querySelector('.download-btn');
     const openTabBtn = this.meta.querySelector('.open-tab-btn');
@@ -712,6 +776,16 @@ export class ImageModalViewer {
       } catch (e) {
         logger.warn('Failed to open image in new tab', e);
       }
+    });
+
+    // Fullscreen button
+    this.fullscreenBtn?.addEventListener('click', () => {
+      this.toggleFullscreen();
+    });
+
+    // Rotation button
+    this.rotationBtn?.addEventListener('click', () => {
+      this.toggleRotation();
     });
   }
 
@@ -786,6 +860,184 @@ export class ImageModalViewer {
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     );
+  }
+
+  /**
+   * Toggle fullscreen mode
+   */
+  private async toggleFullscreen(): Promise<void> {
+    if (this.isFullscreen) {
+      await this.exitFullscreen();
+    } else {
+      await this.enterFullscreen();
+    }
+  }
+
+  /**
+   * Enter fullscreen mode
+   */
+  private async enterFullscreen(): Promise<void> {
+    if (!this.container) return;
+
+    try {
+      // Try standard Fullscreen API with vendor prefixes
+      if (this.container.requestFullscreen) {
+        await this.container.requestFullscreen();
+      } else if ((this.container as any).webkitRequestFullscreen) {
+        await (this.container as any).webkitRequestFullscreen();
+      } else if ((this.container as any).mozRequestFullScreen) {
+        await (this.container as any).mozRequestFullScreen();
+      } else if ((this.container as any).msRequestFullscreen) {
+        await (this.container as any).msRequestFullscreen();
+      }
+      this.isFullscreen = true;
+      this.container.classList.add('ai-img-fullscreen-active');
+      this.updateFullscreenButton();
+      logger.debug('Entered fullscreen mode');
+    } catch (err) {
+      logger.warn('Failed to enter fullscreen', err);
+    }
+  }
+
+  /**
+   * Exit fullscreen mode
+   */
+  private async exitFullscreen(): Promise<void> {
+    try {
+      // Try standard Fullscreen API with vendor prefixes
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        await (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        await (document as any).mozCancelFullScreen();
+      } else if ((document as any).msExitFullscreen) {
+        await (document as any).msExitFullscreen();
+      }
+      this.isFullscreen = false;
+      if (this.container) {
+        this.container.classList.remove('ai-img-fullscreen-active');
+      }
+      this.updateFullscreenButton();
+      logger.debug('Exited fullscreen mode');
+    } catch (err) {
+      logger.warn('Failed to exit fullscreen', err);
+    }
+  }
+
+  /**
+   * Update fullscreen button state
+   */
+  private updateFullscreenButton(): void {
+    if (!this.fullscreenBtn) return;
+
+    const icon = this.fullscreenBtn.querySelector('i');
+    const text = this.fullscreenBtn.querySelector('.fullscreen-text');
+
+    if (this.isFullscreen) {
+      icon?.classList.remove('fa-expand');
+      icon?.classList.add('fa-compress');
+      if (text) text.textContent = t('modal.exitFullscreen');
+      this.fullscreenBtn.title = `${t('modal.exitFullscreen')} (F)`;
+
+      // Show rotation button on mobile when in fullscreen
+      if (this.isMobile() && this.rotationBtn) {
+        this.rotationBtn.style.display = '';
+      }
+    } else {
+      icon?.classList.remove('fa-compress');
+      icon?.classList.add('fa-expand');
+      if (text) text.textContent = t('modal.fullscreen');
+      this.fullscreenBtn.title = `${t('modal.fullscreen')} (F)`;
+
+      // Hide rotation button when exiting fullscreen
+      if (this.rotationBtn) {
+        this.rotationBtn.style.display = 'none';
+      }
+    }
+  }
+
+  /**
+   * Toggle screen rotation lock (mobile only)
+   */
+  private async toggleRotation(): Promise<void> {
+    if (this.isRotationLocked) {
+      await this.unlockOrientation();
+    } else {
+      await this.lockOrientation();
+    }
+  }
+
+  /**
+   * Lock screen orientation to landscape (mobile only)
+   */
+  private async lockOrientation(): Promise<void> {
+    // Check if Screen Orientation API is available
+    const orientation = screen.orientation as any;
+    if (!orientation || typeof orientation.lock !== 'function') {
+      this.showToast(t('modal.rotationNotSupported'), 'error');
+      return;
+    }
+
+    try {
+      await orientation.lock('landscape');
+      this.isRotationLocked = true;
+      this.updateRotationButton();
+      this.showToast(t('modal.rotationLocked'), 'success');
+      logger.debug('Locked screen orientation to landscape');
+    } catch (err) {
+      logger.warn('Failed to lock orientation', err);
+      this.showToast(t('modal.rotationNotSupported'), 'error');
+    }
+  }
+
+  /**
+   * Unlock screen orientation
+   */
+  private async unlockOrientation(): Promise<void> {
+    const orientation = screen.orientation as any;
+    if (!orientation || typeof orientation.unlock !== 'function') {
+      return;
+    }
+
+    try {
+      orientation.unlock();
+      this.isRotationLocked = false;
+      this.updateRotationButton();
+      this.showToast(t('modal.rotationUnlocked'), 'success');
+      logger.debug('Unlocked screen orientation');
+    } catch (err) {
+      logger.warn('Failed to unlock orientation', err);
+    }
+  }
+
+  /**
+   * Update rotation button state
+   */
+  private updateRotationButton(): void {
+    if (!this.rotationBtn) return;
+
+    const icon = this.rotationBtn.querySelector('i');
+    const text = this.rotationBtn.querySelector('.rotation-text');
+
+    if (this.isRotationLocked) {
+      icon?.classList.remove('fa-mobile-screen-button');
+      icon?.classList.add('fa-rotate');
+      if (text) text.textContent = t('modal.unlockRotation');
+      this.rotationBtn.title = t('modal.unlockRotation');
+    } else {
+      icon?.classList.remove('fa-rotate');
+      icon?.classList.add('fa-mobile-screen-button');
+      if (text) text.textContent = t('modal.lockRotation');
+      this.rotationBtn.title = t('modal.lockRotation');
+    }
+  }
+
+  /**
+   * Check if device is mobile
+   */
+  private isMobile(): boolean {
+    return window.innerWidth <= 768;
   }
 
   /**
@@ -997,6 +1249,16 @@ export class ImageModalViewer {
    * Close the modal viewer
    */
   public close(): void {
+    // Exit fullscreen if currently in fullscreen mode
+    if (this.isFullscreen) {
+      this.exitFullscreen();
+    }
+
+    // Unlock orientation if locked
+    if (this.isRotationLocked) {
+      this.unlockOrientation();
+    }
+
     // Clean up event handlers (must match capture flag used in addEventListener)
     if (this.boundHandlers.keydown) {
       document.removeEventListener('keydown', this.boundHandlers.keydown, true);
@@ -1006,6 +1268,24 @@ export class ImageModalViewer {
     }
     if (this.boundHandlers.mouseup) {
       document.removeEventListener('mouseup', this.boundHandlers.mouseup);
+    }
+    if (this.boundHandlers.fullscreenchange) {
+      document.removeEventListener(
+        'fullscreenchange',
+        this.boundHandlers.fullscreenchange
+      );
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        this.boundHandlers.fullscreenchange
+      );
+      document.removeEventListener(
+        'mozfullscreenchange',
+        this.boundHandlers.fullscreenchange
+      );
+      document.removeEventListener(
+        'MSFullscreenChange',
+        this.boundHandlers.fullscreenchange
+      );
     }
 
     // Clear timeout
