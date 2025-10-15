@@ -258,6 +258,20 @@ class ProgressWidgetView {
   }
 
   /**
+   * Immediately updates the display, bypassing throttle
+   * Used for user-triggered actions that need immediate feedback
+   */
+  private updateImmediately(): void {
+    // Cancel any pending throttled update
+    if (this.updateTimer !== null) {
+      window.clearTimeout(this.updateTimer);
+      this.updateTimer = null;
+    }
+    // Execute update right away
+    this.updateDisplay();
+  }
+
+  /**
    * Actually updates the DOM (called by throttled scheduler)
    */
   private updateDisplay(): void {
@@ -509,53 +523,94 @@ class ProgressWidgetView {
       }
     });
 
-    // Clear container for rebuild - we'll re-add in correct order
-    container.innerHTML = '';
+    const visibleMessageIds = new Set(
+      visibleMessages.map(([messageId]) => messageId)
+    );
 
-    // Process each visible message
+    // Remove messages that no longer exist
+    for (const [messageId, element] of existingMessages.entries()) {
+      if (!visibleMessageIds.has(messageId)) {
+        element.remove();
+        existingMessages.delete(messageId);
+      }
+    }
+
+    // Update or create each message in order
+    let previousElement: HTMLElement | null = null;
     for (const [messageId, progress] of visibleMessages) {
-      let messageElement = existingMessages.get(messageId);
-
-      const isMessageComplete = progress.current === progress.total;
-      const isExpanded = this.expandedMessages.has(messageId);
-      const hasImages = progress.completedImages.length > 0;
-      const manuallyCollapsed = this.manuallyCollapsedMessages.has(messageId);
-
-      // Auto-expand logic
-      if (!isMessageComplete && !isExpanded) {
-        this.expandedMessages.add(messageId);
-      } else if (
-        isMessageComplete &&
-        hasImages &&
-        !isExpanded &&
-        !manuallyCollapsed
+      // Default to expanded for new messages, then let user control manually
+      if (
+        !this.expandedMessages.has(messageId) &&
+        !this.manuallyCollapsedMessages.has(messageId)
       ) {
+        // First time seeing this message - expand by default
         this.expandedMessages.add(messageId);
       }
 
-      // Check if we need to recreate the element (expansion state changed)
-      const currentlyExpanded = messageElement?.classList.contains('expanded');
       const shouldBeExpanded = this.expandedMessages.has(messageId);
+      let messageElement = existingMessages.get(messageId);
 
-      if (!messageElement || currentlyExpanded !== shouldBeExpanded) {
-        // Need to recreate element
+      if (!messageElement) {
+        // Element doesn't exist - create it
         if (shouldBeExpanded) {
           messageElement = this.renderExpandedMessage(messageId, progress);
         } else {
           messageElement = this.renderCompactMessage(messageId, progress);
         }
-      } else {
-        // Update existing element
-        if (shouldBeExpanded) {
-          this.updateExpandedMessage(messageElement, messageId, progress);
+
+        // Add data attribute for tracking
+        messageElement.setAttribute('data-message-id', String(messageId));
+
+        // Insert in correct position
+        if (previousElement) {
+          previousElement.after(messageElement);
         } else {
-          this.updateCompactMessage(messageElement, messageId, progress);
+          container.prepend(messageElement);
+        }
+      } else {
+        // Element exists - check if expansion state changed
+        const currentlyExpanded = messageElement.classList.contains('expanded');
+
+        if (currentlyExpanded !== shouldBeExpanded) {
+          // Expansion state changed - need to recreate
+          messageElement.remove();
+
+          if (shouldBeExpanded) {
+            messageElement = this.renderExpandedMessage(messageId, progress);
+          } else {
+            messageElement = this.renderCompactMessage(messageId, progress);
+          }
+
+          messageElement.setAttribute('data-message-id', String(messageId));
+
+          // Insert in correct position
+          if (previousElement) {
+            previousElement.after(messageElement);
+          } else {
+            container.prepend(messageElement);
+          }
+        } else {
+          // Same state - just update content
+          if (shouldBeExpanded) {
+            this.updateExpandedMessage(messageElement, messageId, progress);
+          } else {
+            this.updateCompactMessage(messageElement, messageId, progress);
+          }
+
+          // Ensure element is in correct position
+          if (previousElement) {
+            if (previousElement.nextElementSibling !== messageElement) {
+              previousElement.after(messageElement);
+            }
+          } else {
+            if (container.firstElementChild !== messageElement) {
+              container.prepend(messageElement);
+            }
+          }
         }
       }
 
-      // Add data attribute for tracking
-      messageElement.setAttribute('data-message-id', String(messageId));
-      container.appendChild(messageElement);
+      previousElement = messageElement;
     }
   }
 
@@ -811,7 +866,7 @@ class ProgressWidgetView {
     fab.addEventListener('click', () => {
       this.isWidgetCollapsed = false;
       this.saveStateToStorage();
-      this.scheduleUpdate();
+      this.updateImmediately();
     });
 
     // Add status icon (spinner or checkmark)
@@ -883,7 +938,7 @@ class ProgressWidgetView {
     collapseBtn.addEventListener('click', () => {
       this.isWidgetCollapsed = true;
       this.saveStateToStorage();
-      this.scheduleUpdate();
+      this.updateImmediately();
     });
     header.appendChild(collapseBtn);
 
@@ -897,7 +952,7 @@ class ProgressWidgetView {
       for (const [messageId] of visibleMessages) {
         this.closedMessages.add(messageId);
       }
-      this.scheduleUpdate();
+      this.updateImmediately();
     });
     header.appendChild(closeBtn);
 
@@ -933,9 +988,11 @@ class ProgressWidgetView {
       // Render message (collapsed or expanded)
       if (this.expandedMessages.has(messageId)) {
         const messageElement = this.renderExpandedMessage(messageId, progress);
+        messageElement.setAttribute('data-message-id', String(messageId));
         container.appendChild(messageElement);
       } else {
         const messageElement = this.renderCompactMessage(messageId, progress);
+        messageElement.setAttribute('data-message-id', String(messageId));
         container.appendChild(messageElement);
       }
     }
@@ -992,7 +1049,7 @@ class ProgressWidgetView {
       this.expandedMessages.add(messageId);
       this.manuallyCollapsedMessages.delete(messageId); // Clear manual collapse flag
       this.saveStateToStorage();
-      this.scheduleUpdate();
+      this.updateImmediately();
     });
     messageHeader.appendChild(expandToggle);
 
@@ -1004,7 +1061,7 @@ class ProgressWidgetView {
         this.expandedMessages.add(messageId);
         this.manuallyCollapsedMessages.delete(messageId); // Clear manual collapse flag
         this.saveStateToStorage();
-        this.scheduleUpdate();
+        this.updateImmediately();
       }
     });
 
@@ -1042,7 +1099,7 @@ class ProgressWidgetView {
         this.expandedMessages.delete(messageId);
         this.manuallyCollapsedMessages.add(messageId); // Mark as manually collapsed
         this.saveStateToStorage();
-        this.scheduleUpdate();
+        this.updateImmediately();
       });
       messageHeader.appendChild(collapseToggle);
     }
@@ -1055,7 +1112,7 @@ class ProgressWidgetView {
       closeBtn.title = t('progress.closeWidget');
       closeBtn.addEventListener('click', () => {
         this.closedMessages.add(messageId);
-        this.scheduleUpdate();
+        this.updateImmediately();
       });
       messageHeader.appendChild(closeBtn);
     }
