@@ -72,6 +72,7 @@
   "dialog.updateWithAI": "Update with AI",
   "dialog.promptUpdatedRegenerate": "Prompt updated successfully! Would you like to regenerate the image with the new prompt?",
   "dialog.promptUpdatedRegenerateWithMode": "Prompt updated successfully! How would you like to regenerate the image?",
+  "dialog.newPrompt": "New Prompt:",
   "dialog.yes": "Yes",
   "dialog.no": "No",
   "toast.messageNotFound": "Message not found",

@@ -1408,6 +1408,21 @@
   margin-bottom: 0.5rem;
 }
 
+.auto-illustrator-current-prompt {
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--SmartThemeBorderColor, #666);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+  margin-bottom: 1rem;
+  max-height: 150px;
+  overflow-y: auto;
+  word-wrap: break-word;
+}
+
 .auto-illustrator-mode-group {
   margin: 1rem 0;
   display: flex;

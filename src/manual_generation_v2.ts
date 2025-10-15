@@ -16,12 +16,19 @@ import {createLogger} from './logger';
 import {sessionManager} from './session_manager';
 import {
   getPromptForImage,
+  getPromptNode,
   registerPrompt,
   linkImageToPrompt,
 } from './prompt_manager';
 import {getMetadata, saveMetadata} from './metadata';
 import type {ImageInsertionMode} from './types';
 import {t} from './i18n';
+import {
+  generateUpdatedPrompt,
+  applyPromptUpdate,
+  type PromptNode,
+} from './prompt_updater_v2';
+import {scheduleDomOperation} from './dom_queue';
 
 const logger = createLogger('ManualGen');
 
@@ -29,12 +36,16 @@ const logger = createLogger('ManualGen');
  * Shows regeneration dialog and returns user's choice
  * @param imageUrl - URL of the image to regenerate
  * @param settings - Extension settings for default mode
- * @returns User's choice: 'replace-image', 'append-after-image', or null if cancelled/delete
+ * @param context - SillyTavern context (for update prompt functionality)
+ * @param messageId - Message ID (for update prompt functionality)
+ * @returns User's choice: 'replace-image', 'append-after-image', 'update-prompt', or null if cancelled/delete
  */
 async function showRegenerationDialog(
   imageUrl: string,
-  settings: AutoIllustratorSettings
-): Promise<ImageInsertionMode | null> {
+  settings: AutoIllustratorSettings,
+  context?: SillyTavernContext,
+  messageId?: number
+): Promise<ImageInsertionMode | 'update-prompt' | null> {
   // Check if dialog already exists and close it (mobile behavior)
   const existingDialog = $('#auto_illustrator_regen_dialog');
   if (existingDialog.length > 0) {
@@ -46,7 +57,7 @@ async function showRegenerationDialog(
 
   const dialogMessage = t('dialog.whatToDo');
 
-  return new Promise<ImageInsertionMode | null>(resolve => {
+  return new Promise<ImageInsertionMode | 'update-prompt' | null>(resolve => {
     // Create backdrop
     const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
 
@@ -111,6 +122,15 @@ async function showRegenerationDialog(
         resolve(selectedMode);
       });
 
+    const updateBtn = $('<button>')
+      .text(t('dialog.updatePrompt'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve('update-prompt');
+      });
+
     const deleteBtn = $('<button>')
       .text(t('dialog.delete'))
       .addClass('menu_button caution')
@@ -131,7 +151,11 @@ async function showRegenerationDialog(
         resolve(null);
       });
 
-    buttons.append(generateBtn).append(deleteBtn).append(cancelBtn);
+    buttons
+      .append(generateBtn)
+      .append(updateBtn)
+      .append(deleteBtn)
+      .append(cancelBtn);
     dialog.append(buttons);
 
     backdrop.on('click', () => {
@@ -141,6 +165,217 @@ async function showRegenerationDialog(
     });
 
     $('body').append(backdrop).append(dialog);
+  });
+}
+
+/**
+ * Shows prompt update dialog for an image
+ * @param imageUrl - URL of the image whose prompt to update
+ * @param messageId - Message ID containing the image
+ * @param context - SillyTavern context
+ * @param settings - Extension settings
+ * @returns Object with parent and child nodes if succeeded, null otherwise
+ */
+async function showPromptUpdateDialog(
+  imageUrl: string,
+  messageId: number,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<{parent: PromptNode; child: PromptNode} | null> {
+  // Normalize URL
+  const normalizedUrl = normalizeImageUrl(imageUrl);
+
+  // Get metadata and find prompt
+  const metadata = getMetadata(context);
+  const promptNode = getPromptForImage(normalizedUrl, metadata);
+
+  if (!promptNode) {
+    logger.error('No prompt found for image');
+    toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
+    return null;
+  }
+
+  const currentPrompt = promptNode.text;
+
+  // Show dialog to get user feedback
+  const userFeedback = await new Promise<string | null>(resolve => {
+    // Check if dialog already exists and close it
+    const existingDialog = $('#auto_illustrator_prompt_update_dialog');
+    if (existingDialog.length > 0) {
+      $('.auto-illustrator-dialog-backdrop').remove();
+      existingDialog.remove();
+    }
+
+    // Create backdrop
+    const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+
+    const dialog = $('<div>')
+      .attr('id', 'auto_illustrator_prompt_update_dialog')
+      .addClass('auto-illustrator-dialog');
+
+    dialog.append($('<h3>').text(t('dialog.updatePromptTitle')));
+
+    // Show current prompt (read-only)
+    dialog.append($('<label>').text(t('dialog.currentPrompt')));
+    const currentPromptDisplay = $('<div>')
+      .addClass('auto-illustrator-current-prompt')
+      .text(currentPrompt);
+    dialog.append(currentPromptDisplay);
+
+    // User feedback textarea
+    dialog.append($('<label>').text(t('dialog.userFeedback')));
+    const feedbackTextarea = $('<textarea>')
+      .addClass('auto-illustrator-feedback-textarea')
+      .attr('placeholder', t('dialog.feedbackPlaceholder'))
+      .attr('rows', '4');
+    dialog.append(feedbackTextarea);
+
+    const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+
+    const updateButton = $('<button>')
+      .text(t('dialog.updateWithAI'))
+      .addClass('menu_button')
+      .on('click', () => {
+        const feedback = feedbackTextarea.val() as string;
+        if (!feedback || feedback.trim() === '') {
+          toastr.warning(t('toast.feedbackRequired'), t('extensionName'));
+          return;
+        }
+        backdrop.remove();
+        dialog.remove();
+        resolve(feedback.trim());
+      });
+
+    const cancelButton = $('<button>')
+      .text(t('dialog.cancel'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve(null);
+      });
+
+    buttons.append(updateButton).append(cancelButton);
+    dialog.append(buttons);
+
+    // Append backdrop and dialog to body
+    $('body').append(backdrop).append(dialog);
+
+    // Close on backdrop click
+    backdrop.on('click', () => {
+      backdrop.remove();
+      dialog.remove();
+      resolve(null);
+    });
+
+    // Focus on textarea
+    feedbackTextarea.focus();
+  });
+
+  if (!userFeedback) {
+    logger.info('Prompt update cancelled by user');
+    return null;
+  }
+
+  // Generate updated prompt using LLM (don't update message text yet)
+  try {
+    toastr.info(t('toast.updatingPromptWithAI'), t('extensionName'));
+
+    const childNode = await generateUpdatedPrompt(
+      normalizedUrl,
+      userFeedback,
+      context,
+      settings
+    );
+
+    if (!childNode) {
+      logger.error('Failed to generate updated prompt - LLM returned null');
+      toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+      return null;
+    }
+
+    logger.info('Successfully generated updated prompt');
+    return {parent: promptNode, child: childNode};
+  } catch (error) {
+    logger.error('Error generating updated prompt:', error);
+    toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+    return null;
+  }
+}
+
+/**
+ * Shows post-update regeneration dialog with new prompt
+ * @param newPrompt - The updated prompt text
+ * @returns Regeneration mode or null if cancelled
+ */
+async function showPostUpdateRegenerationDialog(
+  newPrompt: string
+): Promise<ImageInsertionMode | null> {
+  return new Promise<ImageInsertionMode | null>(resolve => {
+    // Check if dialog already exists and close it
+    const existingDialog = $('#auto_illustrator_regen_dialog');
+    if (existingDialog.length > 0) {
+      $('.auto-illustrator-dialog-backdrop').remove();
+      existingDialog.remove();
+    }
+
+    // Create backdrop
+    const backdrop = $('<div>').addClass('auto-illustrator-dialog-backdrop');
+
+    const dialog = $('<div>')
+      .attr('id', 'auto_illustrator_regen_dialog')
+      .addClass('auto-illustrator-dialog');
+
+    dialog.append($('<h3>').text(t('dialog.promptUpdatedRegenerateWithMode')));
+
+    // Show new prompt (read-only)
+    dialog.append($('<label>').text(t('dialog.newPrompt')));
+    const newPromptDisplay = $('<div>')
+      .addClass('auto-illustrator-current-prompt')
+      .text(newPrompt);
+    dialog.append(newPromptDisplay);
+
+    const buttons = $('<div>').addClass('auto-illustrator-dialog-buttons');
+
+    const replaceBtn = $('<button>')
+      .text(t('dialog.replaceRegen'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve('replace-image');
+      });
+
+    const appendBtn = $('<button>')
+      .text(t('dialog.appendRegen'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve('append-after-image');
+      });
+
+    const cancelBtn = $('<button>')
+      .text(t('dialog.cancel'))
+      .addClass('menu_button')
+      .on('click', () => {
+        backdrop.remove();
+        dialog.remove();
+        resolve(null);
+      });
+
+    buttons.append(replaceBtn).append(appendBtn).append(cancelBtn);
+    dialog.append(buttons);
+
+    // Append backdrop and dialog to body
+    $('body').append(backdrop).append(dialog);
+
+    // Close on backdrop click
+    backdrop.on('click', () => {
+      backdrop.remove();
+      dialog.remove();
+      resolve(null);
+    });
   });
 }
 
@@ -326,17 +561,114 @@ export async function handleImageRegenerationClick(
   logger.debug(`Normalized URL: ${normalizedUrl}`);
 
   // Show dialog to get user's choice
-  const mode = await showRegenerationDialog(imageUrl, settings);
-  if (!mode) {
+  const choice = await showRegenerationDialog(
+    imageUrl,
+    settings,
+    context,
+    messageId
+  );
+
+  // Handle "Update Prompt" choice
+  if (choice === 'update-prompt') {
+    logger.info('User chose to update prompt');
+    const updateResult = await showPromptUpdateDialog(
+      imageUrl,
+      messageId,
+      context,
+      settings
+    );
+
+    if (updateResult) {
+      const {parent, child} = updateResult;
+
+      // Show post-update dialog with new prompt and get regeneration mode
+      logger.info('Prompt updated successfully, showing post-update dialog');
+      const regenMode = await showPostUpdateRegenerationDialog(child.text);
+
+      if (!regenMode) {
+        // User cancelled - don't update message text or regenerate
+        logger.debug('User cancelled regeneration after prompt update');
+        return;
+      }
+
+      // User confirmed regeneration - apply prompt update to message text
+      logger.info('User confirmed regeneration, applying prompt update to message');
+      const updateSuccess = await scheduleDomOperation(
+        messageId,
+        async () => {
+          const success = await applyPromptUpdate(
+            normalizedUrl,
+            parent.id,
+            child,
+            context,
+            settings
+          );
+
+          if (success) {
+            // Re-attach click handlers after message update
+            attachRegenerationHandlers(messageId, context, settings);
+          }
+
+          return success;
+        },
+        'apply-prompt-update'
+      );
+
+      if (!updateSuccess) {
+        logger.error('Failed to apply prompt update to message');
+        toastr.error(t('toast.failedToUpdatePrompt'), t('extensionName'));
+        return;
+      }
+
+      toastr.success(t('toast.promptUpdated'), t('extensionName'));
+
+      // Continue with regeneration using the new mode and updated prompt ID
+      await performRegeneration(
+        normalizedUrl,
+        regenMode,
+        messageId,
+        context,
+        settings,
+        child.id // Pass the child (updated) prompt ID directly
+      );
+    }
+    return;
+  }
+
+  // If not update-prompt, check if it's a valid regeneration mode
+  if (!choice) {
     logger.debug('User cancelled regeneration or deleted image');
     return;
   }
 
-  logger.info(`Regeneration requested with mode: ${mode}`);
+  logger.info(`Regeneration requested with mode: ${choice}`);
+  await performRegeneration(
+    normalizedUrl,
+    choice,
+    messageId,
+    context,
+    settings
+  );
+}
 
+/**
+ * Performs the actual regeneration after mode is determined
+ * Extracted to reduce code duplication
+ * @param promptId - Optional prompt ID to use (for updated prompts)
+ */
+async function performRegeneration(
+  normalizedUrl: string,
+  mode: ImageInsertionMode,
+  messageId: number,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings,
+  promptId?: string
+): Promise<void> {
   // Get prompt from image using prompt_manager (with normalized URL)
   const metadata = getMetadata(context);
-  let promptNode = getPromptForImage(normalizedUrl, metadata);
+  let promptNode = promptId
+    ? getPromptNode(promptId, metadata)
+    : getPromptForImage(normalizedUrl, metadata);
 
   // Backward compatibility: If prompt not found, try to rebuild from message text
   if (!promptNode) {
@@ -515,7 +847,7 @@ export function attachRegenerationHandlers(
     });
   });
 
-  logger.info(
+  logger.trace(
     `Attached regeneration handlers to ${regeneratableImages.length} images in message ${messageId}`
   );
 }
