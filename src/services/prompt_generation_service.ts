@@ -10,6 +10,42 @@ import type {PromptSuggestion} from '../prompt_insertion';
 const logger = createLogger('PromptGenService');
 
 /**
+ * Builds user prompt with context from previous messages
+ * Format: === CONTEXT === ... === CURRENT MESSAGE === ...
+ *
+ * @param context - SillyTavern context
+ * @param currentMessageText - The message to generate prompts for
+ * @returns Formatted user prompt with context
+ */
+function buildUserPromptWithContext(
+  context: SillyTavernContext,
+  currentMessageText: string
+): string {
+  // Get recent chat history (last 5 messages, excluding current)
+  const chat = context.chat || [];
+  const recentMessages = chat.slice(-6, -1); // Last 5 messages before current
+
+  let contextText = '';
+  if (recentMessages.length > 0) {
+    contextText = recentMessages
+      .map(msg => {
+        const name = msg.name || (msg.is_user ? 'User' : 'Assistant');
+        const text = msg.mes || '';
+        return `${name}: ${text}`;
+      })
+      .join('\n\n');
+  } else {
+    contextText = '(No previous messages)';
+  }
+
+  return `=== CONTEXT ===
+${contextText}
+
+=== CURRENT MESSAGE ===
+${currentMessageText}`;
+}
+
+/**
  * Parses LLM response and extracts prompt suggestions
  * Expects plain text delimiter format:
  * ---PROMPT---
@@ -141,10 +177,12 @@ export async function generatePromptsForMessage(
     promptWritingGuidelines
   );
 
-  // User prompt is just the message text to analyze
-  const userPrompt = messageText;
+  // Build user prompt with context and current message
+  const userPrompt = buildUserPromptWithContext(context, messageText);
 
   logger.debug('Calling LLM for prompt generation (using generateRaw)');
+  logger.debug('User prompt length:', userPrompt.length);
+  logger.trace('User prompt:', userPrompt);
 
   // Call LLM with generateRaw (no chat context)
   let llmResponse: string;

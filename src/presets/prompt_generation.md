@@ -1,16 +1,38 @@
 # Image Prompt Generation Task
 
-Your task is to analyze the user's message and generate image prompts for key visual scenes.
+Your task is to analyze the current message and generate image prompts for key visual scenes.
 
-The user will provide the message text. You should respond with a JSON object containing image prompts.
+You will receive:
+1. **Context** - Previous messages in the conversation (for reference only)
+2. **Current Message** - The message to generate image prompts for
+
+**CRITICAL**: Only generate prompts for scenes in the **Current Message**. Use the context to understand character appearances, settings, and ongoing situations, but INSERT_AFTER/INSERT_BEFORE must reference text that exists in the Current Message only.
+
+## Input Format
+
+The user will provide input in this format:
+
+```
+=== CONTEXT ===
+[Previous messages for reference]
+
+=== CURRENT MESSAGE ===
+[The message to generate prompts for]
+```
 
 ## Instructions
 
-1. **Identify Visual Scenes**: {{FREQUENCY_GUIDELINES}}
+1. **Understand Context**: Read the context to understand:
+   - Character descriptions (appearance, clothing, personality)
+   - Current setting and environment
+   - Ongoing plot and situations
+   - Relationships between characters
 
-2. **Generate Image Prompts**: {{PROMPT_WRITING_GUIDELINES}}
+2. **Identify Visual Scenes in Current Message**: {{FREQUENCY_GUIDELINES}}
 
-3. **Specify Context for Insertion**: For each prompt, provide surrounding text snippets
+3. **Generate Image Prompts**: {{PROMPT_WRITING_GUIDELINES}}
+
+4. **Specify Context for Insertion**: For each prompt, provide surrounding text snippets
    - **CRITICAL**: `insertAfter` and `insertBefore` must be DIRECTLY ADJACENT in the original message
    - When concatenated, they must form a continuous substring: `insertAfter + insertBefore`
    - Insert prompts at natural boundaries (after sentence endings, between paragraphs)
@@ -59,24 +81,37 @@ REASONING: ...
 3. **Always Include REASONING**: Helps understand why each scene was chosen
 4. **Complete All Fields**: Every prompt must have TEXT, INSERT_AFTER, INSERT_BEFORE, and REASONING
 
-## Example Output
+## Example
 
-Given message: `"She stepped into the rose garden. Her dress flowed in the breeze. They reached the mountain lake. The water was perfectly still."`
+**Input:**
+```
+=== CONTEXT ===
+Character: Elena, a young mage with long silver hair and blue eyes.
+She has been traveling through the countryside.
 
+=== CURRENT MESSAGE ===
+She stepped into the rose garden. Her dress flowed in the breeze. They reached the mountain lake. The water was perfectly still.
+```
+
+**Output:**
 ```
 ---PROMPT---
-TEXT: 1girl, long silver hair, white dress, standing in garden, surrounded by roses, afternoon sunlight, soft focus, highly detailed, best quality, masterpiece
+TEXT: 1girl, long silver hair, blue eyes, white dress, standing in rose garden, surrounded by blooming roses, afternoon sunlight, gentle breeze, soft focus, highly detailed, best quality, masterpiece
 INSERT_AFTER: into the rose garden.
 INSERT_BEFORE: Her dress flowed in
-REASONING: Character in garden setting - insert after first sentence between sentences
+REASONING: Character Elena in garden setting - using context for her appearance (silver hair, blue eyes)
 ---PROMPT---
 TEXT: no humans, mountain lake, crystal clear water, snow-capped peaks, sunset, orange sky, reflections on water, scenic vista, highly detailed, 8k, masterpiece
 INSERT_AFTER: the mountain lake.
 INSERT_BEFORE: The water was perfectly
-REASONING: Landscape scene - insert between sentences after arrival description
+REASONING: Landscape scene from current message - natural resting point in the journey
 ---END---
 ```
 
-Note: In both examples, `INSERT_AFTER + INSERT_BEFORE` forms a continuous substring in the original message. This format handles any text naturally - newlines, quotes, special characters all work without escaping.
+Note:
+- Context provided Elena's appearance, which was used in the first prompt
+- INSERT_AFTER and INSERT_BEFORE reference text from the CURRENT MESSAGE only
+- Both form continuous substrings in the current message
+- This format handles any text naturally - newlines, quotes, special characters all work without escaping
 
-Now analyze the message and generate appropriate image prompts with context-based insertion points.
+Now analyze the provided context and current message, then generate appropriate image prompts with context-based insertion points.
