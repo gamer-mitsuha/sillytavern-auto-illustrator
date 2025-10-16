@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Meta Prompt Depth Setting** - New setting to control where the meta prompt is inserted in chat history for shared API mode (depth=0: last position, depth=1: one before last, etc.)
 - **Separate LLM Call for Prompt Generation** (#32)
   - New opt-in "LLM-based" prompt generation mode (default remains regex-based)
   - Prevents prompt generation from influencing main text response quality
