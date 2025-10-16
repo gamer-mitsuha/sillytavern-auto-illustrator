@@ -180,6 +180,8 @@
   "settings.maxPromptsPerMessageDesc": "Cost control: limits prompts when using independent API generation (1-30)",
   "settings.contextMessageCount": "Context Message Count",
   "settings.contextMessageCountDesc": "Number of previous messages to include as context for prompt generation (0-50)",
+  "settings.metaPromptDepth": "Meta Prompt Depth (Shared API Mode)",
+  "settings.metaPromptDepthDesc": "Position to insert meta prompt in chat history (0 = last message, 1 = one before last, etc.)",
   "settings.llmFrequencyGuidelines": "Frequency Guidelines (Independent API Mode)",
   "settings.llmFrequencyGuidelinesDesc": "When should the AI generate image prompts? (e.g., every 250 words, at scene changes)",
   "settings.llmPromptWritingGuidelines": "Prompt Writing Guidelines (Independent API Mode)",

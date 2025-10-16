@@ -180,6 +180,8 @@
   "settings.maxPromptsPerMessageDesc": "成本控制：使用独立API生成时限制提示词数量（1-30）",
   "settings.contextMessageCount": "上下文消息数量",
   "settings.contextMessageCountDesc": "生成提示词时包含的历史消息数量（0-50）",
+  "settings.metaPromptDepth": "元提示深度（共享API模式）",
+  "settings.metaPromptDepthDesc": "元提示在聊天历史中的插入位置（0 = 最后一条消息，1 = 倒数第二条，依此类推）",
   "settings.llmFrequencyGuidelines": "频率指南（独立API模式）",
   "settings.llmFrequencyGuidelinesDesc": "AI何时应生成图片提示词？（例如：每250词、场景变化时）",
   "settings.llmPromptWritingGuidelines": "提示词编写指南（独立API模式）",

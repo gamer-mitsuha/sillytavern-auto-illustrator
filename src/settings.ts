@@ -12,6 +12,7 @@ import {
   MIN_GENERATION_INTERVAL,
   MAX_PROMPTS_PER_MESSAGE,
   CONTEXT_MESSAGE_COUNT,
+  META_PROMPT_DEPTH,
   UI_ELEMENT_IDS,
 } from './constants';
 import {t} from './i18n';
@@ -144,6 +145,12 @@ export function createSettingsUI(): string {
             <div id="${UI_ELEMENT_IDS.PATTERN_VALIDATION_STATUS}" class="pattern-validation-status">
               <!-- Validation status will be populated by JavaScript -->
             </div>
+
+            <label for="${UI_ELEMENT_IDS.META_PROMPT_DEPTH}">
+              <span>${t('settings.metaPromptDepth')}</span>
+              <small>${t('settings.metaPromptDepthDesc')}</small>
+              <input id="${UI_ELEMENT_IDS.META_PROMPT_DEPTH}" class="text_pole" type="number" min="${META_PROMPT_DEPTH.MIN}" max="${META_PROMPT_DEPTH.MAX}" step="${META_PROMPT_DEPTH.STEP}" />
+            </label>
           </div>
 
           <hr>

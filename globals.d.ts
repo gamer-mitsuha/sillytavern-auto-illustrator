@@ -119,6 +119,7 @@ declare global {
   interface AutoIllustratorSettings {
     enabled: boolean;
     metaPrompt: string;
+    metaPromptDepth: number;
     currentPresetId: string;
     customPresets: MetaPromptPreset[];
     streamingEnabled: boolean;

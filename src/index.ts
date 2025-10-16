@@ -31,6 +31,7 @@ import {
   MIN_GENERATION_INTERVAL,
   MAX_PROMPTS_PER_MESSAGE,
   CONTEXT_MESSAGE_COUNT,
+  META_PROMPT_DEPTH,
   DEFAULT_LLM_FREQUENCY_GUIDELINES,
   DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
   PROMPT_GENERATION_MODE,
@@ -154,6 +155,9 @@ function updateUI(): void {
   const contextMessageCountInput = document.getElementById(
     UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT
   ) as HTMLInputElement;
+  const metaPromptDepthInput = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT_DEPTH
+  ) as HTMLInputElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -208,6 +212,11 @@ function updateUI(): void {
   // Update context message count
   if (contextMessageCountInput) {
     contextMessageCountInput.value = settings.contextMessageCount.toString();
+  }
+
+  // Update meta prompt depth
+  if (metaPromptDepthInput) {
+    metaPromptDepthInput.value = settings.metaPromptDepth.toString();
   }
 
   // Update LLM guidelines textareas
@@ -396,6 +405,9 @@ function handleSettingsChange(): void {
   const contextMessageCountInput = document.getElementById(
     UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT
   ) as HTMLInputElement;
+  const metaPromptDepthInput = document.getElementById(
+    UI_ELEMENT_IDS.META_PROMPT_DEPTH
+  ) as HTMLInputElement;
   const llmFrequencyGuidelinesTextarea = document.getElementById(
     UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
   ) as HTMLTextAreaElement;
@@ -568,6 +580,33 @@ function handleSettingsChange(): void {
           clamped: clampedValue,
           min: CONTEXT_MESSAGE_COUNT.MIN,
           max: CONTEXT_MESSAGE_COUNT.MAX,
+        }),
+        t('extensionName')
+      );
+    }
+  }
+
+  // Meta prompt depth with validation
+  if (metaPromptDepthInput) {
+    const originalValue = parseInt(metaPromptDepthInput.value);
+    const clampedValue = clampValue(
+      originalValue,
+      META_PROMPT_DEPTH.MIN,
+      META_PROMPT_DEPTH.MAX,
+      META_PROMPT_DEPTH.STEP
+    );
+    settings.metaPromptDepth = clampedValue;
+    // Update UI to show validated value
+    metaPromptDepthInput.value = clampedValue.toString();
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjustedNoStep', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: META_PROMPT_DEPTH.MIN,
+          max: META_PROMPT_DEPTH.MAX,
         }),
         t('extensionName')
       );
@@ -1081,11 +1120,19 @@ function registerEventHandlers(): void {
       !isIndependentApiMode(settings.promptGenerationMode);
 
     if (shouldInject) {
-      logger.info('Injecting meta-prompt as last system message', {
+      // Calculate insertion position based on metaPromptDepth
+      // depth=0 means last position (default), depth=1 means one before last, etc.
+      const depth = settings.metaPromptDepth || 0;
+      const insertPosition = Math.max(0, eventData.chat.length - depth);
+
+      logger.info('Injecting meta-prompt as system message', {
         generationType: effectiveType,
+        depth,
+        insertPosition,
+        chatLength: eventData.chat.length,
       });
 
-      eventData.chat.push({
+      eventData.chat.splice(insertPosition, 0, {
         role: 'system',
         content: settings.metaPrompt,
       });
@@ -1269,6 +1316,9 @@ function initialize(): void {
     const contextMessageCountInput = document.getElementById(
       UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT
     ) as HTMLInputElement;
+    const metaPromptDepthInput = document.getElementById(
+      UI_ELEMENT_IDS.META_PROMPT_DEPTH
+    ) as HTMLInputElement;
     const llmFrequencyGuidelinesTextarea = document.getElementById(
       UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
     ) as HTMLTextAreaElement;
@@ -1322,6 +1372,7 @@ function initialize(): void {
     });
     maxPromptsPerMessageInput?.addEventListener('change', handleSettingsChange);
     contextMessageCountInput?.addEventListener('change', handleSettingsChange);
+    metaPromptDepthInput?.addEventListener('change', handleSettingsChange);
     llmFrequencyGuidelinesTextarea?.addEventListener(
       'change',
       handleSettingsChange

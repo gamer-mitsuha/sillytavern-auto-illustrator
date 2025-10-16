@@ -118,6 +118,18 @@ export const CONTEXT_MESSAGE_COUNT = {
 } as const;
 
 /**
+ * Meta prompt depth configuration
+ * Controls where the meta prompt is inserted in chat history for shared API mode
+ * depth=0: last message (default), depth=1: one before last, etc.
+ */
+export const META_PROMPT_DEPTH = {
+  DEFAULT: 0,
+  MIN: 0,
+  MAX: 20,
+  STEP: 1,
+} as const;
+
+/**
  * Default frequency guidelines for LLM prompt generation
  * Tells the LLM when to generate image prompts
  */
@@ -166,6 +178,7 @@ export const DEFAULT_SETTINGS = {
   showProgressWidget: true,
   enableClickToRegenerate: true,
   promptGenerationMode: PROMPT_GENERATION_MODE.DEFAULT,
+  metaPromptDepth: META_PROMPT_DEPTH.DEFAULT,
   maxPromptsPerMessage: MAX_PROMPTS_PER_MESSAGE.DEFAULT,
   contextMessageCount: CONTEXT_MESSAGE_COUNT.DEFAULT,
   llmFrequencyGuidelines: DEFAULT_LLM_FREQUENCY_GUIDELINES,
@@ -178,6 +191,7 @@ export const DEFAULT_SETTINGS = {
 export const UI_ELEMENT_IDS = {
   ENABLED: 'auto_illustrator_enabled',
   META_PROMPT: 'auto_illustrator_meta_prompt',
+  META_PROMPT_DEPTH: 'auto_illustrator_meta_prompt_depth',
   META_PROMPT_PRESET_SELECT: 'auto_illustrator_preset_select',
   META_PROMPT_PRESET_EDIT: 'auto_illustrator_preset_edit',
   META_PROMPT_PRESET_SAVE: 'auto_illustrator_preset_save',
