@@ -12,6 +12,7 @@ import {sessionManager} from './session_manager';
 import {createLogger} from './logger';
 import {generatePromptsForMessage} from './services/prompt_generation_service';
 import {insertPromptTagsWithContext} from './prompt_insertion';
+import {isIndependentApiMode} from './mode_utils';
 
 const logger = createLogger('MessageHandler');
 
@@ -32,7 +33,7 @@ export async function handleStreamTokenStarted(
 
   // Skip starting streaming session in LLM-post mode
   // Prompts will be generated after message is complete, then session will start
-  if (settings.promptGenerationMode === 'llm-post') {
+  if (isIndependentApiMode(settings.promptGenerationMode)) {
     logger.debug(
       'Skipping streaming session start in LLM-post mode (will start after prompt generation)',
       {messageId}
@@ -98,7 +99,7 @@ export async function handleMessageReceived(
     );
 
     // Check if LLM-based prompt generation is enabled
-    if (settings.promptGenerationMode === 'llm-post') {
+    if (isIndependentApiMode(settings.promptGenerationMode)) {
       logger.info('LLM-based prompt generation enabled, generating prompts...');
 
       try {

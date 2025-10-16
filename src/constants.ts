@@ -87,9 +87,12 @@ export const MIN_GENERATION_INTERVAL = {
  * Controls how image prompts are generated
  */
 export const PROMPT_GENERATION_MODE = {
-  REGEX: 'regex', // AI embeds prompts in response (default)
-  LLM_POST: 'llm-post', // Separate LLM call after response (experimental)
-  DEFAULT: 'regex',
+  SHARED_API: 'shared-api', // AI embeds prompts in main response (default)
+  INDEPENDENT_API: 'independent-api', // Separate API call after response (experimental)
+  // Legacy aliases for backward compatibility
+  REGEX: 'shared-api',
+  LLM_POST: 'independent-api',
+  DEFAULT: 'shared-api',
 } as const;
 
 /**
@@ -197,9 +200,11 @@ export const UI_ELEMENT_IDS = {
   COMMON_STYLE_TAGS_POSITION: 'auto_illustrator_common_style_tags_position',
   SHOW_GALLERY_WIDGET: 'auto_illustrator_show_gallery_widget',
   SHOW_PROGRESS_WIDGET: 'auto_illustrator_show_progress_widget',
-  PROMPT_GENERATION_MODE_REGEX: 'auto_illustrator_prompt_gen_mode_regex',
-  PROMPT_GENERATION_MODE_LLM: 'auto_illustrator_prompt_gen_mode_llm',
-  LLM_SETTINGS_CONTAINER: 'auto_illustrator_llm_settings_container',
+  PROMPT_GENERATION_MODE_SHARED: 'auto_illustrator_prompt_gen_mode_shared',
+  PROMPT_GENERATION_MODE_INDEPENDENT:
+    'auto_illustrator_prompt_gen_mode_independent',
+  INDEPENDENT_API_SETTINGS_CONTAINER:
+    'auto_illustrator_independent_api_settings_container',
   MAX_PROMPTS_PER_MESSAGE: 'auto_illustrator_max_prompts_per_message',
   CONTEXT_MESSAGE_COUNT: 'auto_illustrator_context_message_count',
   LLM_FREQUENCY_GUIDELINES: 'auto_illustrator_llm_frequency_guidelines',

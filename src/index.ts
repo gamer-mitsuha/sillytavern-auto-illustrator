@@ -53,6 +53,7 @@ import {
   clearProgressWidgetState,
 } from './progress_widget';
 import {initializeGalleryWidget, getGalleryWidget} from './gallery_widget';
+import {isIndependentApiMode} from './mode_utils';
 
 const logger = createLogger('Main');
 
@@ -142,10 +143,10 @@ function updateUI(): void {
     UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
   ) as HTMLInputElement;
   const promptGenModeRegexRadio = document.getElementById(
-    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED
   ) as HTMLInputElement;
   const promptGenModeLLMRadio = document.getElementById(
-    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_INDEPENDENT
   ) as HTMLInputElement;
   const maxPromptsPerMessageInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
@@ -182,18 +183,22 @@ function updateUI(): void {
 
   // Update prompt generation mode radio buttons
   if (promptGenModeRegexRadio && promptGenModeLLMRadio) {
-    if (settings.promptGenerationMode === 'llm-post') {
+    // Support both new names and legacy aliases
+    const isIndependent =
+      settings.promptGenerationMode === 'independent-api' ||
+      settings.promptGenerationMode === 'llm-post';
+    if (isIndependent) {
       promptGenModeLLMRadio.checked = true;
       promptGenModeRegexRadio.checked = false;
     } else {
-      // Default to regex mode for any other value (including 'regex' and invalid values)
+      // Default to shared-api mode for any other value (including 'shared-api', 'regex', and invalid values)
       promptGenModeRegexRadio.checked = true;
       promptGenModeLLMRadio.checked = false;
     }
   }
 
-  // Toggle LLM settings visibility based on current mode
-  toggleLLMSettingsVisibility();
+  // Toggle independent API settings visibility based on current mode
+  toggleIndependentApiSettingsVisibility();
 
   // Update max prompts per message
   if (maxPromptsPerMessageInput) {
@@ -380,10 +385,10 @@ function handleSettingsChange(): void {
     UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
   ) as HTMLInputElement;
   const promptGenModeRegexRadio = document.getElementById(
-    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED
   ) as HTMLInputElement;
   const promptGenModeLLMRadio = document.getElementById(
-    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_INDEPENDENT
   ) as HTMLInputElement;
   const maxPromptsPerMessageInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
@@ -507,9 +512,9 @@ function handleSettingsChange(): void {
 
   // Prompt generation mode (radio buttons)
   if (promptGenModeRegexRadio?.checked) {
-    settings.promptGenerationMode = 'regex';
+    settings.promptGenerationMode = 'shared-api';
   } else if (promptGenModeLLMRadio?.checked) {
-    settings.promptGenerationMode = 'llm-post';
+    settings.promptGenerationMode = 'independent-api';
   } else {
     // Fallback to default if neither is checked (shouldn't happen, but be defensive)
     settings.promptGenerationMode = PROMPT_GENERATION_MODE.DEFAULT;
@@ -693,12 +698,12 @@ function handleLLMPromptWritingGuidelinesReset(): void {
 /**
  * Toggles visibility of LLM-specific settings based on prompt generation mode
  */
-function toggleLLMSettingsVisibility(): void {
+function toggleIndependentApiSettingsVisibility(): void {
   const llmSettingsContainer = document.getElementById(
-    UI_ELEMENT_IDS.LLM_SETTINGS_CONTAINER
+    UI_ELEMENT_IDS.INDEPENDENT_API_SETTINGS_CONTAINER
   );
   const promptGenModeLLMRadio = document.getElementById(
-    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_INDEPENDENT
   ) as HTMLInputElement;
 
   if (llmSettingsContainer && promptGenModeLLMRadio) {
@@ -1053,27 +1058,27 @@ function registerEventHandlers(): void {
 
     // Prune generated images (and optionally prompt tags) from chat history
     // Mode depends on promptGenerationMode setting
-    if (settings.promptGenerationMode === 'llm-post') {
-      // LLM mode: Remove both images and prompt tags (keep history clean)
+    if (isIndependentApiMode(settings.promptGenerationMode)) {
+      // Independent API mode: Remove both images and prompt tags (keep history clean)
       pruneGeneratedImagesAndPrompts(
         eventData.chat,
         settings.promptDetectionPatterns
       );
-      logger.debug('Applied LLM-mode pruning (images + prompts)');
+      logger.debug('Applied independent-API-mode pruning (images + prompts)');
     } else {
-      // Regex mode: Remove images only (keep prompt tags for AI context)
+      // Shared API mode: Remove images only (keep prompt tags for AI context)
       pruneGeneratedImages(eventData.chat, settings.promptDetectionPatterns);
-      logger.debug('Applied regex-mode pruning (images only)');
+      logger.debug('Applied shared-API-mode pruning (images only)');
     }
 
-    // Inject meta-prompt (filter out quiet/impersonate modes and LLM-post mode)
+    // Inject meta-prompt (filter out quiet/impersonate modes and independent-API mode)
     const effectiveType = currentGenerationType || 'normal';
     const shouldInject =
       settings.enabled &&
       settings.metaPrompt &&
       settings.metaPrompt.length > 0 &&
       !['quiet', 'impersonate'].includes(effectiveType) &&
-      settings.promptGenerationMode !== 'llm-post';
+      !isIndependentApiMode(settings.promptGenerationMode);
 
     if (shouldInject) {
       logger.info('Injecting meta-prompt as last system message', {
@@ -1096,8 +1101,8 @@ function registerEventHandlers(): void {
             ? 'no meta-prompt'
             : ['quiet', 'impersonate'].includes(effectiveType)
               ? `filtered generation type: ${effectiveType}`
-              : settings.promptGenerationMode === 'llm-post'
-                ? 'LLM post-generation mode enabled'
+              : isIndependentApiMode(settings.promptGenerationMode)
+                ? 'Independent API mode enabled'
                 : 'unknown',
       });
     }
@@ -1253,10 +1258,10 @@ function initialize(): void {
       UI_ELEMENT_IDS.MANUAL_GEN_MODE
     );
     const promptGenModeRegexRadio = document.getElementById(
-      UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX
+      UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED
     ) as HTMLInputElement;
     const promptGenModeLLMRadio = document.getElementById(
-      UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+      UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_INDEPENDENT
     ) as HTMLInputElement;
     const maxPromptsPerMessageInput = document.getElementById(
       UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
@@ -1308,11 +1313,11 @@ function initialize(): void {
     );
     manualGenModeSelect?.addEventListener('change', handleSettingsChange);
     promptGenModeRegexRadio?.addEventListener('change', () => {
-      toggleLLMSettingsVisibility();
+      toggleIndependentApiSettingsVisibility();
       handleSettingsChange();
     });
     promptGenModeLLMRadio?.addEventListener('change', () => {
-      toggleLLMSettingsVisibility();
+      toggleIndependentApiSettingsVisibility();
       handleSettingsChange();
     });
     maxPromptsPerMessageInput?.addEventListener('change', handleSettingsChange);

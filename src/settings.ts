@@ -214,23 +214,23 @@ export function createSettingsUI(): string {
               <small>${t('settings.promptGenerationModeDesc')}</small>
             </label>
 
-            <label class="checkbox_label" for="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX}">
-              <input id="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX}" type="radio" name="prompt_generation_mode" value="regex" />
-              <span>${t('settings.promptGenerationModeRegex')}</span>
-              <small>${t('settings.promptGenerationModeRegexDesc')}</small>
+            <label class="checkbox_label" for="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED}">
+              <input id="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED}" type="radio" name="prompt_generation_mode" value="shared-api" />
+              <span>${t('settings.promptGenerationModeShared')}</span>
+              <small>${t('settings.promptGenerationModeSharedDesc')}</small>
             </label>
 
-            <label class="checkbox_label" for="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM}">
-              <input id="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM}" type="radio" name="prompt_generation_mode" value="llm-post" />
+            <label class="checkbox_label" for="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_INDEPENDENT}">
+              <input id="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_INDEPENDENT}" type="radio" name="prompt_generation_mode" value="independent-api" />
               <span>
-                ${t('settings.promptGenerationModeLLM')}
+                ${t('settings.promptGenerationModeIndependent')}
                 <i class="fa-solid fa-exclamation-triangle" style="color: orange;" title="${t('toast.warning')}"></i>
               </span>
-              <small>${t('settings.promptGenerationModeLLMDesc')}</small>
+              <small>${t('settings.promptGenerationModeIndependentDesc')}</small>
             </label>
           </div>
 
-          <div id="${UI_ELEMENT_IDS.LLM_SETTINGS_CONTAINER}" style="display: none;">
+          <div id="${UI_ELEMENT_IDS.INDEPENDENT_API_SETTINGS_CONTAINER}" style="display: none;">
             <label for="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}">
               <span>${t('settings.maxPromptsPerMessage')}</span>
               <small>${t('settings.maxPromptsPerMessageDesc')}</small>

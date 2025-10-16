@@ -134,7 +134,11 @@ declare global {
     showGalleryWidget: boolean;
     showProgressWidget: boolean;
     enableClickToRegenerate: boolean;
-    promptGenerationMode: 'regex' | 'llm-post';
+    promptGenerationMode:
+      | 'shared-api'
+      | 'independent-api'
+      | 'regex'
+      | 'llm-post'; // regex and llm-post are legacy aliases
     maxPromptsPerMessage: number;
     contextMessageCount: number;
     llmFrequencyGuidelines: string;
