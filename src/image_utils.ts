@@ -12,18 +12,19 @@ const logger = createLogger('ImageUtils');
 
 /**
  * Normalizes an image URL by converting absolute URLs to relative paths
+ * and decoding URL encoding for consistent lookups
  * This is needed because img.src returns absolute URL but we store relative paths
  * @param url - Image URL (absolute or relative)
- * @returns Normalized relative path
+ * @returns Normalized relative path with decoded characters
  */
 export function normalizeImageUrl(url: string): string {
   try {
     const urlObj = new URL(url);
-    // Return just the pathname (e.g., /user/images/test.png)
-    return urlObj.pathname;
+    // Return decoded pathname (e.g., /user/images/小说家/test.png instead of /user/images/%E5%B0%8F%E8%AF%B4%E5%AE%B6/test.png)
+    return decodeURIComponent(urlObj.pathname);
   } catch {
-    // If URL parsing fails, it's already a relative path
-    return url;
+    // If URL parsing fails, it's already a relative path - decode it anyway
+    return decodeURIComponent(url);
   }
 }
 

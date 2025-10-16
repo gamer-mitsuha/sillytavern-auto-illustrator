@@ -67,6 +67,7 @@
 import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
 import {extractImagePromptsMultiPattern} from './regex';
+import {normalizeImageUrl} from './image_utils';
 
 const logger = createLogger('PromptManager');
 
@@ -407,23 +408,6 @@ export function registerPrompt(
 }
 
 /**
- * Normalize image URL to pathname for consistent lookups
- * Converts absolute URLs to relative paths
- * @param url - Image URL (absolute or relative)
- * @returns Normalized relative path
- */
-function normalizeImageUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    // Return just the pathname (e.g., /user/images/test.png)
-    return urlObj.pathname;
-  } catch {
-    // If URL parsing fails, it's already a relative path
-    return url;
-  }
-}
-
-/**
  * Links an image URL to a prompt
  *
  * Adds the image URL to the prompt's generatedImages array and updates
@@ -456,7 +440,7 @@ export function linkImageToPrompt(
   const normalizedUrl = normalizeImageUrl(imageUrl);
 
   // DEBUG: Log URL normalization
-  logger.info(`=== DEBUG: linkImageToPrompt ===`);
+  logger.info('=== DEBUG: linkImageToPrompt ===');
   logger.info(`Original URL: ${imageUrl}`);
   logger.info(`Normalized URL: ${normalizedUrl}`);
   logger.info(`Prompt ID: ${promptId}`);
@@ -473,7 +457,9 @@ export function linkImageToPrompt(
   updatePromptLastUsed(promptId, metadata);
 
   logger.debug(`Linked image to prompt ${promptId}: ${imageUrl}`);
-  logger.info(`Registry now has ${Object.keys(registry.imageToPromptId).length} image mappings`);
+  logger.info(
+    `Registry now has ${Object.keys(registry.imageToPromptId).length} image mappings`
+  );
 }
 
 /**
@@ -539,9 +525,11 @@ export function getPromptForImage(
   const registry = getRegistry(metadata);
 
   // DEBUG: Log lookup attempt
-  logger.info(`=== DEBUG: getPromptForImage ===`);
+  logger.info('=== DEBUG: getPromptForImage ===');
   logger.info(`Looking up URL: ${imageUrl}`);
-  logger.info(`Registry has ${Object.keys(registry.imageToPromptId).length} image mappings`);
+  logger.info(
+    `Registry has ${Object.keys(registry.imageToPromptId).length} image mappings`
+  );
 
   const promptId = registry.imageToPromptId[imageUrl];
 
