@@ -134,6 +134,8 @@ declare global {
     showGalleryWidget: boolean;
     showProgressWidget: boolean;
     enableClickToRegenerate: boolean;
+    promptGenerationMode: 'regex' | 'llm-post';
+    maxPromptsPerMessage: number;
   }
 
   interface ImagePromptMatch {

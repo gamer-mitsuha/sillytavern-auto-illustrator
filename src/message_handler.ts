@@ -10,6 +10,8 @@
 
 import {sessionManager} from './session_manager';
 import {createLogger} from './logger';
+import {generatePromptsForMessage} from './services/prompt_generation_service';
+import {insertPromptTagsWithContext} from './prompt_insertion';
 
 const logger = createLogger('MessageHandler');
 
@@ -27,6 +29,16 @@ export async function handleStreamTokenStarted(
   settings: AutoIllustratorSettings
 ): Promise<void> {
   logger.trace(`STREAM_TOKEN_STARTED event for message ${messageId}`);
+
+  // Skip starting streaming session in LLM-post mode
+  // Prompts will be generated after message is complete, then session will start
+  if (settings.promptGenerationMode === 'llm-post') {
+    logger.debug(
+      'Skipping streaming session start in LLM-post mode (will start after prompt generation)',
+      {messageId}
+    );
+    return;
+  }
 
   try {
     // Start streaming session
@@ -80,11 +92,88 @@ export async function handleMessageReceived(
 
   if (!session) {
     // No active session - this means streaming was disabled in SillyTavern
-    // Process the complete message directly
+    // OR we're using LLM-based prompt generation mode
     logger.info(
       `No active session for message ${messageId}, processing as non-streaming message`
     );
 
+    // Check if LLM-based prompt generation is enabled
+    if (settings.promptGenerationMode === 'llm-post') {
+      logger.info('LLM-based prompt generation enabled, generating prompts...');
+
+      try {
+        // Step 1: Call LLM to generate prompts
+        const prompts = await generatePromptsForMessage(
+          message.mes,
+          context,
+          settings
+        );
+
+        if (prompts.length === 0) {
+          logger.info('LLM returned no prompts, skipping image generation');
+          return;
+        }
+
+        logger.info(`LLM generated ${prompts.length} prompts`);
+
+        // Step 2: Insert prompt tags into message using context matching
+        const tagTemplate = settings.promptDetectionPatterns[0];
+        const insertionResult = insertPromptTagsWithContext(
+          message.mes,
+          prompts,
+          tagTemplate
+        );
+
+        // Step 2b: Fallback for failed suggestions - append at end
+        let finalText = insertionResult.updatedText;
+        let totalInserted = insertionResult.insertedCount;
+
+        if (insertionResult.failedSuggestions.length > 0) {
+          logger.warn(
+            `Failed to insert ${insertionResult.failedSuggestions.length} prompts (context not found), appending at end`
+          );
+
+          // Append failed prompts at the end of the message
+          const promptTagTemplate = tagTemplate.includes('{PROMPT}')
+            ? tagTemplate
+            : '<!--img-prompt="{PROMPT}"-->';
+
+          for (const failed of insertionResult.failedSuggestions) {
+            const promptTag = promptTagTemplate.replace(
+              '{PROMPT}',
+              failed.text
+            );
+            finalText += ` ${promptTag}`;
+            totalInserted++;
+            logger.debug(
+              `Appended failed prompt at end: "${failed.text.substring(0, 50)}..."`
+            );
+          }
+        }
+
+        if (totalInserted === 0) {
+          logger.warn('No prompts generated or inserted');
+          toastr.warning(
+            'Failed to generate image prompts (LLM returned no valid prompts)',
+            'Warning'
+          );
+          return;
+        }
+
+        // Step 3: Save updated message with prompt tags
+        message.mes = finalText;
+        await context.saveChat();
+        logger.info(
+          `Inserted ${totalInserted} prompt tags into message (${insertionResult.failedSuggestions.length} appended at end)`
+        );
+      } catch (error) {
+        logger.error('LLM prompt generation failed:', error);
+        toastr.warning('Failed to generate image prompts', 'Warning');
+        return;
+      }
+    }
+
+    // Process message with prompts (works for both regex and LLM modes)
     try {
       // Start a new streaming session with the complete message
       await sessionManager.startStreamingSession(messageId, context, settings);

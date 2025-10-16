@@ -81,6 +81,27 @@ export const MIN_GENERATION_INTERVAL = {
 } as const;
 
 /**
+ * Prompt generation mode configuration
+ * Controls how image prompts are generated
+ */
+export const PROMPT_GENERATION_MODE = {
+  REGEX: 'regex', // AI embeds prompts in response (default)
+  LLM_POST: 'llm-post', // Separate LLM call after response (experimental)
+  DEFAULT: 'regex',
+} as const;
+
+/**
+ * Max prompts per message configuration
+ * Controls cost when using LLM-based prompt generation
+ */
+export const MAX_PROMPTS_PER_MESSAGE = {
+  DEFAULT: 5,
+  MIN: 1,
+  MAX: 10,
+  STEP: 1,
+} as const;
+
+/**
  * Default prompt detection patterns
  * Supports multiple tag formats for backward compatibility:
  * - HTML comment format (primary, invisible, passes through DOMPurify)
@@ -112,6 +133,8 @@ export const DEFAULT_SETTINGS = {
   showGalleryWidget: true,
   showProgressWidget: true,
   enableClickToRegenerate: true,
+  promptGenerationMode: PROMPT_GENERATION_MODE.DEFAULT,
+  maxPromptsPerMessage: MAX_PROMPTS_PER_MESSAGE.DEFAULT,
 };
 
 /**
@@ -142,5 +165,8 @@ export const UI_ELEMENT_IDS = {
   COMMON_STYLE_TAGS_POSITION: 'auto_illustrator_common_style_tags_position',
   SHOW_GALLERY_WIDGET: 'auto_illustrator_show_gallery_widget',
   SHOW_PROGRESS_WIDGET: 'auto_illustrator_show_progress_widget',
+  PROMPT_GENERATION_MODE_REGEX: 'auto_illustrator_prompt_gen_mode_regex',
+  PROMPT_GENERATION_MODE_LLM: 'auto_illustrator_prompt_gen_mode_llm',
+  MAX_PROMPTS_PER_MESSAGE: 'auto_illustrator_max_prompts_per_message',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;

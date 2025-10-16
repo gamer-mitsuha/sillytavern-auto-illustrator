@@ -4,7 +4,10 @@
  */
 
 import './style.css';
-import {pruneGeneratedImages} from './chat_history_pruner';
+import {
+  pruneGeneratedImages,
+  pruneGeneratedImagesAndPrompts,
+} from './chat_history_pruner';
 import {sessionManager} from './session_manager';
 // metadata functions imported where needed
 import {
@@ -26,6 +29,7 @@ import {
   STREAMING_POLL_INTERVAL,
   MAX_CONCURRENT_GENERATIONS,
   MIN_GENERATION_INTERVAL,
+  MAX_PROMPTS_PER_MESSAGE,
 } from './constants';
 import {
   getPresetById,
@@ -133,6 +137,15 @@ function updateUI(): void {
   const showProgressWidgetCheckbox = document.getElementById(
     UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
   ) as HTMLInputElement;
+  const promptGenModeRegexRadio = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX
+  ) as HTMLInputElement;
+  const promptGenModeLLMRadio = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+  ) as HTMLInputElement;
+  const maxPromptsPerMessageInput = document.getElementById(
+    UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
+  ) as HTMLInputElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -159,6 +172,20 @@ function updateUI(): void {
     showGalleryWidgetCheckbox.checked = settings.showGalleryWidget;
   if (showProgressWidgetCheckbox)
     showProgressWidgetCheckbox.checked = settings.showProgressWidget;
+
+  // Update prompt generation mode radio buttons
+  if (promptGenModeRegexRadio && promptGenModeLLMRadio) {
+    if (settings.promptGenerationMode === 'regex') {
+      promptGenModeRegexRadio.checked = true;
+    } else if (settings.promptGenerationMode === 'llm-post') {
+      promptGenModeLLMRadio.checked = true;
+    }
+  }
+
+  // Update max prompts per message
+  if (maxPromptsPerMessageInput) {
+    maxPromptsPerMessageInput.value = settings.maxPromptsPerMessage.toString();
+  }
 
   // Update preset dropdown with custom presets
   if (presetSelect) {
@@ -317,6 +344,15 @@ function handleSettingsChange(): void {
   const showProgressWidgetCheckbox = document.getElementById(
     UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
   ) as HTMLInputElement;
+  const promptGenModeRegexRadio = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX
+  ) as HTMLInputElement;
+  const promptGenModeLLMRadio = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+  ) as HTMLInputElement;
+  const maxPromptsPerMessageInput = document.getElementById(
+    UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
+  ) as HTMLInputElement;
 
   // Track if enabled state or widget visibility changed (requires page reload)
   const wasEnabled = settings.enabled;
@@ -424,6 +460,41 @@ function handleSettingsChange(): void {
   settings.manualGenerationMode =
     (manualGenModeSelect?.value as 'replace' | 'append') ??
     settings.manualGenerationMode;
+
+  // Prompt generation mode (radio buttons)
+  if (promptGenModeRegexRadio?.checked) {
+    settings.promptGenerationMode = 'regex';
+  } else if (promptGenModeLLMRadio?.checked) {
+    settings.promptGenerationMode = 'llm-post';
+  }
+
+  // Max prompts per message with validation
+  if (maxPromptsPerMessageInput) {
+    const originalValue = parseInt(maxPromptsPerMessageInput.value);
+    const clampedValue = clampValue(
+      originalValue,
+      MAX_PROMPTS_PER_MESSAGE.MIN,
+      MAX_PROMPTS_PER_MESSAGE.MAX,
+      MAX_PROMPTS_PER_MESSAGE.STEP
+    );
+    settings.maxPromptsPerMessage = clampedValue;
+    // Update UI to show validated value
+    maxPromptsPerMessageInput.value = clampedValue.toString();
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjustedNoStep', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: MAX_PROMPTS_PER_MESSAGE.MIN,
+          max: MAX_PROMPTS_PER_MESSAGE.MAX,
+        }),
+        t('extensionName')
+      );
+    }
+  }
+
   settings.showGalleryWidget =
     showGalleryWidgetCheckbox?.checked ?? settings.showGalleryWidget;
   settings.showProgressWidget =
@@ -841,16 +912,29 @@ function registerEventHandlers(): void {
       return;
     }
 
-    // Prune generated images from chat history
-    pruneGeneratedImages(eventData.chat);
+    // Prune generated images (and optionally prompt tags) from chat history
+    // Mode depends on promptGenerationMode setting
+    if (settings.promptGenerationMode === 'llm-post') {
+      // LLM mode: Remove both images and prompt tags (keep history clean)
+      pruneGeneratedImagesAndPrompts(
+        eventData.chat,
+        settings.promptDetectionPatterns
+      );
+      logger.debug('Applied LLM-mode pruning (images + prompts)');
+    } else {
+      // Regex mode: Remove images only (keep prompt tags for AI context)
+      pruneGeneratedImages(eventData.chat, settings.promptDetectionPatterns);
+      logger.debug('Applied regex-mode pruning (images only)');
+    }
 
-    // Inject meta-prompt (filter out quiet/impersonate modes)
+    // Inject meta-prompt (filter out quiet/impersonate modes and LLM-post mode)
     const effectiveType = currentGenerationType || 'normal';
     const shouldInject =
       settings.enabled &&
       settings.metaPrompt &&
       settings.metaPrompt.length > 0 &&
-      !['quiet', 'impersonate'].includes(effectiveType);
+      !['quiet', 'impersonate'].includes(effectiveType) &&
+      settings.promptGenerationMode !== 'llm-post';
 
     if (shouldInject) {
       logger.info('Injecting meta-prompt as last system message', {
@@ -866,13 +950,16 @@ function registerEventHandlers(): void {
         enabled: settings.enabled,
         hasMetaPrompt: !!settings.metaPrompt,
         generationType: effectiveType,
+        promptGenerationMode: settings.promptGenerationMode,
         reason: !settings.enabled
           ? 'extension disabled'
           : !settings.metaPrompt
             ? 'no meta-prompt'
             : ['quiet', 'impersonate'].includes(effectiveType)
               ? `filtered generation type: ${effectiveType}`
-              : 'unknown',
+              : settings.promptGenerationMode === 'llm-post'
+                ? 'LLM post-generation mode enabled'
+                : 'unknown',
       });
     }
   });
@@ -1026,6 +1113,15 @@ function initialize(): void {
     const manualGenModeSelect = document.getElementById(
       UI_ELEMENT_IDS.MANUAL_GEN_MODE
     );
+    const promptGenModeRegexRadio = document.getElementById(
+      UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX
+    ) as HTMLInputElement;
+    const promptGenModeLLMRadio = document.getElementById(
+      UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+    ) as HTMLInputElement;
+    const maxPromptsPerMessageInput = document.getElementById(
+      UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
+    ) as HTMLInputElement;
     const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
@@ -1057,6 +1153,9 @@ function initialize(): void {
       handleSettingsChange
     );
     manualGenModeSelect?.addEventListener('change', handleSettingsChange);
+    promptGenModeRegexRadio?.addEventListener('change', handleSettingsChange);
+    promptGenModeLLMRadio?.addEventListener('change', handleSettingsChange);
+    maxPromptsPerMessageInput?.addEventListener('change', handleSettingsChange);
 
     const showGalleryWidgetCheckbox = document.getElementById(
       UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET

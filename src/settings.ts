@@ -10,6 +10,7 @@ import {
   STREAMING_POLL_INTERVAL,
   MAX_CONCURRENT_GENERATIONS,
   MIN_GENERATION_INTERVAL,
+  MAX_PROMPTS_PER_MESSAGE,
   UI_ELEMENT_IDS,
 } from './constants';
 import {t} from './i18n';
@@ -202,6 +203,36 @@ export function createSettingsUI(): string {
               <option value="append">${t('settings.manualGenerationModeAppend')}</option>
               <option value="replace">${t('settings.manualGenerationModeReplace')}</option>
             </select>
+          </label>
+
+          <hr>
+
+          <div>
+            <label>
+              <span>${t('settings.promptGenerationMode')}</span>
+              <small>${t('settings.promptGenerationModeDesc')}</small>
+            </label>
+
+            <label class="checkbox_label" for="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX}">
+              <input id="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_REGEX}" type="radio" name="prompt_generation_mode" value="regex" />
+              <span>${t('settings.promptGenerationModeRegex')}</span>
+              <small>${t('settings.promptGenerationModeRegexDesc')}</small>
+            </label>
+
+            <label class="checkbox_label" for="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM}">
+              <input id="${UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM}" type="radio" name="prompt_generation_mode" value="llm-post" />
+              <span>
+                ${t('settings.promptGenerationModeLLM')}
+                <i class="fa-solid fa-exclamation-triangle" style="color: orange;" title="${t('toast.warning')}"></i>
+              </span>
+              <small>${t('settings.promptGenerationModeLLMDesc')}</small>
+            </label>
+          </div>
+
+          <label for="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}">
+            <span>${t('settings.maxPromptsPerMessage')}</span>
+            <small>${t('settings.maxPromptsPerMessageDesc')}</small>
+            <input id="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}" class="text_pole" type="number" min="${MAX_PROMPTS_PER_MESSAGE.MIN}" max="${MAX_PROMPTS_PER_MESSAGE.MAX}" step="${MAX_PROMPTS_PER_MESSAGE.STEP}" />
           </label>
 
           <div style="margin-top: 1rem;">

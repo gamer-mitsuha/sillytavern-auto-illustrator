@@ -169,5 +169,15 @@
   "gallery.imageViewer": "Image Viewer",
   "gallery.allImages": "All Chat Images",
   "gallery.sortNewestFirst": "Sort newest first",
-  "gallery.sortOldestFirst": "Sort oldest first"
+  "gallery.sortOldestFirst": "Sort oldest first",
+  "settings.promptGenerationMode": "Prompt Generation Mode",
+  "settings.promptGenerationModeDesc": "Controls how image prompts are generated",
+  "settings.promptGenerationModeRegex": "Regex-based (Default)",
+  "settings.promptGenerationModeRegexDesc": "AI embeds prompts in response (faster, no extra API cost)",
+  "settings.promptGenerationModeLLM": "LLM-based (Experimental)",
+  "settings.promptGenerationModeLLMDesc": "Separate LLM call after response (cleaner AI responses, +1 API call per message)",
+  "settings.maxPromptsPerMessage": "Max Prompts Per Message",
+  "settings.maxPromptsPerMessageDesc": "Cost control: limits prompts when using LLM-based generation (1-10)",
+  "toast.llmPromptGenerationFailed": "Failed to generate image prompts using LLM",
+  "toast.warning": "Warning"
 }

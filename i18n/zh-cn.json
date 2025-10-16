@@ -169,5 +169,15 @@
   "gallery.imageViewer": "图片查看器",
   "gallery.allImages": "所有对话图片",
   "gallery.sortNewestFirst": "按最新优先排序",
-  "gallery.sortOldestFirst": "按最旧优先排序"
+  "gallery.sortOldestFirst": "按最旧优先排序",
+  "settings.promptGenerationMode": "提示词生成模式",
+  "settings.promptGenerationModeDesc": "控制如何生成图片提示词",
+  "settings.promptGenerationModeRegex": "正则表达式模式（默认）",
+  "settings.promptGenerationModeRegexDesc": "AI在回复中嵌入提示词（更快，无额外API成本）",
+  "settings.promptGenerationModeLLM": "大模型模式（实验性）",
+  "settings.promptGenerationModeLLMDesc": "回复后单独调用大模型（AI回复更纯净，每条消息 +1 次API调用）",
+  "settings.maxPromptsPerMessage": "每条消息的最大提示词数",
+  "settings.maxPromptsPerMessageDesc": "成本控制：使用大模型生成时限制提示词数量（1-10）",
+  "toast.llmPromptGenerationFailed": "使用大模型生成图片提示词失败",
+  "toast.warning": "警告"
 }

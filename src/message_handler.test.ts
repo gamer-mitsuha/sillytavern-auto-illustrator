@@ -48,6 +48,8 @@ describe('Message Handler V2', () => {
     mockSettings = {
       streamingEnabled: true,
       promptDetectionPatterns: ['<!--img-prompt="([^"]+)"-->'],
+      promptGenerationMode: 'regex', // Default to regex mode
+      maxPromptsPerMessage: 5,
     };
 
     // Clear all mocks
@@ -98,7 +100,7 @@ describe('Message Handler V2', () => {
       });
       mockSessionManager.finalizeStreamingAndInsert.mockResolvedValue(3);
 
-      await handleMessageReceived(1, mockContext);
+      await handleMessageReceived(1, mockContext, mockSettings);
 
       expect(mockSessionManager.getSession).toHaveBeenCalledWith(1);
       expect(
@@ -107,7 +109,7 @@ describe('Message Handler V2', () => {
     });
 
     it('should skip if message not found', async () => {
-      await handleMessageReceived(999, mockContext);
+      await handleMessageReceived(999, mockContext, mockSettings);
 
       expect(mockSessionManager.getSession).not.toHaveBeenCalled();
       expect(
@@ -116,7 +118,7 @@ describe('Message Handler V2', () => {
     });
 
     it('should skip if message is from user', async () => {
-      await handleMessageReceived(0, mockContext);
+      await handleMessageReceived(0, mockContext, mockSettings);
 
       expect(mockSessionManager.getSession).not.toHaveBeenCalled();
       expect(
@@ -127,7 +129,7 @@ describe('Message Handler V2', () => {
     it('should skip if no active session exists', async () => {
       mockSessionManager.getSession.mockReturnValue(null);
 
-      await handleMessageReceived(1, mockContext);
+      await handleMessageReceived(1, mockContext, mockSettings);
 
       expect(mockSessionManager.getSession).toHaveBeenCalledWith(1);
       expect(
@@ -142,7 +144,7 @@ describe('Message Handler V2', () => {
         type: 'regeneration', // Not streaming
       });
 
-      await handleMessageReceived(1, mockContext);
+      await handleMessageReceived(1, mockContext, mockSettings);
 
       expect(mockSessionManager.getSession).toHaveBeenCalledWith(1);
       expect(
@@ -162,7 +164,7 @@ describe('Message Handler V2', () => {
 
       // Should not throw, just log error
       await expect(
-        handleMessageReceived(1, mockContext)
+        handleMessageReceived(1, mockContext, mockSettings)
       ).resolves.not.toThrow();
 
       expect(mockSessionManager.finalizeStreamingAndInsert).toHaveBeenCalled();
@@ -178,7 +180,7 @@ describe('Message Handler V2', () => {
       });
       mockSessionManager.finalizeStreamingAndInsert.mockResolvedValue(2);
 
-      await handleMessageReceived(1, mockContext);
+      await handleMessageReceived(1, mockContext, mockSettings);
 
       // Should process even for system messages (only skip user messages)
       expect(mockSessionManager.finalizeStreamingAndInsert).toHaveBeenCalled();

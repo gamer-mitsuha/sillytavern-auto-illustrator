@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Separate LLM Call for Prompt Generation** (#32)
+  - New opt-in "LLM-based" prompt generation mode (default remains regex-based)
+  - Prevents prompt generation from influencing main text response quality
+  - Context-based insertion using text snippets instead of byte offsets
+  - Automatic chat history cleanup (removes prompt tags from future AI calls in LLM mode)
+  - Cost control setting: max prompts per message (default: 5)
+  - New meta-prompt preset specifically for prompt generation task (`presets/prompt_generation.md`)
+  - Preserves prompt tags in message HTML for feature compatibility (regeneration, gallery)
+  - Clear UI warnings about token cost implications (+1 API call per message in LLM mode)
+  - Comprehensive implementation plan document (`docs/IMPLEMENTATION_PLAN_ISSUE_32.md`)
+
 ## [1.4.0] - 2025-10-15
 
 ### Added

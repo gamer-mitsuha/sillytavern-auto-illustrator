@@ -50,12 +50,12 @@ Before writing any code, you must follow this sequence:
   3. Use the `t()` function to reference the text in code (e.g., `t('settings.newSetting')`, `t('toast.successMessage')`)
   4. **Never hardcode user-facing strings directly in the code**
 
-## **3\. Test-Driven Development (TDD) is Mandatory**
+## **3\. Unit Tests are Mandatory**
 
-- **Tests First:** For any new feature or bug fix, write unit tests _before_ writing the implementation code.
 - **Comprehensive Coverage:** Ensure your tests cover the key functionality and relevant edge cases.
 - **Verify PRD Behaviors:** When writing tests, reference [`docs/PRD.md`](docs/PRD.md) to ensure your tests validate the documented desired behaviors.
 - **Existing Tests:** All existing tests must continue to pass. Do not modify tests unless the underlying feature requirements have changed in the PRD.
+- **Write Tests:** Unit tests are required for all new features and bug fixes. Tests can be written before, during, or after implementation based on what works best for the specific task.
 
 ## **4\. Pre-Commit Quality Checks**
 
