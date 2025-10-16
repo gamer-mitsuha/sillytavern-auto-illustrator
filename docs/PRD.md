@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 # SillyTavern Auto Illustrator
 
-**Version**: 1.1
-**Last Updated**: 2025-10-15
+**Version**: 1.2
+**Last Updated**: 2025-10-17
 **Purpose**: Define desired behaviors for all features to prevent regressions
 
 ---
@@ -17,8 +17,11 @@
 6. [Prompt History](#6-prompt-history)
 7. [Concurrency & Rate Limiting](#7-concurrency--rate-limiting)
 8. [Settings & Configuration](#8-settings--configuration)
-9. [Error Handling](#9-error-handling)
-10. [System Invariants](#10-system-invariants)
+9. [Prompt Generation Modes](#9-prompt-generation-modes)
+10. [Error Handling](#10-error-handling)
+11. [System Invariants](#11-system-invariants)
+12. [Modal Image Viewer Behaviors](#12-modal-image-viewer-behaviors)
+13. [Appendix](#13-appendix)
 
 ---
 
@@ -656,6 +659,12 @@ Result: Operations run concurrently, no conflicts (different messages)
 | Min Generation Interval | Number | 0-10000ms (step: 100) | 0ms | Delay between starts |
 | Default Generation Mode | Choice | replace/append | append | Default for manual generation |
 | Meta Prompt Preset | Choice | list of presets | "default" | Active prompt template |
+| Meta Prompt Depth | Number | 0-20 (step: 1) | 0 | Insertion position in chat history (shared API mode only) |
+| Prompt Generation Mode | Choice | shared-api/independent-api | shared-api | How prompts are generated |
+| Max Prompts Per Message | Number | 1-30 (step: 1) | 5 | Limit for independent API mode |
+| Context Message Count | Number | 0-50 (step: 1) | 5 | Previous messages for context |
+| LLM Frequency Guidelines | String | multi-line | (default text) | When to generate prompts (independent API mode) |
+| LLM Prompt Writing Guidelines | String | multi-line | (default text) | How to write prompts (independent API mode) |
 | Common Style Tags | String | any | "" | Tags added to all prompts |
 | Style Tags Position | Choice | prefix/suffix | prefix | Where to add common tags |
 | Log Level | Choice | trace/debug/info/warn/error/silent | info | Console verbosity |
@@ -728,13 +737,163 @@ Result:
 
 ---
 
-## 9. Error Handling
+## 9. Prompt Generation Modes
 
 ### 9.1 Desired Behavior
 
-**When errors occur, the system recovers gracefully, informs the user appropriately, and maintains consistent state.**
+**Users can choose between two prompt generation modes: Shared API Call (default) or Independent API Call (experimental), each with different trade-offs.**
 
 ### 9.2 Requirements
+
+**PROMPT-GEN-001**: Two modes available:
+- **Shared API Call** (default): AI embeds image prompts directly in the chat response
+- **Independent API Call** (experimental): Separate API call after response to generate prompts
+
+**PROMPT-GEN-002**: Mode selection persists across sessions
+
+**PROMPT-GEN-003**: Shared API mode requires explicit generation type (no meta-prompt injection for `generateRaw` or undefined types)
+
+**PROMPT-GEN-004**: Independent API mode settings only visible when that mode is selected
+
+**PROMPT-GEN-005**: Independent API mode shows clear warning about additional API cost (+1 call per message)
+
+### 9.3 Shared API Call Mode (Default)
+
+**Characteristics:**
+- Meta prompt injected into chat history before AI response
+- AI embeds prompts using special tags (e.g., `[img: description]`)
+- Prompts extracted from response using regex patterns
+- No additional API calls
+- Prompt generation may slightly influence response style
+
+**Meta Prompt Depth Setting:**
+- Controls where meta prompt is inserted in chat history
+- depth=0 (default): Last position in chat array
+- depth=1: One before last, depth=2: Two before last, etc.
+- Range: 0-20
+- Only applies to Shared API mode
+
+**When Meta Prompt is Injected:**
+- Extension is enabled
+- Meta prompt is not empty
+- Generation type is explicitly set (not undefined/null)
+- Generation type is NOT 'quiet' or 'impersonate'
+- Mode is set to Shared API Call (not Independent API Call)
+
+### 9.4 Independent API Call Mode (Experimental)
+
+**Characteristics:**
+- AI generates normal response without prompt generation instructions
+- After response completes, separate API call generates image prompts
+- Context-aware: includes previous messages for better understanding
+- Prompts inserted into message using context snippets (not byte offsets)
+- Chat history automatically pruned (removes prompt tags from future AI calls)
+- +1 API call per message (additional token cost)
+
+**Settings (Independent API Mode only):**
+- **Max Prompts Per Message**: Limit number of prompts (1-30, default: 5) for cost control
+- **Context Message Count**: Number of previous messages to include (0-50, default: 5)
+- **LLM Frequency Guidelines**: Instructions for when to generate prompts
+- **LLM Prompt Writing Guidelines**: Instructions for how to write prompts
+
+**Prompt Insertion:**
+- Uses context snippets (`insertAfter`, `insertBefore`) instead of byte offsets
+- Case-insensitive context matching
+- Validates insertion points are adjacent (prevents inserting in wrong location)
+- Detailed logging for debugging insertion failures
+
+### 9.5 Examples
+
+**Example 1: Shared API Call (Default)**
+```
+User Message: "Describe the castle"
+
+Chat History Before AI Call:
+  [... previous messages ...]
+  {role: 'user', content: 'Describe the castle'}
+  {role: 'system', content: META_PROMPT}  ← Injected at depth=0 (last)
+
+AI Response:
+  "The castle stands tall on the hill. [img: medieval stone castle on hill,
+  blue sky, detailed architecture] Its towers reach toward the sky..."
+
+Result:
+  - Prompt extracted via regex
+  - Image generated and inserted after prompt tag
+  - No additional API calls
+```
+
+**Example 2: Meta Prompt Depth**
+```
+Setting: metaPromptDepth = 1
+
+Chat History Before AI Call:
+  [... previous messages ...]
+  {role: 'user', content: 'What happens next?'}
+  {role: 'system', content: META_PROMPT}  ← Injected at depth=1 (one before last)
+
+Result: Meta prompt appears before the user's message instead of after
+```
+
+**Example 3: Independent API Call Mode**
+```
+User Message: "Describe the castle"
+
+AI Response (normal, no prompt instructions):
+  "The castle stands tall on the hill. Its massive stone towers reach
+  toward the sky, with flags fluttering in the wind..."
+
+After Response Completes:
+  - Separate API call made with:
+    * Previous 5 messages as context
+    * Current response
+    * LLM guidelines for frequency and writing
+
+LLM Returns:
+  ```
+  ---PROMPT-1---
+  prompt: medieval stone castle on hill, blue sky, detailed architecture
+  insertAfter: "The castle stands"
+  insertBefore: "tall on the hill"
+  reasoning: Opening scene description
+  ---PROMPT-END---
+  ```
+
+Result:
+  - Prompt tag inserted: "The castle stands [img: ...] tall on the hill"
+  - Image generated and displayed
+  - Prompt tag removed from chat history (won't appear in future AI calls)
+  - Total API calls: 2 (original + prompt generation)
+```
+
+**Example 4: No Generation Type (Skip Injection)**
+```
+Scenario: Direct API call via generateRaw() with no generation type
+
+Behavior:
+  - currentGenerationType is undefined
+  - Meta prompt injection skipped (prevents unexpected injection)
+  - Logged: "Skipping meta-prompt injection: no generation type specified"
+
+Result: Extension doesn't interfere with custom API calls
+```
+
+### 9.6 Anti-Patterns
+
+❌ **DO NOT** inject meta-prompt when generation type is undefined (use explicit types only)
+❌ **DO NOT** forget to prune chat history in Independent API mode (causes prompt tags in future responses)
+❌ **DO NOT** use byte offsets for insertion (context snippets are more reliable)
+❌ **DO NOT** hide API cost warning for Independent API mode (users must understand implications)
+
+---
+
+## 10. Error Handling
+
+### 10.1 Desired Behavior
+
+**When errors occur, the system recovers gracefully, informs the user appropriately, and maintains consistent state.**
+
+### 10.2 Requirements
 
 **ERROR-001**: Display user-friendly error messages (not technical details)
 
@@ -746,7 +905,7 @@ Result:
 
 **ERROR-005**: Continue processing remaining tasks after individual failures
 
-### 9.3 Error Scenarios
+### 10.3 Error Scenarios
 
 **ERROR-API**: Image generation API failure
 - **User Sees**: Toast notification "Failed to generate image"
@@ -772,7 +931,7 @@ Result:
 - **Recovery**: Uses default/clamped value
 - **Continues**: Extension functions normally
 
-### 9.4 Examples
+### 10.4 Examples
 
 **Example 1: Partial Batch Failure**
 ```
@@ -832,7 +991,7 @@ Result:
   - No orphaned progress widgets
 ```
 
-### 9.5 Anti-Patterns
+### 10.5 Anti-Patterns
 
 ❌ **DO NOT** show technical error messages to users (use friendly language)
 ❌ **DO NOT** leave progress widget stuck on error (always clean up)
@@ -841,13 +1000,13 @@ Result:
 
 ---
 
-## 10. System Invariants
+## 11. System Invariants
 
-### 10.1 Definition
+### 11.1 Definition
 
 **System invariants are conditions that MUST always be true, regardless of user actions or system state.**
 
-### 10.2 Core Invariants
+### 11.2 Core Invariants
 
 **INV-001**: Progress completed count never exceeds total count
 ```
@@ -911,51 +1070,13 @@ Never: Widget disappears while tasks still running
 Never: Widget remains visible after operation completes
 ```
 
-### 10.3 Verification
+### 11.3 Verification
 
 These invariants should be verified:
 - **In unit tests**: Assert conditions in test assertions
 - **In code reviews**: Check for violations when reviewing PRs
 - **In manual testing**: Observe behavior matches invariants
 - **In runtime**: Add validation checks that log warnings if invariants break
-
----
-
-## 11. Appendix
-
-### 11.1 Glossary
-
-- **Prompt**: Text pattern like `<img-prompt="sunset, beach">` that triggers image generation
-- **Streaming**: Real-time LLM response generation (character by character)
-- **Deferred Images**: Images generated during streaming but held for later insertion
-- **Operation**: High-level task like "manual generation" or "regeneration"
-- **Task**: Individual image generation within an operation
-- **Session**: Isolated state for streaming image generation per message
-
-### 11.2 How to Update This Document
-
-**When adding new features**:
-1. Add requirements in appropriate section
-2. Provide concrete examples with expected outcomes
-3. Document anti-patterns (what NOT to do)
-4. Update invariants if applicable
-
-**When fixing bugs**:
-1. Add example showing buggy behavior vs correct behavior
-2. Add anti-pattern if bug was caused by common mistake
-3. Add test case requirement to prevent regression
-
-**When changing behavior**:
-1. Update relevant requirements with new behavior
-2. Update examples to match new behavior
-3. Mark deprecated behaviors in anti-patterns section
-
-### 11.3 Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2025-10-12 | Initial behavior-focused PRD with 39 concrete examples covering all features |
-| 1.1 | 2025-10-15 | Added modal viewer behaviors: image rotation, tap navigation, View All Images button |
 
 ---
 
@@ -1025,6 +1146,45 @@ User clicks image #2 in message #20
 → Modal opens at index 4 (msg20-img2)
 → User can navigate: prev (msg20-img1), next (msg20-img3), then msg5-img1, etc.
 ```
+
+---
+
+## 13. Appendix
+
+### 13.1 Glossary
+
+- **Prompt**: Text pattern like `<img-prompt="sunset, beach">` that triggers image generation
+- **Streaming**: Real-time LLM response generation (character by character)
+- **Deferred Images**: Images generated during streaming but held for later insertion
+- **Operation**: High-level task like "manual generation" or "regeneration"
+- **Task**: Individual image generation within an operation
+- **Session**: Isolated state for streaming image generation per message
+
+### 13.2 How to Update This Document
+
+**When adding new features**:
+1. Add requirements in appropriate section
+2. Provide concrete examples with expected outcomes
+3. Document anti-patterns (what NOT to do)
+4. Update invariants if applicable
+
+**When fixing bugs**:
+1. Add example showing buggy behavior vs correct behavior
+2. Add anti-pattern if bug was caused by common mistake
+3. Add test case requirement to prevent regression
+
+**When changing behavior**:
+1. Update relevant requirements with new behavior
+2. Update examples to match new behavior
+3. Mark deprecated behaviors in anti-patterns section
+
+### 13.3 Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2025-10-12 | Initial behavior-focused PRD with 39 concrete examples covering all features |
+| 1.1 | 2025-10-15 | Added modal viewer behaviors: image rotation, tap navigation, View All Images button |
+| 1.2 | 2025-10-17 | Added prompt generation modes section, metaPromptDepth setting, updated settings table |
 
 ---
 

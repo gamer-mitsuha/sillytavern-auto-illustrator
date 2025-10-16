@@ -7,21 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2025-10-17
+
 ### Added
 - **Meta Prompt Depth Setting** - New setting to control where the meta prompt is inserted in chat history for shared API mode (depth=0: last position, depth=1: one before last, etc.)
 - **Separate LLM Call for Prompt Generation** (#32)
-  - New opt-in "LLM-based" prompt generation mode (default remains regex-based)
+  - New opt-in "Independent API Call" prompt generation mode (default remains "Shared API Call")
   - Prevents prompt generation from influencing main text response quality
   - Context-based insertion using text snippets instead of byte offsets
-  - Context awareness: LLM considers previous 5 messages for better understanding of characters, settings, and situations
-  - Automatic chat history cleanup (removes prompt tags from future AI calls in LLM mode)
+  - Context awareness: LLM considers previous messages for better understanding of characters, settings, and situations
+  - Automatic chat history cleanup (removes prompt tags from future AI calls in Independent API mode)
   - Cost control setting: max prompts per message (default: 5)
-  - New meta-prompt preset specifically for prompt generation task (`presets/prompt_generation.md`)
   - Customizable guidelines for prompt frequency and writing style
   - Plain text delimiter format for robust LLM output parsing
   - Preserves prompt tags in message HTML for feature compatibility (regeneration, gallery)
-  - Clear UI warnings about token cost implications (+1 API call per message in LLM mode)
-  - Debug logging for monitoring LLM prompts
+  - Clear UI warnings about token cost implications (+1 API call per message in Independent API mode)
+  - Debug logging for monitoring LLM prompts and showing what blocks are skipped
   - Comprehensive implementation plan document (`docs/IMPLEMENTATION_PLAN_ISSUE_32.md`)
 
 ### Fixed
