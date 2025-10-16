@@ -54,21 +54,33 @@ function findInsertionPoint(
   insertAfter: string,
   insertBefore: string
 ): number | null {
-  // Escape regex special characters
+  // Strategy 1: Try exact match first (fastest)
   const afterEscaped = escapeRegex(insertAfter);
   const beforeEscaped = escapeRegex(insertBefore);
+  const exactPattern = new RegExp(`(${afterEscaped})(${beforeEscaped})`, 'i');
+  const exactMatch = messageText.match(exactPattern);
 
-  // Build pattern: (insertAfter)(insertBefore)
-  // Use case-insensitive matching to be more flexible
-  const pattern = new RegExp(`(${afterEscaped})(${beforeEscaped})`, 'i');
-  const match = messageText.match(pattern);
-
-  if (!match || match.index === undefined) {
-    return null; // No match found
+  if (exactMatch && exactMatch.index !== undefined) {
+    return exactMatch.index + exactMatch[1].length;
   }
 
-  // Return position after insertAfter text
-  return match.index + match[1].length;
+  // Strategy 2: Try flexible whitespace matching
+  // Replace multiple spaces with \s+ to handle whitespace variations
+  // This allows "garden. The" to match "garden.  The" or "garden.\nThe"
+  const afterFlexible = afterEscaped.replace(/\s+/g, '\\s+');
+  const beforeFlexible = beforeEscaped.replace(/\s+/g, '\\s+');
+  const flexPattern = new RegExp(
+    `(${afterFlexible})(\\s*)(${beforeFlexible})`,
+    'i'
+  );
+  const flexMatch = messageText.match(flexPattern);
+
+  if (!flexMatch || flexMatch.index === undefined) {
+    return null; // No match found with either strategy
+  }
+
+  // Return position after insertAfter text and any whitespace
+  return flexMatch.index + flexMatch[1].length + flexMatch[2].length;
 }
 
 /**

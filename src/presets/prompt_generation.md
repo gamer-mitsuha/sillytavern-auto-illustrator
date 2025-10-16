@@ -11,13 +11,25 @@ The user will provide the message text. You should respond with a JSON object co
 2. **Generate Image Prompts**: {{PROMPT_WRITING_GUIDELINES}}
 
 3. **Specify Context for Insertion**: For each prompt, provide surrounding text snippets
-   - **CRITICAL**: Copy text EXACTLY as it appears in the message (preserve punctuation, capitalization, spacing)
-   - `insertAfter`: 10-30 character text snippet BEFORE where prompt should be inserted
-   - `insertBefore`: 10-30 character text snippet AFTER where prompt should be inserted
-   - Choose unique snippets that appear only once in the message
-   - Include distinctive words, avoid generic phrases like "the", "and", "a" alone
-   - The snippets should be adjacent or near-adjacent in the original text
-   - Test: Search for `insertAfter` + `insertBefore` in the message - should find exactly one match
+   - **CRITICAL**: `insertAfter` and `insertBefore` must be DIRECTLY ADJACENT in the original message
+   - When concatenated, they must form a continuous substring: `insertAfter + insertBefore`
+   - Insert prompts at natural boundaries (after sentence endings, between paragraphs)
+
+   **Example from message**: `"She entered the garden. The roses were in full bloom."`
+   - ✅ CORRECT:
+     - insertAfter: `"entered the garden. "`
+     - insertBefore: `"The roses were in"`
+     - Combined: `"entered the garden. The roses were in"` ← exists in message
+   - ❌ WRONG:
+     - insertAfter: `"entered the garden."`
+     - insertBefore: `"The roses were in"`
+     - Combined: `"entered the garden.The roses were in"` ← missing space!
+
+   - Copy text EXACTLY including all spaces, punctuation, capitalization
+   - `insertAfter`: Ends at the insertion point (often includes trailing space after period)
+   - `insertBefore`: Starts from the insertion point
+   - Choose unique snippets (15-30 characters each recommended)
+   - Verification: Search for `insertAfter + insertBefore` in message → must find exactly once
 
 4. **Output Format**: Return a valid JSON object with this exact structure:
 
@@ -49,23 +61,27 @@ The user will provide the message text. You should respond with a JSON object co
 
 ## Example Output
 
+Given message: `"She stepped into the rose garden. Her dress flowed in the breeze. They reached the mountain lake. The water was perfectly still."`
+
 ```json
 {
   "prompts": [
     {
       "text": "1girl, long silver hair, white dress, standing in garden, surrounded by roses, afternoon sunlight, soft focus, highly detailed, best quality, masterpiece",
-      "insertAfter": "She stepped into the rose garden",
-      "insertBefore": "admiring the blooming flowers",
-      "reasoning": "Character introduction in garden setting"
+      "insertAfter": "into the rose garden. ",
+      "insertBefore": "Her dress flowed in",
+      "reasoning": "Character in garden setting - insert after first sentence"
     },
     {
       "text": "no humans, mountain lake, crystal clear water, snow-capped peaks, sunset, orange sky, reflections on water, scenic vista, highly detailed, 8k, masterpiece",
-      "insertAfter": "They reached the mountain lake",
-      "insertBefore": "The water was perfectly still",
-      "reasoning": "Landscape description of mountain lake at sunset"
+      "insertAfter": "the mountain lake. ",
+      "insertBefore": "The water was perfectly",
+      "reasoning": "Landscape scene - insert after sentence describing arrival"
     }
   ]
 }
 ```
+
+Note: In both examples, `insertAfter + insertBefore` forms a continuous substring in the original message.
 
 Now analyze the message and generate appropriate image prompts with context-based insertion points.

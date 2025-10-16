@@ -247,6 +247,122 @@ describe('prompt_insertion', () => {
       expect(result.updatedText).toContain('<!--img-prompt="forest scene"-->');
     });
 
+    it('should fail when insertAfter and insertBefore are not adjacent', () => {
+      const messageText = 'She entered the garden. The roses were blooming.';
+      const suggestions: PromptSuggestion[] = [
+        {
+          text: 'garden scene',
+          // Missing the period and space between "garden" and "The"
+          insertAfter: 'entered the garden',
+          insertBefore: 'The roses were',
+        },
+      ];
+
+      const result = insertPromptTagsWithContext(
+        messageText,
+        suggestions,
+        tagTemplate
+      );
+
+      // Should fail because "entered the gardenThe roses were" doesn't exist
+      expect(result.insertedCount).toBe(0);
+      expect(result.failedSuggestions).toHaveLength(1);
+      expect(result.updatedText).toBe(messageText); // Unchanged
+    });
+
+    it('should succeed when insertAfter and insertBefore are adjacent with correct spacing', () => {
+      const messageText = 'She entered the garden. The roses were blooming.';
+      const suggestions: PromptSuggestion[] = [
+        {
+          text: 'garden scene',
+          // Correctly includes period and space
+          insertAfter: 'entered the garden. ',
+          insertBefore: 'The roses were',
+        },
+      ];
+
+      const result = insertPromptTagsWithContext(
+        messageText,
+        suggestions,
+        tagTemplate
+      );
+
+      // Should succeed because "entered the garden. The roses were" exists
+      expect(result.insertedCount).toBe(1);
+      expect(result.failedSuggestions).toHaveLength(0);
+      expect(result.updatedText).toContain('<!--img-prompt="garden scene"-->');
+    });
+
+    it('should handle extra spaces between insertAfter and insertBefore', () => {
+      const messageText = 'She entered the garden.  The roses were blooming.';
+      const suggestions: PromptSuggestion[] = [
+        {
+          text: 'garden scene',
+          // LLM provided single space but message has double space
+          insertAfter: 'entered the garden. ',
+          insertBefore: 'The roses were',
+        },
+      ];
+
+      const result = insertPromptTagsWithContext(
+        messageText,
+        suggestions,
+        tagTemplate
+      );
+
+      // Should still succeed due to flexible whitespace matching
+      expect(result.insertedCount).toBe(1);
+      expect(result.failedSuggestions).toHaveLength(0);
+      expect(result.updatedText).toContain('<!--img-prompt="garden scene"-->');
+    });
+
+    it('should handle newlines between insertAfter and insertBefore', () => {
+      const messageText =
+        'She entered the garden.\n\nThe roses were blooming.';
+      const suggestions: PromptSuggestion[] = [
+        {
+          text: 'garden scene',
+          // LLM provided single space but message has newlines
+          insertAfter: 'entered the garden.',
+          insertBefore: 'The roses were',
+        },
+      ];
+
+      const result = insertPromptTagsWithContext(
+        messageText,
+        suggestions,
+        tagTemplate
+      );
+
+      // Should succeed due to flexible whitespace matching
+      expect(result.insertedCount).toBe(1);
+      expect(result.failedSuggestions).toHaveLength(0);
+      expect(result.updatedText).toContain('<!--img-prompt="garden scene"-->');
+    });
+
+    it('should handle missing space if content is actually adjacent', () => {
+      const messageText = 'She entered the garden.The roses were blooming.';
+      const suggestions: PromptSuggestion[] = [
+        {
+          text: 'garden scene',
+          // LLM forgot the space
+          insertAfter: 'entered the garden.',
+          insertBefore: 'The roses were',
+        },
+      ];
+
+      const result = insertPromptTagsWithContext(
+        messageText,
+        suggestions,
+        tagTemplate
+      );
+
+      // Should succeed - flexible matching allows \s* (zero or more spaces)
+      expect(result.insertedCount).toBe(1);
+      expect(result.failedSuggestions).toHaveLength(0);
+      expect(result.updatedText).toContain('<!--img-prompt="garden scene"-->');
+    });
+
     it('should handle prompts that need to be inserted from left to right', () => {
       const messageText = 'First part. Second part. Third part.';
       const suggestions: PromptSuggestion[] = [
