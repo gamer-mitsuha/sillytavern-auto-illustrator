@@ -48,6 +48,16 @@ Automatically generates inline images in your SillyTavern conversations based on
   - Button in regeneration dialog
   - Opens modal viewer at clicked image
   - Navigate through all chat images chronologically
+- 🎯 **Meta Prompt Depth Control** (v1.5.0+): Fine-tune meta prompt position in chat history
+  - Choose where to inject system prompts (0 = last, 1 = one before last, etc.)
+  - Only affects Shared API Call mode
+  - Range: 0-20
+- 🔀 **Independent API Call Mode** (v1.5.0+): Experimental prompt generation mode
+  - Separate API call after response to generate prompts
+  - Prevents prompt generation from influencing response quality
+  - Context-aware with configurable message history
+  - Cost control with max prompts per message limit
+  - Automatic chat history pruning
 - ⚙️ **Widget Visibility Controls** (v1.3.0+): Show/hide Progress and Gallery widgets independently
 - 📝 **Smart Prompt Injection**: Meta-prompts are injected only when needed
 - 💾 **Persistent Images**: Generated images are automatically saved to chat history
