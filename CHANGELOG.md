@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Debug logging for monitoring LLM prompts
   - Comprehensive implementation plan document (`docs/IMPLEMENTATION_PLAN_ISSUE_32.md`)
 
+### Fixed
+- **Meta-prompt Injection Logic** - Now requires explicit generation type instead of defaulting to 'normal', preventing unexpected meta-prompt injection in direct API calls like `generateRaw`
+
 ## [1.4.0] - 2025-10-15
 
 ### Added
