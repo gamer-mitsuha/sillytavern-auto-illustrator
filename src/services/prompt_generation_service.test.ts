@@ -410,5 +410,57 @@ describe('prompt_generation_service', () => {
       expect(result[0].text).toBe('prompt without reasoning');
       expect(result[0].reasoning).toBeUndefined();
     });
+
+    it('should handle markdown blocks with various newline patterns', async () => {
+      const messageText = 'Test message.';
+      // Real case: markdown with no newline after opening
+      const jsonContent = JSON.stringify({
+        prompts: [
+          {
+            text: 'test prompt',
+            insertAfter: 'Test',
+            insertBefore: 'message.',
+          },
+        ],
+      });
+      const llmResponse = '```json\n' + jsonContent + '\n```';
+
+      vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
+
+      const result = await generatePromptsForMessage(
+        messageText,
+        mockContext,
+        mockSettings
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].text).toBe('test prompt');
+    });
+
+    it('should handle markdown blocks without trailing newline', async () => {
+      const messageText = 'Test message.';
+      const jsonContent = JSON.stringify({
+        prompts: [
+          {
+            text: 'test prompt',
+            insertAfter: 'Test',
+            insertBefore: 'message.',
+          },
+        ],
+      });
+      // No newline before closing ```
+      const llmResponse = '```json\n' + jsonContent + '```';
+
+      vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
+
+      const result = await generatePromptsForMessage(
+        messageText,
+        mockContext,
+        mockSettings
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].text).toBe('test prompt');
+    });
   });
 });

@@ -33,10 +33,11 @@ function parsePromptSuggestions(llmResponse: string): PromptSuggestion[] {
     // Strip markdown code blocks if present (```json ... ```)
     let cleanedResponse = llmResponse.trim();
     if (cleanedResponse.startsWith('```')) {
-      // Remove opening ```json or ```
-      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n/, '');
-      // Remove closing ```
-      cleanedResponse = cleanedResponse.replace(/\n```\s*$/, '');
+      // Remove opening ```json or ``` (with optional newline)
+      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n?/, '');
+      // Remove closing ``` (with optional preceding newline)
+      cleanedResponse = cleanedResponse.replace(/\n?```\s*$/, '');
+      cleanedResponse = cleanedResponse.trim();
     }
 
     // Try to find JSON block in response (handles cases where LLM adds explanatory text)
