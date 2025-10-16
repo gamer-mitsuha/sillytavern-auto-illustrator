@@ -20,7 +20,7 @@ describe('settings', () => {
       expect(defaults.customPresets).toEqual([]);
       expect(defaults.showGalleryWidget).toBe(true);
       expect(defaults.showProgressWidget).toBe(true);
-      expect(defaults.promptGenerationMode).toBe('regex');
+      expect(defaults.promptGenerationMode).toBe('shared-api');
       expect(defaults.maxPromptsPerMessage).toBe(5);
       expect(defaults.llmFrequencyGuidelines).toBeTruthy();
       expect(defaults.llmPromptWritingGuidelines).toBeTruthy();
@@ -53,6 +53,7 @@ describe('settings', () => {
         enableClickToRegenerate: true,
         promptGenerationMode: 'regex',
         maxPromptsPerMessage: 5,
+        contextMessageCount: 10,
         llmFrequencyGuidelines: 'test frequency',
         llmPromptWritingGuidelines: 'test writing',
       };
@@ -134,6 +135,7 @@ describe('settings', () => {
         enableClickToRegenerate: true,
         promptGenerationMode: 'regex',
         maxPromptsPerMessage: 5,
+        contextMessageCount: 10,
         llmFrequencyGuidelines: '',
         llmPromptWritingGuidelines: '',
       };
@@ -176,6 +178,7 @@ describe('settings', () => {
         enableClickToRegenerate: true,
         promptGenerationMode: 'llm-post',
         maxPromptsPerMessage: 3,
+        contextMessageCount: 15,
         llmFrequencyGuidelines: 'new frequency',
         llmPromptWritingGuidelines: 'new writing',
       };

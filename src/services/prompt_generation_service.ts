@@ -92,7 +92,14 @@ function parsePromptSuggestions(llmResponse: string): PromptSuggestion[] {
 
       // Check required fields
       if (!textMatch || !insertAfterMatch || !insertBeforeMatch) {
-        logger.warn('Skipping prompt block with missing required fields');
+        const missingFields = [];
+        if (!textMatch) missingFields.push('TEXT');
+        if (!insertAfterMatch) missingFields.push('INSERT_AFTER');
+        if (!insertBeforeMatch) missingFields.push('INSERT_BEFORE');
+        logger.warn(
+          `Skipping prompt block with missing required fields: ${missingFields.join(', ')}`
+        );
+        logger.debug('Block content preview:', blockContent.substring(0, 200));
         continue;
       }
 
@@ -103,7 +110,14 @@ function parsePromptSuggestions(llmResponse: string): PromptSuggestion[] {
 
       // Check non-empty
       if (!text || !insertAfter || !insertBefore) {
-        logger.warn('Skipping prompt block with empty fields');
+        const emptyFields = [];
+        if (!text) emptyFields.push('TEXT');
+        if (!insertAfter) emptyFields.push('INSERT_AFTER');
+        if (!insertBefore) emptyFields.push('INSERT_BEFORE');
+        logger.warn(
+          `Skipping prompt block with empty fields: ${emptyFields.join(', ')}`
+        );
+        logger.debug('Block content preview:', blockContent.substring(0, 200));
         continue;
       }
 
