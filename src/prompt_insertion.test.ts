@@ -317,8 +317,7 @@ describe('prompt_insertion', () => {
     });
 
     it('should handle newlines between insertAfter and insertBefore', () => {
-      const messageText =
-        'She entered the garden.\n\nThe roses were blooming.';
+      const messageText = 'She entered the garden.\n\nThe roses were blooming.';
       const suggestions: PromptSuggestion[] = [
         {
           text: 'garden scene',
