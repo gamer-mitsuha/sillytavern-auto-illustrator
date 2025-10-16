@@ -1111,12 +1111,14 @@ function registerEventHandlers(): void {
     }
 
     // Inject meta-prompt (filter out quiet/impersonate modes and independent-API mode)
-    const effectiveType = currentGenerationType || 'normal';
+    // Require explicit generation type - skip injection if type is undefined/null
     const shouldInject =
       settings.enabled &&
       settings.metaPrompt &&
       settings.metaPrompt.length > 0 &&
-      !['quiet', 'impersonate'].includes(effectiveType) &&
+      currentGenerationType !== undefined &&
+      currentGenerationType !== null &&
+      !['quiet', 'impersonate'].includes(currentGenerationType) &&
       !isIndependentApiMode(settings.promptGenerationMode);
 
     if (shouldInject) {
@@ -1126,7 +1128,7 @@ function registerEventHandlers(): void {
       const insertPosition = Math.max(0, eventData.chat.length - depth);
 
       logger.info('Injecting meta-prompt as system message', {
-        generationType: effectiveType,
+        generationType: currentGenerationType,
         depth,
         insertPosition,
         chatLength: eventData.chat.length,
@@ -1140,17 +1142,20 @@ function registerEventHandlers(): void {
       logger.info('Skipping meta-prompt injection', {
         enabled: settings.enabled,
         hasMetaPrompt: !!settings.metaPrompt,
-        generationType: effectiveType,
+        generationType: currentGenerationType,
         promptGenerationMode: settings.promptGenerationMode,
         reason: !settings.enabled
           ? 'extension disabled'
           : !settings.metaPrompt
             ? 'no meta-prompt'
-            : ['quiet', 'impersonate'].includes(effectiveType)
-              ? `filtered generation type: ${effectiveType}`
-              : isIndependentApiMode(settings.promptGenerationMode)
-                ? 'Independent API mode enabled'
-                : 'unknown',
+            : currentGenerationType === undefined ||
+                currentGenerationType === null
+              ? 'no generation type specified'
+              : ['quiet', 'impersonate'].includes(currentGenerationType)
+                ? `filtered generation type: ${currentGenerationType}`
+                : isIndependentApiMode(settings.promptGenerationMode)
+                  ? 'Independent API mode enabled'
+                  : 'unknown',
       });
     }
   });
