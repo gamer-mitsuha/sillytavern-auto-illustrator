@@ -1,10 +1,8 @@
 # Image Prompt Generation Task
 
-Your task is to analyze the following assistant message and generate image prompts for key visual scenes.
+Your task is to analyze the user's message and generate image prompts for key visual scenes.
 
-## Message to Analyze
-
-{{MESSAGE_TEXT}}
+The user will provide the message text. You should respond with a JSON object containing image prompts.
 
 ## Instructions
 
@@ -38,9 +36,16 @@ Your task is to analyze the following assistant message and generate image promp
 
 ## Important Rules
 
-1. **Return Valid JSON Only**: No explanatory text before or after the JSON object
+1. **Return Valid JSON Only**:
+   - Output the raw JSON object directly - do NOT wrap it in markdown code blocks (```json)
+   - No explanatory text before or after the JSON object
+   - Use standard ASCII double quotes (") for all JSON keys and string values
+   - Do NOT use Unicode quotes like " " ' ' 「」 『』 or any other quote variants
+   - Example of CORRECT quotes: "text", "insertAfter", "insertBefore"
+   - Example of WRONG quotes: "text", 「text」, 『text』
 2. **Unique Context Snippets**: Ensure insertAfter/insertBefore combinations are unique and unambiguous
 3. **Always Include Reasoning**: Helps understand why each scene was chosen
+4. **JSON Format Validation**: Your response must be parseable by standard JSON.parse()
 
 ## Example Output
 

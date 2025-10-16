@@ -132,32 +132,31 @@ export async function generatePromptsForMessage(
     throw new Error('LLM generation not available');
   }
 
-  // Build system prompt
-  const systemPrompt =
-    'You are a technical assistant helping to generate image prompts for a visual novel. ' +
-    'Analyze the provided message and suggest 0-5 image generation prompts for key visual scenes. ' +
-    'Output ONLY a valid JSON object in the specified format. ' +
-    'Do NOT write stories, explanations, or continue any roleplay.';
+  // Build system prompt with all instructions from template
+  let systemPrompt = promptGenerationTemplate;
 
-  // Build user prompt using template with all placeholders
-  let userPrompt = promptGenerationTemplate;
-
-  // Replace MESSAGE_TEXT
-  userPrompt = userPrompt.replace('{{MESSAGE_TEXT}}', messageText);
+  // Remove {{MESSAGE_TEXT}} placeholder section from template (will be user prompt)
+  systemPrompt = systemPrompt.replace(
+    '## Message to Analyze\n\n{{MESSAGE_TEXT}}\n\n',
+    ''
+  );
 
   // Replace FREQUENCY_GUIDELINES with user's custom or default
   const frequencyGuidelines = settings.llmFrequencyGuidelines || '';
-  userPrompt = userPrompt.replace(
+  systemPrompt = systemPrompt.replace(
     '{{FREQUENCY_GUIDELINES}}',
     frequencyGuidelines
   );
 
   // Replace PROMPT_WRITING_GUIDELINES with user's custom or default
   const promptWritingGuidelines = settings.llmPromptWritingGuidelines || '';
-  userPrompt = userPrompt.replace(
+  systemPrompt = systemPrompt.replace(
     '{{PROMPT_WRITING_GUIDELINES}}',
     promptWritingGuidelines
   );
+
+  // User prompt is just the message text to analyze
+  const userPrompt = messageText;
 
   logger.debug('Calling LLM for prompt generation (using generateRaw)');
 
