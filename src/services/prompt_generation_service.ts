@@ -135,12 +135,6 @@ export async function generatePromptsForMessage(
   // Build system prompt with all instructions from template
   let systemPrompt = promptGenerationTemplate;
 
-  // Remove {{MESSAGE_TEXT}} placeholder section from template (will be user prompt)
-  systemPrompt = systemPrompt.replace(
-    '## Message to Analyze\n\n{{MESSAGE_TEXT}}\n\n',
-    ''
-  );
-
   // Replace FREQUENCY_GUIDELINES with user's custom or default
   const frequencyGuidelines = settings.llmFrequencyGuidelines || '';
   systemPrompt = systemPrompt.replace(

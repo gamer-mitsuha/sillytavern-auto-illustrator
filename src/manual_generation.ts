@@ -270,8 +270,12 @@ async function showPromptUpdateDialog(
 
   logger.info('=== DEBUG: PromptRegistry State ===');
   logger.info(`Looking up image: ${normalizedUrl}`);
-  logger.info(`Registry has ${Object.keys(registry.nodes).length} prompt nodes`);
-  logger.info(`Registry has ${Object.keys(registry.imageToPromptId).length} image mappings`);
+  logger.info(
+    `Registry has ${Object.keys(registry.nodes).length} prompt nodes`
+  );
+  logger.info(
+    `Registry has ${Object.keys(registry.imageToPromptId).length} image mappings`
+  );
 
   // Log all image URLs in registry for comparison
   const registryUrls = Object.keys(registry.imageToPromptId);

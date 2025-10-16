@@ -432,9 +432,7 @@ export async function insertDeferredImages(
 
         // Link new image to prompt (updates or replaces old association)
         if (queuedPrompt.targetPromptId) {
-          logger.info(
-            `=== DEBUG: Linking regenerated image ===`
-          );
+          logger.info('=== DEBUG: Linking regenerated image ===');
           logger.info(`Image URL (raw): ${deferred.imageUrl}`);
           logger.info(`Prompt ID: ${queuedPrompt.targetPromptId}`);
 
@@ -483,9 +481,7 @@ export async function insertDeferredImages(
           );
 
           // Link image to prompt using prompt_manager
-          logger.info(
-            `=== DEBUG: Linking new streaming image ===`
-          );
+          logger.info('=== DEBUG: Linking new streaming image ===');
           logger.info(`Image URL (raw): ${deferred.imageUrl}`);
           logger.info(`Prompt ID: ${deferred.promptId}`);
 

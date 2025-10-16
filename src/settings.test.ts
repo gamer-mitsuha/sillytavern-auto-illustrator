@@ -248,14 +248,20 @@ describe('settings', () => {
       const defaults = getDefaultSettings();
 
       // Test regex mode (default)
-      const regexSettings = {...defaults, promptGenerationMode: 'regex' as const};
+      const regexSettings = {
+        ...defaults,
+        promptGenerationMode: 'regex' as const,
+      };
       saveSettings(regexSettings, mockContext);
       expect(
         mockContext.extensionSettings[EXTENSION_NAME].promptGenerationMode
       ).toBe('regex');
 
       // Test LLM mode
-      const llmSettings = {...defaults, promptGenerationMode: 'llm-post' as const};
+      const llmSettings = {
+        ...defaults,
+        promptGenerationMode: 'llm-post' as const,
+      };
       saveSettings(llmSettings, mockContext);
       expect(
         mockContext.extensionSettings[EXTENSION_NAME].promptGenerationMode
