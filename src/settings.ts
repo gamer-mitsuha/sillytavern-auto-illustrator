@@ -229,11 +229,37 @@ export function createSettingsUI(): string {
             </label>
           </div>
 
-          <label for="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}">
-            <span>${t('settings.maxPromptsPerMessage')}</span>
-            <small>${t('settings.maxPromptsPerMessageDesc')}</small>
-            <input id="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}" class="text_pole" type="number" min="${MAX_PROMPTS_PER_MESSAGE.MIN}" max="${MAX_PROMPTS_PER_MESSAGE.MAX}" step="${MAX_PROMPTS_PER_MESSAGE.STEP}" />
-          </label>
+          <div id="${UI_ELEMENT_IDS.LLM_SETTINGS_CONTAINER}" style="display: none;">
+            <label for="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}">
+              <span>${t('settings.maxPromptsPerMessage')}</span>
+              <small>${t('settings.maxPromptsPerMessageDesc')}</small>
+              <input id="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}" class="text_pole" type="number" min="${MAX_PROMPTS_PER_MESSAGE.MIN}" max="${MAX_PROMPTS_PER_MESSAGE.MAX}" step="${MAX_PROMPTS_PER_MESSAGE.STEP}" />
+            </label>
+
+            <label for="${UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES}">
+              <span>${t('settings.llmFrequencyGuidelines')}</span>
+              <small>${t('settings.llmFrequencyGuidelinesDesc')}</small>
+              <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                <textarea id="${UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES}" class="text_pole textarea_compact" rows="4" style="flex: 1; font-family: monospace; font-size: 0.9em;"></textarea>
+                <button id="${UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES_RESET}" class="menu_button menu_button_icon" title="${t('settings.resetToDefault')}">
+                  <i class="fa-solid fa-undo"></i>
+                </button>
+              </div>
+            </label>
+
+            <label for="${UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES}">
+              <span>${t('settings.llmPromptWritingGuidelines')}</span>
+              <small>${t('settings.llmPromptWritingGuidelinesDesc')}</small>
+              <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                <textarea id="${UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES}" class="text_pole textarea_compact" rows="15" style="flex: 1; font-family: monospace; font-size: 0.9em;"></textarea>
+                <button id="${UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES_RESET}" class="menu_button menu_button_icon" title="${t('settings.resetToDefault')}">
+                  <i class="fa-solid fa-undo"></i>
+                </button>
+              </div>
+            </label>
+          </div>
+
+          <hr>
 
           <div style="margin-top: 1rem;">
             <strong>${t('settings.widgetVisibility')}</strong>

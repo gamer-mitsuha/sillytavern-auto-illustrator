@@ -102,6 +102,60 @@ export const MAX_PROMPTS_PER_MESSAGE = {
 } as const;
 
 /**
+ * Default frequency guidelines for LLM prompt generation
+ * Tells the LLM when to generate image prompts
+ */
+export const DEFAULT_LLM_FREQUENCY_GUIDELINES = `Find 0-5 key visual moments in the message that are worth illustrating
+   - Aim for approximately one prompt every 250 words or at major scene changes
+   - Focus on scenes with clear visual descriptions
+   - Prioritize major scene transitions, character introductions, or significant moments
+   - Skip if the message has no visual content (pure dialogue, abstract concepts)`;
+
+/**
+ * Default prompt writing guidelines for LLM prompt generation
+ * Tells the LLM how to structure image generation prompts
+ */
+export const DEFAULT_LLM_PROMPT_WRITING_GUIDELINES = `For each scene, create a tag-based image generation prompt
+   - Use comma-separated tags in priority order
+   - Structure: \`[count], [character details], [action/pose], [environment], [lighting], [style], [quality tags]\`
+   - Always start with subject count: \`1girl\`, \`2boys\`, \`1boy, 1girl\`, \`no humans\`, etc.
+   - End with quality tags: \`highly detailed\`, \`best quality\`, \`masterpiece\`
+   - Keep prompts concise: 15-40 tags ideal
+
+### Subject Count (Always First Tag)
+**Single character:** \`1girl\` / \`1boy\` / \`1other\`
+**Multiple characters:** \`2girls\` / \`2boys\` / \`1boy, 1girl\`
+**No humans:** \`no humans\` (for landscapes, objects, animals only)
+
+### Character Details
+**Hair:** Length (\`long hair\`, \`short hair\`), Style (\`ponytail\`, \`braided hair\`), Color (\`black hair\`, \`blonde hair\`, \`silver hair\`)
+**Eyes:** \`blue eyes\`, \`brown eyes\`, \`green eyes\`, \`red eyes\`, \`purple eyes\`
+**Body:** \`slender\`, \`athletic\`, \`muscular\`, \`petite\`, \`curvy\`
+**Clothing:** Casual (\`t-shirt\`, \`jeans\`, \`dress\`), Formal (\`suit\`, \`formal dress\`), Fantasy (\`armor\`, \`robe\`, \`cloak\`)
+
+### Expression & Pose
+**Expressions:** \`smiling\`, \`serious\`, \`sad\`, \`surprised\`, \`gentle smile\`, \`looking at viewer\`
+**Poses:** \`standing\`, \`sitting\`, \`walking\`, \`running\`, \`arms crossed\`, \`hand on hip\`
+
+### Environment
+**Indoor:** \`bedroom\`, \`living room\`, \`kitchen\`, \`library\`, \`cafe\`, \`classroom\`
+**Outdoor:** \`forest\`, \`beach\`, \`mountain\`, \`field\`, \`garden\`, \`city\`, \`street\`
+**Background:** \`detailed background\`, \`simple background\`, \`blurred background\`
+
+### Lighting & Atmosphere
+**Lighting:** \`sunlight\`, \`natural light\`, \`moonlight\`, \`sunset\`, \`soft lighting\`, \`dramatic lighting\`
+**Time:** \`morning\`, \`afternoon\`, \`evening\`, \`sunset\`, \`night\`
+**Weather:** \`sunny\`, \`cloudy\`, \`rainy\`, \`snowy\`, \`foggy\`
+
+### Quality Tags (Always Include)
+**Essential:** \`highly detailed\`, \`best quality\`, \`masterpiece\`
+**Optional:** \`absurdres\`, \`highres\`, \`8k\`
+
+**Examples:**
+- \`1girl, long silver hair, white dress, standing in garden, surrounded by roses, afternoon sunlight, soft focus, highly detailed, best quality, masterpiece\`
+- \`no humans, mountain lake, crystal clear water, snow-capped peaks, sunset, orange sky, reflections on water, scenic vista, highly detailed, 8k, masterpiece\``;
+
+/**
  * Default prompt detection patterns
  * Supports multiple tag formats for backward compatibility:
  * - HTML comment format (primary, invisible, passes through DOMPurify)
@@ -135,6 +189,8 @@ export const DEFAULT_SETTINGS = {
   enableClickToRegenerate: true,
   promptGenerationMode: PROMPT_GENERATION_MODE.DEFAULT,
   maxPromptsPerMessage: MAX_PROMPTS_PER_MESSAGE.DEFAULT,
+  llmFrequencyGuidelines: DEFAULT_LLM_FREQUENCY_GUIDELINES,
+  llmPromptWritingGuidelines: DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
 };
 
 /**
@@ -167,6 +223,14 @@ export const UI_ELEMENT_IDS = {
   SHOW_PROGRESS_WIDGET: 'auto_illustrator_show_progress_widget',
   PROMPT_GENERATION_MODE_REGEX: 'auto_illustrator_prompt_gen_mode_regex',
   PROMPT_GENERATION_MODE_LLM: 'auto_illustrator_prompt_gen_mode_llm',
+  LLM_SETTINGS_CONTAINER: 'auto_illustrator_llm_settings_container',
   MAX_PROMPTS_PER_MESSAGE: 'auto_illustrator_max_prompts_per_message',
+  LLM_FREQUENCY_GUIDELINES: 'auto_illustrator_llm_frequency_guidelines',
+  LLM_FREQUENCY_GUIDELINES_RESET:
+    'auto_illustrator_llm_frequency_guidelines_reset',
+  LLM_PROMPT_WRITING_GUIDELINES:
+    'auto_illustrator_llm_prompt_writing_guidelines',
+  LLM_PROMPT_WRITING_GUIDELINES_RESET:
+    'auto_illustrator_llm_prompt_writing_guidelines_reset',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;

@@ -136,6 +136,8 @@ declare global {
     enableClickToRegenerate: boolean;
     promptGenerationMode: 'regex' | 'llm-post';
     maxPromptsPerMessage: number;
+    llmFrequencyGuidelines: string;
+    llmPromptWritingGuidelines: string;
   }
 
   interface ImagePromptMatch {

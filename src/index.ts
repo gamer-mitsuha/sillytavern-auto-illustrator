@@ -30,6 +30,8 @@ import {
   MAX_CONCURRENT_GENERATIONS,
   MIN_GENERATION_INTERVAL,
   MAX_PROMPTS_PER_MESSAGE,
+  DEFAULT_LLM_FREQUENCY_GUIDELINES,
+  DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
 } from './constants';
 import {
   getPresetById,
@@ -182,9 +184,29 @@ function updateUI(): void {
     }
   }
 
+  // Toggle LLM settings visibility based on current mode
+  toggleLLMSettingsVisibility();
+
   // Update max prompts per message
   if (maxPromptsPerMessageInput) {
     maxPromptsPerMessageInput.value = settings.maxPromptsPerMessage.toString();
+  }
+
+  // Update LLM guidelines textareas
+  const llmFrequencyGuidelinesTextarea = document.getElementById(
+    UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
+  ) as HTMLTextAreaElement;
+  const llmPromptWritingGuidelinesTextarea = document.getElementById(
+    UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES
+  ) as HTMLTextAreaElement;
+
+  if (llmFrequencyGuidelinesTextarea) {
+    llmFrequencyGuidelinesTextarea.value = settings.llmFrequencyGuidelines;
+  }
+
+  if (llmPromptWritingGuidelinesTextarea) {
+    llmPromptWritingGuidelinesTextarea.value =
+      settings.llmPromptWritingGuidelines;
   }
 
   // Update preset dropdown with custom presets
@@ -353,6 +375,12 @@ function handleSettingsChange(): void {
   const maxPromptsPerMessageInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
   ) as HTMLInputElement;
+  const llmFrequencyGuidelinesTextarea = document.getElementById(
+    UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
+  ) as HTMLTextAreaElement;
+  const llmPromptWritingGuidelinesTextarea = document.getElementById(
+    UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES
+  ) as HTMLTextAreaElement;
 
   // Track if enabled state or widget visibility changed (requires page reload)
   const wasEnabled = settings.enabled;
@@ -495,6 +523,13 @@ function handleSettingsChange(): void {
     }
   }
 
+  // LLM guidelines (textareas)
+  settings.llmFrequencyGuidelines =
+    llmFrequencyGuidelinesTextarea?.value ?? settings.llmFrequencyGuidelines;
+  settings.llmPromptWritingGuidelines =
+    llmPromptWritingGuidelinesTextarea?.value ??
+    settings.llmPromptWritingGuidelines;
+
   settings.showGalleryWidget =
     showGalleryWidgetCheckbox?.checked ?? settings.showGalleryWidget;
   settings.showProgressWidget =
@@ -567,6 +602,64 @@ function handlePromptPatternsReset(): void {
   }
 
   logger.info('Prompt patterns reset to defaults');
+}
+
+/**
+ * Handles LLM frequency guidelines reset to defaults
+ */
+function handleLLMFrequencyGuidelinesReset(): void {
+  const llmFrequencyGuidelinesTextarea = document.getElementById(
+    UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
+  ) as HTMLTextAreaElement;
+
+  if (llmFrequencyGuidelinesTextarea) {
+    llmFrequencyGuidelinesTextarea.value = DEFAULT_LLM_FREQUENCY_GUIDELINES;
+    // Trigger change event to save the settings
+    handleSettingsChange();
+    toastr.success('Frequency guidelines reset to default', t('extensionName'));
+  }
+
+  logger.info('LLM frequency guidelines reset to defaults');
+}
+
+/**
+ * Handles LLM prompt writing guidelines reset to defaults
+ */
+function handleLLMPromptWritingGuidelinesReset(): void {
+  const llmPromptWritingGuidelinesTextarea = document.getElementById(
+    UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES
+  ) as HTMLTextAreaElement;
+
+  if (llmPromptWritingGuidelinesTextarea) {
+    llmPromptWritingGuidelinesTextarea.value =
+      DEFAULT_LLM_PROMPT_WRITING_GUIDELINES;
+    // Trigger change event to save the settings
+    handleSettingsChange();
+    toastr.success(
+      'Prompt writing guidelines reset to default',
+      t('extensionName')
+    );
+  }
+
+  logger.info('LLM prompt writing guidelines reset to defaults');
+}
+
+/**
+ * Toggles visibility of LLM-specific settings based on prompt generation mode
+ */
+function toggleLLMSettingsVisibility(): void {
+  const llmSettingsContainer = document.getElementById(
+    UI_ELEMENT_IDS.LLM_SETTINGS_CONTAINER
+  );
+  const promptGenModeLLMRadio = document.getElementById(
+    UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_LLM
+  ) as HTMLInputElement;
+
+  if (llmSettingsContainer && promptGenModeLLMRadio) {
+    llmSettingsContainer.style.display = promptGenModeLLMRadio.checked
+      ? 'block'
+      : 'none';
+  }
 }
 
 /**
@@ -1122,6 +1215,18 @@ function initialize(): void {
     const maxPromptsPerMessageInput = document.getElementById(
       UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
     ) as HTMLInputElement;
+    const llmFrequencyGuidelinesTextarea = document.getElementById(
+      UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
+    ) as HTMLTextAreaElement;
+    const llmFrequencyGuidelinesResetButton = document.getElementById(
+      UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES_RESET
+    );
+    const llmPromptWritingGuidelinesTextarea = document.getElementById(
+      UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES
+    ) as HTMLTextAreaElement;
+    const llmPromptWritingGuidelinesResetButton = document.getElementById(
+      UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES_RESET
+    );
     const resetButton = document.getElementById(UI_ELEMENT_IDS.RESET_BUTTON);
 
     enabledCheckbox?.addEventListener('change', handleSettingsChange);
@@ -1153,9 +1258,31 @@ function initialize(): void {
       handleSettingsChange
     );
     manualGenModeSelect?.addEventListener('change', handleSettingsChange);
-    promptGenModeRegexRadio?.addEventListener('change', handleSettingsChange);
-    promptGenModeLLMRadio?.addEventListener('change', handleSettingsChange);
+    promptGenModeRegexRadio?.addEventListener('change', () => {
+      toggleLLMSettingsVisibility();
+      handleSettingsChange();
+    });
+    promptGenModeLLMRadio?.addEventListener('change', () => {
+      toggleLLMSettingsVisibility();
+      handleSettingsChange();
+    });
     maxPromptsPerMessageInput?.addEventListener('change', handleSettingsChange);
+    llmFrequencyGuidelinesTextarea?.addEventListener(
+      'change',
+      handleSettingsChange
+    );
+    llmFrequencyGuidelinesResetButton?.addEventListener(
+      'click',
+      handleLLMFrequencyGuidelinesReset
+    );
+    llmPromptWritingGuidelinesTextarea?.addEventListener(
+      'change',
+      handleSettingsChange
+    );
+    llmPromptWritingGuidelinesResetButton?.addEventListener(
+      'click',
+      handleLLMPromptWritingGuidelinesReset
+    );
 
     const showGalleryWidgetCheckbox = document.getElementById(
       UI_ELEMENT_IDS.SHOW_GALLERY_WIDGET

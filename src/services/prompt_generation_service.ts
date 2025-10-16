@@ -30,9 +30,18 @@ interface PromptGenerationResponse {
  */
 function parsePromptSuggestions(llmResponse: string): PromptSuggestion[] {
   try {
+    // Strip markdown code blocks if present (```json ... ```)
+    let cleanedResponse = llmResponse.trim();
+    if (cleanedResponse.startsWith('```')) {
+      // Remove opening ```json or ```
+      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n/, '');
+      // Remove closing ```
+      cleanedResponse = cleanedResponse.replace(/\n```\s*$/, '');
+    }
+
     // Try to find JSON block in response (handles cases where LLM adds explanatory text)
-    const jsonMatch = llmResponse.match(/\{[\s\S]*"prompts"[\s\S]*\}/);
-    const jsonText = jsonMatch ? jsonMatch[0] : llmResponse;
+    const jsonMatch = cleanedResponse.match(/\{[\s\S]*"prompts"[\s\S]*\}/);
+    const jsonText = jsonMatch ? jsonMatch[0] : cleanedResponse;
 
     const parsed: PromptGenerationResponse = JSON.parse(jsonText);
 
@@ -130,10 +139,24 @@ export async function generatePromptsForMessage(
     'Output ONLY a valid JSON object in the specified format. ' +
     'Do NOT write stories, explanations, or continue any roleplay.';
 
-  // Build user prompt using template
-  const userPrompt = promptGenerationTemplate.replace(
-    '{{MESSAGE_TEXT}}',
-    messageText
+  // Build user prompt using template with all placeholders
+  let userPrompt = promptGenerationTemplate;
+
+  // Replace MESSAGE_TEXT
+  userPrompt = userPrompt.replace('{{MESSAGE_TEXT}}', messageText);
+
+  // Replace FREQUENCY_GUIDELINES with user's custom or default
+  const frequencyGuidelines = settings.llmFrequencyGuidelines || '';
+  userPrompt = userPrompt.replace(
+    '{{FREQUENCY_GUIDELINES}}',
+    frequencyGuidelines
+  );
+
+  // Replace PROMPT_WRITING_GUIDELINES with user's custom or default
+  const promptWritingGuidelines = settings.llmPromptWritingGuidelines || '';
+  userPrompt = userPrompt.replace(
+    '{{PROMPT_WRITING_GUIDELINES}}',
+    promptWritingGuidelines
   );
 
   logger.debug('Calling LLM for prompt generation (using generateRaw)');

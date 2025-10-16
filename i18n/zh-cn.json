@@ -178,6 +178,11 @@
   "settings.promptGenerationModeLLMDesc": "回复后单独调用大模型（AI回复更纯净，每条消息 +1 次API调用）",
   "settings.maxPromptsPerMessage": "每条消息的最大提示词数",
   "settings.maxPromptsPerMessageDesc": "成本控制：使用大模型生成时限制提示词数量（1-10）",
+  "settings.llmFrequencyGuidelines": "频率指南（大模型模式）",
+  "settings.llmFrequencyGuidelinesDesc": "大模型何时应生成图片提示词？（例如：每250词、场景变化时）",
+  "settings.llmPromptWritingGuidelines": "提示词编写指南（大模型模式）",
+  "settings.llmPromptWritingGuidelinesDesc": "大模型应如何编写图片提示词？（标签结构、质量标签、风格）",
+  "settings.resetToDefault": "重置为默认",
   "toast.llmPromptGenerationFailed": "使用大模型生成图片提示词失败",
   "toast.warning": "警告"
 }
