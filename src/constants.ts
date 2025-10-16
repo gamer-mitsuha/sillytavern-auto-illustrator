@@ -99,7 +99,7 @@ export const PROMPT_GENERATION_MODE = {
 export const MAX_PROMPTS_PER_MESSAGE = {
   DEFAULT: 5,
   MIN: 1,
-  MAX: 10,
+  MAX: 30,
   STEP: 1,
 } as const;
 
