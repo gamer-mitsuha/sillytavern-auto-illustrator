@@ -455,6 +455,12 @@ export function linkImageToPrompt(
   // Converts absolute URLs (http://host/path) to relative (/path)
   const normalizedUrl = normalizeImageUrl(imageUrl);
 
+  // DEBUG: Log URL normalization
+  logger.info(`=== DEBUG: linkImageToPrompt ===`);
+  logger.info(`Original URL: ${imageUrl}`);
+  logger.info(`Normalized URL: ${normalizedUrl}`);
+  logger.info(`Prompt ID: ${promptId}`);
+
   // Add to node's generated images (avoid duplicates)
   if (!node.generatedImages.includes(normalizedUrl)) {
     node.generatedImages.push(normalizedUrl);
@@ -467,6 +473,7 @@ export function linkImageToPrompt(
   updatePromptLastUsed(promptId, metadata);
 
   logger.debug(`Linked image to prompt ${promptId}: ${imageUrl}`);
+  logger.info(`Registry now has ${Object.keys(registry.imageToPromptId).length} image mappings`);
 }
 
 /**
@@ -530,12 +537,20 @@ export function getPromptForImage(
   metadata: AutoIllustratorChatMetadata
 ): PromptNode | null {
   const registry = getRegistry(metadata);
+
+  // DEBUG: Log lookup attempt
+  logger.info(`=== DEBUG: getPromptForImage ===`);
+  logger.info(`Looking up URL: ${imageUrl}`);
+  logger.info(`Registry has ${Object.keys(registry.imageToPromptId).length} image mappings`);
+
   const promptId = registry.imageToPromptId[imageUrl];
 
   if (!promptId) {
+    logger.info(`No promptId found for URL: ${imageUrl}`);
     return null;
   }
 
+  logger.info(`Found promptId: ${promptId}`);
   return registry.nodes[promptId] || null;
 }
 

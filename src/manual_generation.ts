@@ -259,10 +259,43 @@ async function showPromptUpdateDialog(
 
   // Get metadata and find prompt
   const metadata = getMetadata(context);
+
+  // DEBUG: Log registry state to diagnose issue
+  const registry = metadata.promptRegistry;
+  if (!registry) {
+    logger.error('PromptRegistry is undefined in metadata!');
+    toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
+    return null;
+  }
+
+  logger.info('=== DEBUG: PromptRegistry State ===');
+  logger.info(`Looking up image: ${normalizedUrl}`);
+  logger.info(`Registry has ${Object.keys(registry.nodes).length} prompt nodes`);
+  logger.info(`Registry has ${Object.keys(registry.imageToPromptId).length} image mappings`);
+
+  // Log all image URLs in registry for comparison
+  const registryUrls = Object.keys(registry.imageToPromptId);
+  logger.info('URLs in registry:', registryUrls);
+
+  // Check if any URLs are similar (might be encoding issue)
+  const decodedLookupUrl = decodeURIComponent(normalizedUrl);
+  logger.info(`Decoded lookup URL: ${decodedLookupUrl}`);
+
+  // Try to find similar URLs
+  const similarUrls = registryUrls.filter(url => {
+    const decodedRegistryUrl = decodeURIComponent(url);
+    return decodedRegistryUrl === decodedLookupUrl || url === normalizedUrl;
+  });
+  logger.info('Similar URLs found:', similarUrls);
+
   const promptNode = getPromptForImage(normalizedUrl, metadata);
 
   if (!promptNode) {
     logger.error('No prompt found for image');
+    logger.error('This could be due to:');
+    logger.error('1. Image was never linked to a prompt');
+    logger.error('2. URL encoding mismatch');
+    logger.error('3. PromptRegistry not persisted/loaded');
     toastr.error(t('toast.promptNotFoundForImage'), t('extensionName'));
     return null;
   }
