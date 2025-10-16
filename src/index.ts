@@ -32,6 +32,7 @@ import {
   MAX_PROMPTS_PER_MESSAGE,
   DEFAULT_LLM_FREQUENCY_GUIDELINES,
   DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
+  PROMPT_GENERATION_MODE,
 } from './constants';
 import {
   getPresetById,
@@ -177,10 +178,13 @@ function updateUI(): void {
 
   // Update prompt generation mode radio buttons
   if (promptGenModeRegexRadio && promptGenModeLLMRadio) {
-    if (settings.promptGenerationMode === 'regex') {
-      promptGenModeRegexRadio.checked = true;
-    } else if (settings.promptGenerationMode === 'llm-post') {
+    if (settings.promptGenerationMode === 'llm-post') {
       promptGenModeLLMRadio.checked = true;
+      promptGenModeRegexRadio.checked = false;
+    } else {
+      // Default to regex mode for any other value (including 'regex' and invalid values)
+      promptGenModeRegexRadio.checked = true;
+      promptGenModeLLMRadio.checked = false;
     }
   }
 
@@ -494,6 +498,9 @@ function handleSettingsChange(): void {
     settings.promptGenerationMode = 'regex';
   } else if (promptGenModeLLMRadio?.checked) {
     settings.promptGenerationMode = 'llm-post';
+  } else {
+    // Fallback to default if neither is checked (shouldn't happen, but be defensive)
+    settings.promptGenerationMode = PROMPT_GENERATION_MODE.DEFAULT;
   }
 
   // Max prompts per message with validation

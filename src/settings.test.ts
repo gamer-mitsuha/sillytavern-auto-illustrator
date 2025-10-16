@@ -20,6 +20,10 @@ describe('settings', () => {
       expect(defaults.customPresets).toEqual([]);
       expect(defaults.showGalleryWidget).toBe(true);
       expect(defaults.showProgressWidget).toBe(true);
+      expect(defaults.promptGenerationMode).toBe('regex');
+      expect(defaults.maxPromptsPerMessage).toBe(5);
+      expect(defaults.llmFrequencyGuidelines).toBeTruthy();
+      expect(defaults.llmPromptWritingGuidelines).toBeTruthy();
     });
   });
 
@@ -38,6 +42,7 @@ describe('settings', () => {
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
         minGenerationInterval: 100,
+        monitorPollingInterval: 100,
         logLevel: 'debug',
         manualGenerationMode: 'append',
         promptDetectionPatterns: [],
@@ -45,6 +50,11 @@ describe('settings', () => {
         commonStyleTagsPosition: 'suffix',
         showGalleryWidget: false,
         showProgressWidget: false,
+        enableClickToRegenerate: true,
+        promptGenerationMode: 'regex',
+        maxPromptsPerMessage: 5,
+        llmFrequencyGuidelines: 'test frequency',
+        llmPromptWritingGuidelines: 'test writing',
       };
 
       const mockContext = createMockContext({
@@ -113,6 +123,7 @@ describe('settings', () => {
         streamingPollInterval: 300,
         maxConcurrentGenerations: 1,
         minGenerationInterval: 0,
+        monitorPollingInterval: 100,
         logLevel: 'info',
         manualGenerationMode: 'replace',
         promptDetectionPatterns: [],
@@ -120,6 +131,11 @@ describe('settings', () => {
         commonStyleTagsPosition: 'prefix',
         showGalleryWidget: true,
         showProgressWidget: true,
+        enableClickToRegenerate: true,
+        promptGenerationMode: 'regex',
+        maxPromptsPerMessage: 5,
+        llmFrequencyGuidelines: '',
+        llmPromptWritingGuidelines: '',
       };
 
       saveSettings(settings, mockContext);
@@ -149,6 +165,7 @@ describe('settings', () => {
         streamingPollInterval: 500,
         maxConcurrentGenerations: 2,
         minGenerationInterval: 100,
+        monitorPollingInterval: 100,
         logLevel: 'warn',
         manualGenerationMode: 'append',
         promptDetectionPatterns: [],
@@ -156,6 +173,11 @@ describe('settings', () => {
         commonStyleTagsPosition: 'prefix',
         showGalleryWidget: false,
         showProgressWidget: false,
+        enableClickToRegenerate: true,
+        promptGenerationMode: 'llm-post',
+        maxPromptsPerMessage: 3,
+        llmFrequencyGuidelines: 'new frequency',
+        llmPromptWritingGuidelines: 'new writing',
       };
 
       saveSettings(newSettings, mockContext);
@@ -214,6 +236,54 @@ describe('settings', () => {
       expect(
         mockContext.extensionSettings[EXTENSION_NAME].showProgressWidget
       ).toBe(false);
+    });
+
+    it('should handle prompt generation mode correctly', () => {
+      const mockSaveDebounced = vi.fn();
+      const mockContext = createMockContext({
+        extensionSettings: {},
+        saveSettingsDebounced: mockSaveDebounced,
+      });
+
+      const defaults = getDefaultSettings();
+
+      // Test regex mode (default)
+      const regexSettings = {...defaults, promptGenerationMode: 'regex' as const};
+      saveSettings(regexSettings, mockContext);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].promptGenerationMode
+      ).toBe('regex');
+
+      // Test LLM mode
+      const llmSettings = {...defaults, promptGenerationMode: 'llm-post' as const};
+      saveSettings(llmSettings, mockContext);
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].promptGenerationMode
+      ).toBe('llm-post');
+    });
+
+    it('should save LLM guidelines correctly', () => {
+      const mockSaveDebounced = vi.fn();
+      const mockContext = createMockContext({
+        extensionSettings: {},
+        saveSettingsDebounced: mockSaveDebounced,
+      });
+
+      const defaults = getDefaultSettings();
+      const customGuidelines = {
+        ...defaults,
+        llmFrequencyGuidelines: 'Custom frequency guidelines',
+        llmPromptWritingGuidelines: 'Custom writing guidelines',
+      };
+
+      saveSettings(customGuidelines, mockContext);
+
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].llmFrequencyGuidelines
+      ).toBe('Custom frequency guidelines');
+      expect(
+        mockContext.extensionSettings[EXTENSION_NAME].llmPromptWritingGuidelines
+      ).toBe('Custom writing guidelines');
     });
   });
 });
