@@ -354,14 +354,12 @@ export async function insertDeferredImages(
   let updatedText = message.mes || '';
   const originalLength = updatedText.length;
 
-  // Get settings for prompt patterns
+  // Get settings for click handler attachment
   const settings = context.extensionSettings?.auto_illustrator;
-  const patterns = settings?.promptDetectionPatterns || [];
 
   let successCount = 0;
 
-  // Import required modules
-  const {extractImagePromptsMultiPattern} = await import('./regex');
+  // Import required module
   const {linkImageToPrompt} = await import('./prompt_manager');
 
   // Process each deferred image
@@ -449,18 +447,15 @@ export async function insertDeferredImages(
         // NEW IMAGE MODE (streaming): append after prompt tag
         const promptPreview = deferred.promptPreview || queuedPrompt.prompt;
 
-        // Use regex to extract prompts and find insertion position
-        const matches = extractImagePromptsMultiPattern(updatedText, patterns);
+        // Find insertion position using the stored fullMatch string
+        // This is more reliable than re-extracting with regex, especially
+        // if the message text was modified by SillyTavern or other extensions
+        const fullMatch = queuedPrompt.fullMatch;
+        const matchPosition = updatedText.indexOf(fullMatch);
 
-        // Find the prompt match for this queued prompt
-        // Match by prompt text only (positions shift after each insertion)
-        const matchIndex = matches.findIndex(
-          m => m.prompt === queuedPrompt.prompt
-        );
-
-        if (matchIndex >= 0) {
-          const match = matches[matchIndex];
-          const insertPosition = match.endIndex;
+        if (matchPosition >= 0) {
+          // Found the exact prompt tag that was queued
+          const insertPosition = matchPosition + fullMatch.length;
 
           // Create title with "AI generated image" prefix for CSS selector compatibility
           const imageTitle = `AI generated image: ${promptPreview}`;
@@ -489,7 +484,14 @@ export async function insertDeferredImages(
           logger.debug(`Linked new image to prompt: ${deferred.promptId}`);
         } else {
           logger.warn(
-            `Could not find prompt match for insertion: "${queuedPrompt.prompt.substring(0, 50)}..."`
+            'Could not find prompt tag for insertion (tag may have been removed or modified)'
+          );
+          logger.warn(`Looking for: ${fullMatch.substring(0, 100)}...`);
+          logger.warn(
+            `Prompt text: "${queuedPrompt.prompt.substring(0, 50)}..."`
+          );
+          logger.warn(
+            'This can happen if the message was modified by SillyTavern or other extensions after streaming ended'
           );
         }
       }
