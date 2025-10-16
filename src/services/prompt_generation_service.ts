@@ -10,78 +10,69 @@ import type {PromptSuggestion} from '../prompt_insertion';
 const logger = createLogger('PromptGenService');
 
 /**
- * LLM response format for prompt generation
- */
-interface PromptGenerationResponse {
-  prompts: Array<{
-    text: string;
-    insertAfter: string;
-    insertBefore: string;
-    reasoning?: string;
-  }>;
-}
-
-/**
  * Parses LLM response and extracts prompt suggestions
- * Expects JSON format: {prompts: [{text, insertAfter, insertBefore}]}
+ * Expects plain text delimiter format:
+ * ---PROMPT---
+ * TEXT: ...
+ * INSERT_AFTER: ...
+ * INSERT_BEFORE: ...
+ * REASONING: ...
+ * ---END---
  *
  * @param llmResponse - Raw LLM response text
  * @returns Array of parsed prompt suggestions, or empty array if parsing fails
  */
 function parsePromptSuggestions(llmResponse: string): PromptSuggestion[] {
   try {
-    // Strip markdown code blocks if present (```json ... ```)
+    // Strip markdown code blocks if present
     let cleanedResponse = llmResponse.trim();
     if (cleanedResponse.startsWith('```')) {
-      // Remove opening ```json or ``` (with optional newline)
-      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n?/, '');
-      // Remove closing ``` (with optional preceding newline)
+      cleanedResponse = cleanedResponse.replace(/^```[a-z]*\s*\n?/, '');
       cleanedResponse = cleanedResponse.replace(/\n?```\s*$/, '');
       cleanedResponse = cleanedResponse.trim();
     }
 
-    // Try to find JSON block in response (handles cases where LLM adds explanatory text)
-    const jsonMatch = cleanedResponse.match(/\{[\s\S]*"prompts"[\s\S]*\}/);
-    const jsonText = jsonMatch ? jsonMatch[0] : cleanedResponse;
-
-    const parsed: PromptGenerationResponse = JSON.parse(jsonText);
-
-    if (!parsed.prompts || !Array.isArray(parsed.prompts)) {
-      logger.error('LLM response missing "prompts" array');
-      return [];
-    }
-
-    // Validate and filter suggestions
+    // Split by ---PROMPT--- delimiter
+    const promptBlocks = cleanedResponse.split('---PROMPT---');
     const validSuggestions: PromptSuggestion[] = [];
-    for (const prompt of parsed.prompts) {
-      // Check required fields
-      if (
-        typeof prompt.text !== 'string' ||
-        typeof prompt.insertAfter !== 'string' ||
-        typeof prompt.insertBefore !== 'string'
-      ) {
-        logger.warn(
-          'Skipping invalid prompt suggestion (missing fields):',
-          prompt
-        );
+
+    for (const block of promptBlocks) {
+      // Skip empty blocks or the part before first ---PROMPT---
+      if (!block.trim() || !block.includes('TEXT:')) {
         continue;
       }
 
+      // Stop at ---END--- marker if present
+      const blockContent = block.split('---END---')[0];
+
+      // Extract fields using regex - more robust than split
+      const textMatch = blockContent.match(/^TEXT:\s*(.+?)$/m);
+      const insertAfterMatch = blockContent.match(/^INSERT_AFTER:\s*(.+?)$/m);
+      const insertBeforeMatch = blockContent.match(/^INSERT_BEFORE:\s*(.+?)$/m);
+      const reasoningMatch = blockContent.match(/^REASONING:\s*(.+?)$/m);
+
+      // Check required fields
+      if (!textMatch || !insertAfterMatch || !insertBeforeMatch) {
+        logger.warn('Skipping prompt block with missing required fields');
+        continue;
+      }
+
+      const text = textMatch[1].trim();
+      const insertAfter = insertAfterMatch[1].trim();
+      const insertBefore = insertBeforeMatch[1].trim();
+      const reasoning = reasoningMatch ? reasoningMatch[1].trim() : undefined;
+
       // Check non-empty
-      if (
-        prompt.text.trim() === '' ||
-        prompt.insertAfter.trim() === '' ||
-        prompt.insertBefore.trim() === ''
-      ) {
-        logger.warn('Skipping empty prompt suggestion:', prompt);
+      if (!text || !insertAfter || !insertBefore) {
+        logger.warn('Skipping prompt block with empty fields');
         continue;
       }
 
       validSuggestions.push({
-        text: prompt.text.trim(),
-        insertAfter: prompt.insertAfter.trim(),
-        insertBefore: prompt.insertBefore.trim(),
-        reasoning: prompt.reasoning?.trim(),
+        text,
+        insertAfter,
+        insertBefore,
+        reasoning,
       });
     }
 
@@ -90,7 +81,7 @@ function parsePromptSuggestions(llmResponse: string): PromptSuggestion[] {
     );
     return validSuggestions;
   } catch (error) {
-    logger.error('Failed to parse LLM response as JSON:', error);
+    logger.error('Failed to parse LLM response:', error);
     logger.debug('Raw response:', llmResponse);
     return [];
   }

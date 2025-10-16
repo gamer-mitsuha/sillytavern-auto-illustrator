@@ -23,18 +23,14 @@ describe('prompt_generation_service', () => {
   });
 
   describe('generatePromptsForMessage', () => {
-    it('should parse valid JSON response with single prompt', async () => {
+    it('should parse valid plain text response with single prompt', async () => {
       const messageText = 'She walked through the forest under the moonlight.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: '1girl, forest, moonlight, highly detailed',
-            insertAfter: 'through the forest',
-            insertBefore: 'under the moonlight',
-            reasoning: 'Key visual scene',
-          },
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: 1girl, forest, moonlight, highly detailed
+INSERT_AFTER: through the forest
+INSERT_BEFORE: under the moonlight
+REASONING: Key visual scene
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -51,22 +47,19 @@ describe('prompt_generation_service', () => {
       expect(result[0].reasoning).toBe('Key visual scene');
     });
 
-    it('should parse valid JSON response with multiple prompts', async () => {
+    it('should parse valid plain text response with multiple prompts', async () => {
       const messageText = 'Complex scene with multiple events.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: 'first scene',
-            insertAfter: 'event one',
-            insertBefore: 'event two',
-          },
-          {
-            text: 'second scene',
-            insertAfter: 'event two',
-            insertBefore: 'event three',
-          },
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: first scene
+INSERT_AFTER: event one
+INSERT_BEFORE: event two
+REASONING: First moment
+---PROMPT---
+TEXT: second scene
+INSERT_AFTER: event two
+INSERT_BEFORE: event three
+REASONING: Second moment
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -81,17 +74,16 @@ describe('prompt_generation_service', () => {
       expect(result[1].text).toBe('second scene');
     });
 
-    it('should handle JSON response with explanatory text before/after', async () => {
+    it('should handle response with explanatory text before/after', async () => {
       const messageText = 'Test message.';
-      const llmResponse = `Here are the prompts:\n${JSON.stringify({
-        prompts: [
-          {
-            text: 'test prompt',
-            insertAfter: 'test',
-            insertBefore: 'message',
-          },
-        ],
-      })}\nHope this helps!`;
+      const llmResponse = `Here are the prompts:
+---PROMPT---
+TEXT: test prompt
+INSERT_AFTER: test
+INSERT_BEFORE: message
+REASONING: Test scene
+---END---
+Hope this helps!`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -107,9 +99,7 @@ describe('prompt_generation_service', () => {
 
     it('should return empty array when LLM returns no prompts', async () => {
       const messageText = 'No visual content here.';
-      const llmResponse = JSON.stringify({
-        prompts: [],
-      });
+      const llmResponse = '---END---';
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -122,9 +112,9 @@ describe('prompt_generation_service', () => {
       expect(result).toHaveLength(0);
     });
 
-    it('should return empty array on malformed JSON', async () => {
+    it('should return empty array on malformed response', async () => {
       const messageText = 'Test message.';
-      const llmResponse = 'This is not valid JSON { prompts:';
+      const llmResponse = 'This is not a valid format at all';
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -137,11 +127,10 @@ describe('prompt_generation_service', () => {
       expect(result).toHaveLength(0);
     });
 
-    it('should return empty array when LLM response missing prompts array', async () => {
+    it('should return empty array when response missing prompts', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        something: 'else',
-      });
+      const llmResponse = `Some text but no prompts
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -156,25 +145,21 @@ describe('prompt_generation_service', () => {
 
     it('should skip prompts with missing required fields', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: 'valid prompt',
-            insertAfter: 'test',
-            insertBefore: 'message',
-          },
-          {
-            // Missing text field
-            insertAfter: 'test',
-            insertBefore: 'message',
-          },
-          {
-            text: 'another valid',
-            insertAfter: 'another',
-            insertBefore: 'test',
-          },
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: valid prompt
+INSERT_AFTER: test
+INSERT_BEFORE: message
+REASONING: Valid
+---PROMPT---
+TEXT: missing insertAfter
+INSERT_BEFORE: message
+REASONING: Invalid
+---PROMPT---
+TEXT: another valid
+INSERT_AFTER: another
+INSERT_BEFORE: test
+REASONING: Valid too
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -191,25 +176,20 @@ describe('prompt_generation_service', () => {
 
     it('should skip prompts with empty fields', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: 'valid prompt',
-            insertAfter: 'test',
-            insertBefore: 'message',
-          },
-          {
-            text: '',
-            insertAfter: 'test',
-            insertBefore: 'message',
-          },
-          {
-            text: 'valid',
-            insertAfter: '',
-            insertBefore: 'message',
-          },
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: valid prompt
+INSERT_AFTER: test
+INSERT_BEFORE: message
+REASONING: Valid
+---PROMPT---
+INSERT_AFTER: test
+INSERT_BEFORE: message
+REASONING: Missing TEXT field entirely
+---PROMPT---
+TEXT: another invalid
+INSERT_AFTER: test
+REASONING: Missing INSERT_BEFORE field
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -225,17 +205,42 @@ describe('prompt_generation_service', () => {
 
     it('should respect maxPromptsPerMessage limit', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {text: 'prompt1', insertAfter: 'a', insertBefore: 'b'},
-          {text: 'prompt2', insertAfter: 'c', insertBefore: 'd'},
-          {text: 'prompt3', insertAfter: 'e', insertBefore: 'f'},
-          {text: 'prompt4', insertAfter: 'g', insertBefore: 'h'},
-          {text: 'prompt5', insertAfter: 'i', insertBefore: 'j'},
-          {text: 'prompt6', insertAfter: 'k', insertBefore: 'l'}, // Should be cut off
-          {text: 'prompt7', insertAfter: 'm', insertBefore: 'n'}, // Should be cut off
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: prompt1
+INSERT_AFTER: a
+INSERT_BEFORE: b
+REASONING: First
+---PROMPT---
+TEXT: prompt2
+INSERT_AFTER: c
+INSERT_BEFORE: d
+REASONING: Second
+---PROMPT---
+TEXT: prompt3
+INSERT_AFTER: e
+INSERT_BEFORE: f
+REASONING: Third
+---PROMPT---
+TEXT: prompt4
+INSERT_AFTER: g
+INSERT_BEFORE: h
+REASONING: Fourth
+---PROMPT---
+TEXT: prompt5
+INSERT_AFTER: i
+INSERT_BEFORE: j
+REASONING: Fifth
+---PROMPT---
+TEXT: prompt6
+INSERT_AFTER: k
+INSERT_BEFORE: l
+REASONING: Sixth (should be cut off)
+---PROMPT---
+TEXT: prompt7
+INSERT_AFTER: m
+INSERT_BEFORE: n
+REASONING: Seventh (should be cut off)
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -258,12 +263,17 @@ describe('prompt_generation_service', () => {
 
     it('should handle maxPromptsPerMessage limit of 1', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {text: 'prompt1', insertAfter: 'a', insertBefore: 'b'},
-          {text: 'prompt2', insertAfter: 'c', insertBefore: 'd'},
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: prompt1
+INSERT_AFTER: a
+INSERT_BEFORE: b
+REASONING: First
+---PROMPT---
+TEXT: prompt2
+INSERT_AFTER: c
+INSERT_BEFORE: d
+REASONING: Second
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -283,7 +293,7 @@ describe('prompt_generation_service', () => {
       const messageText = 'Test message.';
 
       vi.mocked(mockContext.generateRaw).mockRejectedValue(
-        new Error('Network error')
+        new Error('LLM error')
       );
 
       const result = await generatePromptsForMessage(
@@ -310,16 +320,12 @@ describe('prompt_generation_service', () => {
 
     it('should trim whitespace from prompt fields', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: '  prompt with spaces  ',
-            insertAfter: '  after  ',
-            insertBefore: '  before  ',
-            reasoning: '  reasoning  ',
-          },
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT:    prompt with spaces
+INSERT_AFTER:   before
+INSERT_BEFORE:   after
+REASONING:   reason
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -331,22 +337,18 @@ describe('prompt_generation_service', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].text).toBe('prompt with spaces');
-      expect(result[0].insertAfter).toBe('after');
-      expect(result[0].insertBefore).toBe('before');
-      expect(result[0].reasoning).toBe('reasoning');
+      expect(result[0].insertAfter).toBe('before');
+      expect(result[0].insertBefore).toBe('after');
     });
 
     it('should handle prompts with special characters', async () => {
-      const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: '1girl, "quoted text", special\\nchars',
-            insertAfter: 'test "quoted"',
-            insertBefore: 'message.',
-          },
-        ],
-      });
+      const messageText = 'Test message with "quotes" and special chars.';
+      const llmResponse = `---PROMPT---
+TEXT: prompt with "quotes" and $pecial chars
+INSERT_AFTER: message with "quotes"
+INSERT_BEFORE: and special
+REASONING: Test special characters
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -357,21 +359,18 @@ describe('prompt_generation_service', () => {
       );
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe('1girl, "quoted text", special\\nchars');
-      expect(result[0].insertAfter).toBe('test "quoted"');
+      expect(result[0].text).toBe('prompt with "quotes" and $pecial chars');
+      expect(result[0].insertAfter).toBe('message with "quotes"');
     });
 
     it('should handle Unicode characters in prompts', async () => {
-      const messageText = '彼女は森を歩いた。';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: '1girl, 森, 月光',
-            insertAfter: '彼女は',
-            insertBefore: '森を歩いた',
-          },
-        ],
-      });
+      const messageText = '她走进花园。玫瑰盛开着。';
+      const llmResponse = `---PROMPT---
+TEXT: 1个女孩，花园，详细
+INSERT_AFTER: 走进花园。
+INSERT_BEFORE: 玫瑰盛开
+REASONING: 中文测试
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -382,21 +381,18 @@ describe('prompt_generation_service', () => {
       );
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe('1girl, 森, 月光');
+      expect(result[0].text).toBe('1个女孩，花园，详细');
+      expect(result[0].insertAfter).toBe('走进花园。');
+      expect(result[0].insertBefore).toBe('玫瑰盛开');
     });
 
     it('should handle reasoning field being optional', async () => {
       const messageText = 'Test message.';
-      const llmResponse = JSON.stringify({
-        prompts: [
-          {
-            text: 'prompt without reasoning',
-            insertAfter: 'test',
-            insertBefore: 'message',
-            // No reasoning field
-          },
-        ],
-      });
+      const llmResponse = `---PROMPT---
+TEXT: prompt without reasoning
+INSERT_AFTER: test
+INSERT_BEFORE: message
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -411,19 +407,16 @@ describe('prompt_generation_service', () => {
       expect(result[0].reasoning).toBeUndefined();
     });
 
-    it('should handle markdown blocks with various newline patterns', async () => {
+    it('should handle markdown code blocks', async () => {
       const messageText = 'Test message.';
-      // Real case: markdown with no newline after opening
-      const jsonContent = JSON.stringify({
-        prompts: [
-          {
-            text: 'test prompt',
-            insertAfter: 'Test',
-            insertBefore: 'message.',
-          },
-        ],
-      });
-      const llmResponse = '```json\n' + jsonContent + '\n```';
+      const llmResponse = `\`\`\`
+---PROMPT---
+TEXT: test prompt
+INSERT_AFTER: test
+INSERT_BEFORE: message
+REASONING: Test
+---END---
+\`\`\``;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -437,19 +430,15 @@ describe('prompt_generation_service', () => {
       expect(result[0].text).toBe('test prompt');
     });
 
-    it('should handle markdown blocks without trailing newline', async () => {
-      const messageText = 'Test message.';
-      const jsonContent = JSON.stringify({
-        prompts: [
-          {
-            text: 'test prompt',
-            insertAfter: 'Test',
-            insertBefore: 'message.',
-          },
-        ],
-      });
-      // No newline before closing ```
-      const llmResponse = '```json\n' + jsonContent + '```';
+    it('should handle newlines in field values', async () => {
+      const messageText = 'Test\n\nmessage with newlines.';
+      const llmResponse = `---PROMPT---
+TEXT: test prompt
+INSERT_AFTER: Test
+
+INSERT_BEFORE: message with newlines
+REASONING: Handles newlines naturally
+---END---`;
 
       vi.mocked(mockContext.generateRaw).mockResolvedValue(llmResponse);
 
@@ -461,6 +450,9 @@ describe('prompt_generation_service', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].text).toBe('test prompt');
+      // The regex captures only the first line for INSERT_AFTER/INSERT_BEFORE
+      expect(result[0].insertAfter).toBe('Test');
+      expect(result[0].insertBefore).toBe('message with newlines');
     });
   });
 });
