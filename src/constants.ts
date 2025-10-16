@@ -104,6 +104,17 @@ export const MAX_PROMPTS_PER_MESSAGE = {
 } as const;
 
 /**
+ * Context message count configuration
+ * Controls how many previous messages are included as context for LLM prompt generation
+ */
+export const CONTEXT_MESSAGE_COUNT = {
+  DEFAULT: 10,
+  MIN: 0,
+  MAX: 50,
+  STEP: 1,
+} as const;
+
+/**
  * Default frequency guidelines for LLM prompt generation
  * Tells the LLM when to generate image prompts
  */
@@ -153,6 +164,7 @@ export const DEFAULT_SETTINGS = {
   enableClickToRegenerate: true,
   promptGenerationMode: PROMPT_GENERATION_MODE.DEFAULT,
   maxPromptsPerMessage: MAX_PROMPTS_PER_MESSAGE.DEFAULT,
+  contextMessageCount: CONTEXT_MESSAGE_COUNT.DEFAULT,
   llmFrequencyGuidelines: DEFAULT_LLM_FREQUENCY_GUIDELINES,
   llmPromptWritingGuidelines: DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
 };
@@ -189,6 +201,7 @@ export const UI_ELEMENT_IDS = {
   PROMPT_GENERATION_MODE_LLM: 'auto_illustrator_prompt_gen_mode_llm',
   LLM_SETTINGS_CONTAINER: 'auto_illustrator_llm_settings_container',
   MAX_PROMPTS_PER_MESSAGE: 'auto_illustrator_max_prompts_per_message',
+  CONTEXT_MESSAGE_COUNT: 'auto_illustrator_context_message_count',
   LLM_FREQUENCY_GUIDELINES: 'auto_illustrator_llm_frequency_guidelines',
   LLM_FREQUENCY_GUIDELINES_RESET:
     'auto_illustrator_llm_frequency_guidelines_reset',

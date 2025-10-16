@@ -11,6 +11,7 @@ import {
   MAX_CONCURRENT_GENERATIONS,
   MIN_GENERATION_INTERVAL,
   MAX_PROMPTS_PER_MESSAGE,
+  CONTEXT_MESSAGE_COUNT,
   UI_ELEMENT_IDS,
 } from './constants';
 import {t} from './i18n';
@@ -234,6 +235,12 @@ export function createSettingsUI(): string {
               <span>${t('settings.maxPromptsPerMessage')}</span>
               <small>${t('settings.maxPromptsPerMessageDesc')}</small>
               <input id="${UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE}" class="text_pole" type="number" min="${MAX_PROMPTS_PER_MESSAGE.MIN}" max="${MAX_PROMPTS_PER_MESSAGE.MAX}" step="${MAX_PROMPTS_PER_MESSAGE.STEP}" />
+            </label>
+
+            <label for="${UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT}">
+              <span>${t('settings.contextMessageCount')}</span>
+              <small>${t('settings.contextMessageCountDesc')}</small>
+              <input id="${UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT}" class="text_pole" type="number" min="${CONTEXT_MESSAGE_COUNT.MIN}" max="${CONTEXT_MESSAGE_COUNT.MAX}" step="${CONTEXT_MESSAGE_COUNT.STEP}" />
             </label>
 
             <label for="${UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES}">

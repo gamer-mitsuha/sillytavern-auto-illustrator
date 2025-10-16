@@ -30,6 +30,7 @@ import {
   MAX_CONCURRENT_GENERATIONS,
   MIN_GENERATION_INTERVAL,
   MAX_PROMPTS_PER_MESSAGE,
+  CONTEXT_MESSAGE_COUNT,
   DEFAULT_LLM_FREQUENCY_GUIDELINES,
   DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
   PROMPT_GENERATION_MODE,
@@ -149,6 +150,9 @@ function updateUI(): void {
   const maxPromptsPerMessageInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
   ) as HTMLInputElement;
+  const contextMessageCountInput = document.getElementById(
+    UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT
+  ) as HTMLInputElement;
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
@@ -194,6 +198,11 @@ function updateUI(): void {
   // Update max prompts per message
   if (maxPromptsPerMessageInput) {
     maxPromptsPerMessageInput.value = settings.maxPromptsPerMessage.toString();
+  }
+
+  // Update context message count
+  if (contextMessageCountInput) {
+    contextMessageCountInput.value = settings.contextMessageCount.toString();
   }
 
   // Update LLM guidelines textareas
@@ -379,6 +388,9 @@ function handleSettingsChange(): void {
   const maxPromptsPerMessageInput = document.getElementById(
     UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
   ) as HTMLInputElement;
+  const contextMessageCountInput = document.getElementById(
+    UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT
+  ) as HTMLInputElement;
   const llmFrequencyGuidelinesTextarea = document.getElementById(
     UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
   ) as HTMLTextAreaElement;
@@ -524,6 +536,33 @@ function handleSettingsChange(): void {
           clamped: clampedValue,
           min: MAX_PROMPTS_PER_MESSAGE.MIN,
           max: MAX_PROMPTS_PER_MESSAGE.MAX,
+        }),
+        t('extensionName')
+      );
+    }
+  }
+
+  // Context message count with validation
+  if (contextMessageCountInput) {
+    const originalValue = parseInt(contextMessageCountInput.value);
+    const clampedValue = clampValue(
+      originalValue,
+      CONTEXT_MESSAGE_COUNT.MIN,
+      CONTEXT_MESSAGE_COUNT.MAX,
+      CONTEXT_MESSAGE_COUNT.STEP
+    );
+    settings.contextMessageCount = clampedValue;
+    // Update UI to show validated value
+    contextMessageCountInput.value = clampedValue.toString();
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjustedNoStep', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: CONTEXT_MESSAGE_COUNT.MIN,
+          max: CONTEXT_MESSAGE_COUNT.MAX,
         }),
         t('extensionName')
       );
@@ -1222,6 +1261,9 @@ function initialize(): void {
     const maxPromptsPerMessageInput = document.getElementById(
       UI_ELEMENT_IDS.MAX_PROMPTS_PER_MESSAGE
     ) as HTMLInputElement;
+    const contextMessageCountInput = document.getElementById(
+      UI_ELEMENT_IDS.CONTEXT_MESSAGE_COUNT
+    ) as HTMLInputElement;
     const llmFrequencyGuidelinesTextarea = document.getElementById(
       UI_ELEMENT_IDS.LLM_FREQUENCY_GUIDELINES
     ) as HTMLTextAreaElement;
@@ -1274,6 +1316,7 @@ function initialize(): void {
       handleSettingsChange();
     });
     maxPromptsPerMessageInput?.addEventListener('change', handleSettingsChange);
+    contextMessageCountInput?.addEventListener('change', handleSettingsChange);
     llmFrequencyGuidelinesTextarea?.addEventListener(
       'change',
       handleSettingsChange

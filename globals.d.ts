@@ -136,6 +136,7 @@ declare global {
     enableClickToRegenerate: boolean;
     promptGenerationMode: 'regex' | 'llm-post';
     maxPromptsPerMessage: number;
+    contextMessageCount: number;
     llmFrequencyGuidelines: string;
     llmPromptWritingGuidelines: string;
   }

@@ -15,18 +15,21 @@ const logger = createLogger('PromptGenService');
  *
  * @param context - SillyTavern context
  * @param currentMessageText - The message to generate prompts for
+ * @param contextMessageCount - Number of previous messages to include as context
  * @returns Formatted user prompt with context
  */
 function buildUserPromptWithContext(
   context: SillyTavernContext,
-  currentMessageText: string
+  currentMessageText: string,
+  contextMessageCount: number
 ): string {
-  // Get recent chat history (last 5 messages, excluding current)
+  // Get recent chat history (last N messages, excluding current)
   const chat = context.chat || [];
-  const recentMessages = chat.slice(-6, -1); // Last 5 messages before current
+  const startIndex = Math.max(0, chat.length - contextMessageCount - 1);
+  const recentMessages = chat.slice(startIndex, -1); // Last N messages before current
 
   let contextText = '';
-  if (recentMessages.length > 0) {
+  if (recentMessages.length > 0 && contextMessageCount > 0) {
     contextText = recentMessages
       .map(msg => {
         const name = msg.name || (msg.is_user ? 'User' : 'Assistant');
@@ -178,9 +181,15 @@ export async function generatePromptsForMessage(
   );
 
   // Build user prompt with context and current message
-  const userPrompt = buildUserPromptWithContext(context, messageText);
+  const contextMessageCount = settings.contextMessageCount || 10;
+  const userPrompt = buildUserPromptWithContext(
+    context,
+    messageText,
+    contextMessageCount
+  );
 
   logger.debug('Calling LLM for prompt generation (using generateRaw)');
+  logger.debug('Context message count:', contextMessageCount);
   logger.debug('User prompt length:', userPrompt.length);
   logger.trace('User prompt:', userPrompt);
 
