@@ -70,6 +70,9 @@ export class StreamingPreviewWidget {
   private streamingInterval: number | null = null;
   private readonly CHARS_PER_FRAME = 3; // Characters to add per animation frame
   private readonly FRAME_DELAY = 30; // Milliseconds between frames (33fps)
+  private readonly INITIAL_BUFFER_DELAY = 1500; // Wait 1.5s before starting to build buffer
+  private streamingStartTime = 0; // When streaming started
+  private hasStartedDisplaying = false; // Whether we've started showing text
 
   /**
    * Initialize the streaming preview widget
@@ -133,6 +136,8 @@ export class StreamingPreviewWidget {
     this.textBuffer = '';
     this.displayedText = '';
     this.stopSmoothStreaming(); // Stop any existing animation
+    this.streamingStartTime = Date.now(); // Record when streaming started
+    this.hasStartedDisplaying = false; // Haven't started displaying yet
     this.isVisible = true;
     this.autoScrollEnabled = true; // Reset auto-scroll for new message
     this.isUserScrolling = false; // Reset user scroll detection
@@ -336,6 +341,22 @@ export class StreamingPreviewWidget {
    * Update displayed text incrementally for smooth streaming effect
    */
   private updateDisplayedText(): void {
+    // Check if we should wait for initial buffer to build up
+    if (!this.hasStartedDisplaying) {
+      const elapsedTime = Date.now() - this.streamingStartTime;
+
+      if (elapsedTime < this.INITIAL_BUFFER_DELAY) {
+        // Still building buffer, don't display yet
+        return;
+      }
+
+      // Buffer delay elapsed, start displaying
+      this.hasStartedDisplaying = true;
+      logger.debug(
+        `Buffer delay elapsed, starting display (buffer: ${this.textBuffer.length} chars)`
+      );
+    }
+
     if (this.displayedText.length < this.textBuffer.length) {
       // Add more characters to displayed text
       const charsToAdd = Math.min(
