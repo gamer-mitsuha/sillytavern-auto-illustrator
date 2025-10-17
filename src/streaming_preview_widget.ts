@@ -396,6 +396,7 @@ export class StreamingPreviewWidget {
 
   /**
    * Update widget content with current segments
+   * Uses smart DOM updates to prevent flickering
    */
   private updateWidgetContent(): void {
     if (!this.widget) return;
@@ -408,11 +409,9 @@ export class StreamingPreviewWidget {
     // Store scroll position before update
     const wasAtBottom = this.isScrolledToBottom(content);
 
-    // Clear existing content
-    content.innerHTML = '';
-
     if (this.contentSegments.length === 0) {
       // Show loading state
+      content.innerHTML = '';
       const loading = document.createElement('div');
       loading.className = 'ai-streaming-preview-loading';
       loading.textContent = t('streamingPreview.waitingForContent');
@@ -420,17 +419,69 @@ export class StreamingPreviewWidget {
       return;
     }
 
-    // Render each segment
-    for (const segment of this.contentSegments) {
+    // Smart update: only update changed segments
+    const existingElements = Array.from(content.children);
+    let elementIndex = 0;
+
+    for (let i = 0; i < this.contentSegments.length; i++) {
+      const segment = this.contentSegments[i];
+      const existingElement = existingElements[elementIndex];
+
       if (segment.type === 'text') {
-        const textEl = document.createElement('div');
-        textEl.className = 'ai-streaming-preview-text';
-        textEl.textContent = segment.content;
-        content.appendChild(textEl);
+        // Check if we can reuse existing text element
+        if (
+          existingElement &&
+          existingElement.classList.contains('ai-streaming-preview-text')
+        ) {
+          // Update text content if changed
+          if (existingElement.textContent !== segment.content) {
+            existingElement.textContent = segment.content;
+          }
+          elementIndex++;
+        } else {
+          // Create new text element
+          const textEl = document.createElement('div');
+          textEl.className = 'ai-streaming-preview-text';
+          textEl.textContent = segment.content;
+          content.insertBefore(textEl, existingElement || null);
+          elementIndex++;
+        }
       } else if (segment.type === 'image') {
-        const imageContainer = this.createImageElement(segment);
-        content.appendChild(imageContainer);
+        // Check if we can reuse existing image container
+        const segmentKey = `img-${i}-${segment.promptIndex}`;
+        if (
+          existingElement &&
+          existingElement.classList.contains(
+            'ai-streaming-preview-image-container'
+          ) &&
+          existingElement.getAttribute('data-segment-key') === segmentKey
+        ) {
+          // Check if status changed
+          const currentStatus = existingElement.getAttribute('data-status');
+          if (currentStatus !== segment.status) {
+            // Status changed, recreate element
+            const imageContainer = this.createImageElement(segment);
+            imageContainer.setAttribute('data-segment-key', segmentKey);
+            content.replaceChild(imageContainer, existingElement);
+          }
+          elementIndex++;
+        } else {
+          // Create new image element
+          const imageContainer = this.createImageElement(segment);
+          imageContainer.setAttribute('data-segment-key', segmentKey);
+          content.insertBefore(imageContainer, existingElement || null);
+          elementIndex++;
+        }
       }
+    }
+
+    // Remove extra elements that are no longer needed
+    while (elementIndex < existingElements.length) {
+      const elementToRemove = existingElements[elementIndex];
+      if (elementToRemove.parentElement) {
+        elementToRemove.parentElement.removeChild(elementToRemove);
+      }
+      elementIndex++;
     }
 
     // Auto-scroll only if user was at bottom or auto-scroll is enabled
