@@ -2212,7 +2212,7 @@
 .ai-streaming-preview-image-placeholder {
   width: 100%;
   max-width: 400px;
-  min-height: 80px;
+  height: 300px; /* Fixed height to match typical image dimensions and prevent scroll jumping */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2264,7 +2264,7 @@
 .ai-streaming-preview-image-failed {
   width: 100%;
   max-width: 400px;
-  min-height: 80px;
+  height: 300px; /* Fixed height to match placeholder and prevent scroll jumping */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2275,6 +2275,7 @@
   background: rgba(239, 68, 68, 0.1);
   border: 2px solid rgba(239, 68, 68, 0.4);
   border-radius: 8px;
+  box-sizing: border-box; /* Include padding and border in dimensions */
 }
 
 .ai-streaming-preview-image-failed-icon {
