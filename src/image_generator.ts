@@ -11,8 +11,32 @@ import {t, tCount} from './i18n';
 import {progressManager} from './progress_manager';
 import {attachRegenerationHandlers} from './manual_generation';
 import {saveMetadata} from './metadata';
+import {
+  checkIdempotency,
+  createImageTag,
+  microDelay,
+  validateMessageState,
+  DEFAULT_RECONCILIATION_CONFIG,
+  type ReconciliationConfig,
+} from './reconciliation';
 
 const logger = createLogger('Generator');
+
+// Reconciliation configuration (can be updated via settings if needed)
+let reconciliationConfig: ReconciliationConfig = {
+  ...DEFAULT_RECONCILIATION_CONFIG,
+};
+
+/**
+ * Updates reconciliation configuration
+ * @param config - Partial configuration to update
+ */
+export function updateReconciliationConfig(
+  config: Partial<ReconciliationConfig>
+): void {
+  reconciliationConfig = {...reconciliationConfig, ...config};
+  logger.info('Reconciliation config updated:', reconciliationConfig);
+}
 
 // Global Bottleneck limiter for image generation
 let imageLimiter: Bottleneck | null = null;
@@ -80,57 +104,8 @@ export function updateMinInterval(minInterval: number): void {
   imageLimiter.updateSettings({minTime: minInterval});
 }
 
-/**
- * Creates an image tag with safe, simple attributes
- * @param imageUrl - URL of the generated image
- * @param index - Index of the image (for identification in title/alt)
- * @returns HTML image tag
- */
-function createImageTag(imageUrl: string, index: number): string {
-  const label = `AI generated image #${index + 1}`;
-  return `<img src="${imageUrl}" title="${label}" alt="${label}">`;
-}
-
-/**
- * Inserts an image tag after a prompt tag in text
- * @param text - Text containing the prompt tag
- * @param fullMatch - The full matched tag string (e.g., '<!--img-prompt="..."-->')
- * @param imageUrl - URL of the image to insert
- * @param index - Index of the image
- * @returns Updated text and success status
- */
-function insertImageAfterPrompt(
-  text: string,
-  fullMatch: string,
-  imageUrl: string,
-  index: number
-): {text: string; success: boolean} {
-  const tagIndex = text.indexOf(fullMatch);
-
-  if (tagIndex === -1) {
-    logger.warn('Could not find prompt tag in text:', fullMatch);
-    return {text, success: false};
-  }
-
-  const actualEndIndex = tagIndex + fullMatch.length;
-
-  // Check if image already inserted (to prevent duplicates)
-  const afterPrompt = text.substring(actualEndIndex, actualEndIndex + 200);
-  if (afterPrompt.includes(`src="${imageUrl}"`)) {
-    logger.info('Image already inserted, skipping:', imageUrl);
-    return {text, success: false};
-  }
-
-  // Insert image tag after the prompt
-  const imgTag = createImageTag(imageUrl, index);
-  const newText =
-    text.substring(0, actualEndIndex) +
-    '\n' +
-    imgTag +
-    text.substring(actualEndIndex);
-
-  return {text: newText, success: true};
-}
+// Old createImageTag and insertImageAfterPrompt functions removed
+// Now using the shared createImageTag function defined at the top of the file
 
 /**
  * Generates an image using the SD slash command
@@ -321,6 +296,7 @@ export function applyCommonTags(
  *
  * Uses regex for prompt detection
  * Uses prompt_manager for image associations
+ * Includes idempotency checks, validation, and reconciliation support
  *
  * @param deferredImages - Images to insert (streaming or regeneration)
  * @param messageId - Message ID to update
@@ -343,6 +319,17 @@ export async function insertDeferredImages(
     `Batch inserting ${deferredImages.length} deferred images into message ${messageId}`
   );
 
+  // Apply micro-delay to allow other post-processors to finish
+  if (
+    reconciliationConfig.enableMarkers &&
+    reconciliationConfig.insertionDelayMs > 0
+  ) {
+    logger.debug(
+      `Applying ${reconciliationConfig.insertionDelayMs}ms micro-delay before insertion`
+    );
+    await microDelay(reconciliationConfig.insertionDelayMs);
+  }
+
   // Get current message
   const message = context.chat?.[messageId];
   if (!message) {
@@ -350,7 +337,7 @@ export async function insertDeferredImages(
     return 0;
   }
 
-  // Read message text ONCE at start
+  // Read message text ONCE at start (after micro-delay)
   let updatedText = message.mes || '';
   const originalLength = updatedText.length;
 
@@ -445,7 +432,40 @@ export async function insertDeferredImages(
         }
       } else {
         // NEW IMAGE MODE (streaming): append after prompt tag
-        const promptPreview = deferred.promptPreview || queuedPrompt.prompt;
+
+        // Idempotency check: skip if already inserted
+        if (reconciliationConfig.enableMarkers) {
+          const idempotencyCheck = checkIdempotency(
+            updatedText,
+            deferred.promptId,
+            deferred.imageUrl
+          );
+
+          if (idempotencyCheck.alreadyInserted) {
+            logger.debug(
+              `Skipping duplicate insertion for prompt ${deferred.promptId}`
+            );
+            continue; // Skip this image
+          }
+        }
+
+        // Message validation: check if message modified since detection
+        if (reconciliationConfig.enableValidation && queuedPrompt.messageHash) {
+          const validation = validateMessageState(
+            '', // We don't have original text stored, just check hash
+            updatedText
+          );
+
+          // Log warning if significant changes detected
+          if (validation.modified) {
+            logger.warn(
+              `Message ${messageId} appears modified since prompt detection (${validation.changePercent}% change)`
+            );
+            logger.warn(
+              'Proceeding with insertion, but position may be incorrect'
+            );
+          }
+        }
 
         // Find insertion position using the stored fullMatch string
         // This is more reliable than re-extracting with regex, especially
@@ -457,11 +477,13 @@ export async function insertDeferredImages(
           // Found the exact prompt tag that was queued
           const insertPosition = matchPosition + fullMatch.length;
 
-          // Create title with "AI generated image" prefix for CSS selector compatibility
-          const imageTitle = `AI generated image: ${promptPreview}`;
-
-          // Create new image tag
-          const newImgTag = `\n<img src="${escapeHtmlAttribute(deferred.imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}">`;
+          // Create image tag using shared function for consistency
+          const newImgTag = createImageTag(
+            deferred.imageUrl,
+            queuedPrompt.prompt,
+            deferred.promptId,
+            reconciliationConfig.enableMarkers
+          );
 
           // Insert after prompt tag
           updatedText =
@@ -472,7 +494,7 @@ export async function insertDeferredImages(
           successCount++;
 
           logger.debug(
-            `Inserted new image after prompt at position ${insertPosition}`
+            `Inserted new image after prompt at position ${insertPosition}${reconciliationConfig.enableMarkers ? ' (with marker)' : ''}`
           );
 
           // Link image to prompt using prompt_manager
@@ -510,7 +532,7 @@ export async function insertDeferredImages(
     `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} → ${updatedText.length} chars)`
   );
 
-  // Emit MESSAGE_EDITED first to trigger regex "Run on Edit"
+  // Emit MESSAGE_EDITED to trigger regex "Run on Edit"
   const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
   await context.eventSource.emit(MESSAGE_EDITED, messageId);
 
@@ -523,9 +545,8 @@ export async function insertDeferredImages(
     logger.debug('Attached click handlers to newly inserted images');
   }
 
-  // Emit MESSAGE_UPDATED to notify other extensions
-  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+  // DO NOT emit MESSAGE_UPDATED - it causes other extensions to strip our images
+  // The message is already saved and rendered, MESSAGE_EDITED is sufficient
 
   // Save metadata to persist PromptRegistry (image-prompt associations)
   await saveMetadata();
@@ -534,6 +555,47 @@ export async function insertDeferredImages(
   // Save the chat to persist the inserted images
   await context.saveChat();
   logger.debug('Chat saved after inserting deferred images');
+
+  // Post-insertion verification: check that images survived
+  if (reconciliationConfig.enableMarkers && successCount > 0) {
+    const finalMessage = context.chat?.[messageId];
+    if (finalMessage) {
+      const finalText = finalMessage.mes || '';
+      let verifiedCount = 0;
+
+      for (const deferred of deferredImages) {
+        const idempotencyCheck = checkIdempotency(
+          finalText,
+          deferred.promptId,
+          deferred.imageUrl
+        );
+
+        if (idempotencyCheck.alreadyInserted) {
+          verifiedCount++;
+        } else {
+          logger.warn(
+            `Post-insertion verification failed: image missing for prompt ${deferred.promptId}`
+          );
+          logger.warn(
+            'Image may have been removed by another handler after insertion'
+          );
+        }
+      }
+
+      if (verifiedCount < successCount) {
+        logger.error(
+          `Post-insertion verification: only ${verifiedCount}/${successCount} images verified`
+        );
+        logger.error(
+          'Some images were removed after insertion - consider running reconciliation'
+        );
+      } else {
+        logger.debug(
+          `Post-insertion verification: all ${successCount} images verified`
+        );
+      }
+    }
+  }
 
   return successCount;
 }

@@ -6,6 +6,7 @@
 import {createLogger} from './logger';
 import {extractImagePrompts} from './image_extractor';
 import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
+import {removeAllMarkers} from './reconciliation';
 
 const logger = createLogger('Pruner');
 
@@ -34,11 +35,14 @@ export function pruneGeneratedImages(
       continue;
     }
 
+    // Remove idempotency markers FIRST (before processing images)
+    // This ensures the image pruning regex can match correctly
+    let result = removeAllMarkers(message.content);
+
     // Extract all prompts with their positions
-    const prompts = extractImagePrompts(message.content, patterns);
+    const prompts = extractImagePrompts(result, patterns);
 
     // Process in reverse order to preserve indices
-    let result = message.content;
     for (let i = prompts.length - 1; i >= 0; i--) {
       const prompt = prompts[i];
       const afterPrompt = result.substring(prompt.endIndex);
@@ -100,11 +104,14 @@ export function pruneGeneratedImagesAndPrompts(
       continue;
     }
 
+    // Remove idempotency markers FIRST (before processing images)
+    // This ensures the image pruning regex can match correctly
+    let result = removeAllMarkers(message.content);
+
     // Extract all prompts with their positions
-    const prompts = extractImagePrompts(message.content, patterns);
+    const prompts = extractImagePrompts(result, patterns);
 
     // Process in reverse order to preserve indices
-    let result = message.content;
     for (let i = prompts.length - 1; i >= 0; i--) {
       const prompt = prompts[i];
       const afterPrompt = result.substring(prompt.endIndex);

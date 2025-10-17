@@ -374,10 +374,7 @@ describe('Image Generator V2', () => {
         1,
         mockContext.chat[1]
       );
-      expect(mockContext.eventSource.emit).toHaveBeenCalledWith(
-        'MESSAGE_UPDATED',
-        1
-      );
+      // MESSAGE_UPDATED is no longer emitted to prevent other extensions from stripping images
       expect(mockContext.saveChat).toHaveBeenCalled();
     });
 

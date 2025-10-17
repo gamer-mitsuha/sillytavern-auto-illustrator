@@ -13,6 +13,7 @@ import {sessionManager} from './session_manager';
 import {
   handleStreamTokenStarted,
   handleMessageReceived,
+  handleGenerationEnded,
 } from './message_handler';
 import {addImageClickHandlers} from './manual_generation';
 import {
@@ -1082,6 +1083,17 @@ function registerEventHandlers(): void {
       logger.info('Generation started', {type});
     }
   );
+
+  // Handle GENERATION_ENDED for final reconciliation pass
+  const GENERATION_ENDED = context.eventTypes.GENERATION_ENDED;
+  context.eventSource.on(GENERATION_ENDED, (messageId: number) => {
+    if (!settings.enabled) {
+      return;
+    }
+
+    // Run final reconciliation as a safety check
+    handleGenerationEnded(messageId, context, settings);
+  });
 
   // Chat history pruning and meta-prompt injection
   const CHAT_COMPLETION_PROMPT_READY =

@@ -13,6 +13,8 @@ import {createLogger} from './logger';
 import {generatePromptsForMessage} from './services/prompt_generation_service';
 import {insertPromptTagsWithContext} from './prompt_insertion';
 import {isIndependentApiMode} from './mode_utils';
+import {reconcileMessage} from './reconciliation';
+import {getMetadata, saveMetadata} from './metadata';
 
 const logger = createLogger('MessageHandler');
 
@@ -188,6 +190,14 @@ export async function handleMessageReceived(
       logger.info(
         `Processed non-streaming message ${messageId}: ${insertedCount} images inserted`
       );
+
+      // Run reconciliation pass
+      await reconcileMessageIfNeeded(
+        messageId,
+        context,
+        settings,
+        'MESSAGE_RECEIVED:non-streaming'
+      );
     } catch (error) {
       logger.error(
         `Error processing non-streaming message ${messageId}:`,
@@ -219,12 +229,148 @@ export async function handleMessageReceived(
     logger.info(
       `Finalized streaming session for message ${messageId}: ${insertedCount} images inserted`
     );
+
+    // Run reconciliation pass to restore any missing images
+    // This protects against race conditions where other handlers modified message.mes
+    await reconcileMessageIfNeeded(
+      messageId,
+      context,
+      settings,
+      'MESSAGE_RECEIVED:streaming'
+    );
   } catch (error) {
     logger.error(
       `Error finalizing streaming session for message ${messageId}:`,
       error
     );
   }
+}
+
+/**
+ * Runs reconciliation on a message if reconciliation is enabled
+ * Restores missing images from metadata
+ *
+ * @param messageId - Message ID to reconcile
+ * @param context - SillyTavern context
+ * @param settings - Extension settings
+ * @param source - Source event/handler that triggered reconciliation (for logging)
+ */
+async function reconcileMessageIfNeeded(
+  messageId: number,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings,
+  source: string
+): Promise<void> {
+  // Check if reconciliation is enabled in settings
+  // For now, always run it as it's a safety feature
+  // TODO: Add settings toggle if needed
+
+  try {
+    logger.debug(
+      `[${source}] Starting reconciliation for message ${messageId}`
+    );
+
+    const message = context.chat?.[messageId];
+    if (!message) {
+      logger.debug(
+        `[${source}] Message ${messageId} not found, skipping reconciliation`
+      );
+      return;
+    }
+
+    const metadata = getMetadata();
+    const messageText = message.mes || '';
+
+    // Run reconciliation
+    const {updatedText, result} = reconcileMessage(
+      messageId,
+      messageText,
+      metadata
+    );
+
+    // If images were restored, save and update the message
+    if (result.restoredCount > 0) {
+      logger.info(
+        `[${source}] Reconciliation restored ${result.restoredCount} missing images for message ${messageId}`
+      );
+
+      message.mes = updatedText;
+
+      // Emit MESSAGE_EDITED first (for regex "Run on Edit")
+      const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+      await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+      // Update DOM to show restored images
+      context.updateMessageBlock(messageId, message);
+
+      // Save metadata and chat
+      await saveMetadata();
+      await context.saveChat();
+      logger.debug(`[${source}] Reconciliation: metadata and chat saved`);
+
+      // Emit MESSAGE_UPDATED to notify other extensions
+      const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+      await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
+      logger.info(
+        `[${source}] Reconciliation complete: message saved and events emitted`
+      );
+    } else if (result.missingCount > 0) {
+      logger.warn(
+        `[${source}] Reconciliation detected ${result.missingCount} missing images but could not restore them`
+      );
+
+      if (result.errors.length > 0) {
+        logger.warn(`[${source}] Reconciliation errors:`, result.errors);
+      }
+    } else {
+      logger.debug(
+        `[${source}] Reconciliation complete: no missing images detected`
+      );
+    }
+  } catch (error) {
+    logger.error(`[${source}] Error during reconciliation:`, error);
+  }
+}
+
+/**
+ * Handles GENERATION_ENDED event
+ * Runs a reconciliation pass as a final safety check
+ *
+ * @param messageId - Message ID that finished generation
+ * @param context - SillyTavern context
+ * @param settings - Extension settings
+ */
+export async function handleGenerationEnded(
+  messageId: number,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): Promise<void> {
+  logger.debug(`GENERATION_ENDED event for message ${messageId}`);
+
+  const message = context.chat?.[messageId];
+  if (!message) {
+    logger.debug(`Message ${messageId} not found, skipping reconciliation`);
+    return;
+  }
+
+  // Skip user messages
+  if (message.is_user) {
+    logger.debug('Skipping user message');
+    return;
+  }
+
+  // Run reconciliation as a final safety check
+  // This catches any images that were removed by other handlers after insertion
+  logger.debug(
+    `Running final reconciliation pass for message ${messageId} (GENERATION_ENDED)`
+  );
+  await reconcileMessageIfNeeded(
+    messageId,
+    context,
+    settings,
+    'GENERATION_ENDED'
+  );
 }
 
 /**
@@ -236,6 +382,7 @@ export async function handleMessageReceived(
 export function createEventHandlers(settings: AutoIllustratorSettings): {
   onStreamTokenStarted: (messageId: number) => Promise<void>;
   onMessageReceived: (messageId: number) => Promise<void>;
+  onGenerationEnded: (messageId: number) => Promise<void>;
 } {
   return {
     /**
@@ -262,6 +409,19 @@ export function createEventHandlers(settings: AutoIllustratorSettings): {
       }
 
       await handleMessageReceived(messageId, context, settings);
+    },
+
+    /**
+     * Handler for GENERATION_ENDED event
+     */
+    onGenerationEnded: async (messageId: number) => {
+      const context = SillyTavern.getContext();
+      if (!context) {
+        logger.warn('Failed to get context for GENERATION_ENDED');
+        return;
+      }
+
+      await handleGenerationEnded(messageId, context, settings);
     },
   };
 }

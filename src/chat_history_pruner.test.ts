@@ -225,5 +225,44 @@ describe('Chat History Pruner', () => {
       expect(chat[0].content).toContain('more text');
       expect(chat[0].content).toContain('end');
     });
+
+    it('should remove idempotency markers from assistant messages', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Text <!--img-prompt="cat"-->\n<!-- auto-illustrator:promptId=test123,imageUrl=https://example.com/img.png --> \n<img src="https://example.com/img.png" alt="cat" data-prompt-id="test123"> more text',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      // The main requirement: marker should always be removed
+      expect(chat[0].content).not.toContain('auto-illustrator');
+      // Prompt tag should remain
+      expect(chat[0].content).toContain('<!--img-prompt="cat"-->');
+      // Text content preserved
+      expect(chat[0].content).toContain('Text');
+      expect(chat[0].content).toContain('more text');
+      // Image should be removed (follows prompt tag)
+      expect(chat[0].content).not.toContain('data-prompt-id');
+    });
+
+    it('should remove idempotency markers even without adjacent prompt tags', () => {
+      const chat = [
+        {
+          role: 'assistant',
+          content:
+            'Just some text with a marker <!-- auto-illustrator:promptId=test,imageUrl=https://example.com/img.png --> in the middle',
+        },
+      ];
+
+      pruneGeneratedImages(chat);
+
+      // Marker should be removed even without prompt tags
+      expect(chat[0].content).not.toContain('auto-illustrator');
+      expect(chat[0].content).toContain('Just some text with a marker');
+      expect(chat[0].content).toContain('in the middle');
+    });
   });
 });

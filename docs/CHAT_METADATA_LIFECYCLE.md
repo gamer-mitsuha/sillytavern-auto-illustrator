@@ -454,6 +454,224 @@ function handler2() {
 
 ---
 
+## Message Text Insertion Best Practices
+
+### The Challenge: Race Conditions with `message.mes`
+
+Unlike `chatMetadata`, which is a stable reference, `message.mes` (the message text) can be modified by multiple handlers between when you detect something and when you insert content.
+
+**Common Race Condition:**
+```
+T=0:   Your extension detects prompt tag: "<!--img-prompt='cat'-->"
+       Stores position for later insertion
+
+T=1:   Another handler modifies message.mes (adds formatting, whitespace, etc.)
+       Your stored position is now incorrect
+
+T=2:   You try to insert image at stored position
+       RESULT: Wrong location, or tag not found, image lost
+```
+
+### Solution: Idempotency + Reconciliation Pattern
+
+This extension implements a robust pattern to prevent lost images:
+
+#### 1. Idempotency Markers
+
+Every inserted image includes an invisible HTML comment marker:
+
+```html
+<!-- auto-illustrator:promptId=abc123,imageUrl=https://... -->
+<img src="https://..." data-prompt-id="abc123" />
+```
+
+**Benefits:**
+- Detect if image already inserted (prevent duplicates)
+- Enable reconciliation (restore missing images)
+- Survive message text modifications
+
+#### 2. Micro-Delay Before Insertion
+
+```typescript
+// Wait 100ms to let other post-processors finish
+await microDelay(100);
+
+// NOW read message.mes
+const messageText = message.mes;
+```
+
+**Why this helps:**
+- Most other handlers run immediately on MESSAGE_RECEIVED
+- 100ms delay lets them finish first
+- Reduces (but doesn't eliminate) race conditions
+
+#### 3. Message Validation
+
+Store a hash of message text at detection time:
+
+```typescript
+const prompt = {
+  fullMatch: "<!--img-prompt='cat'-->",
+  messageHash: hashString(message.mes),
+  // ... other fields
+};
+```
+
+At insertion time, check if message changed significantly:
+
+```typescript
+const validation = validateMessageState(originalText, currentText);
+if (validation.modified) {
+  logger.warn(`Message modified by ${validation.changePercent}%`);
+}
+```
+
+#### 4. Reconciliation
+
+After insertion, verify images are present. If missing, restore from metadata:
+
+```typescript
+// Check: does message.mes contain our marker?
+const check = checkIdempotency(message.mes, promptId, imageUrl);
+
+if (!check.alreadyInserted) {
+  // Image missing! Restore from metadata
+  const {updatedText} = reconcileMessage(messageId, message.mes, metadata);
+  message.mes = updatedText;
+  await context.saveChat();
+}
+```
+
+### Implementation in Auto-Illustrator
+
+#### When Images Are Inserted
+
+From `image_generator.ts`:
+
+```typescript
+export async function insertDeferredImages(...) {
+  // Step 1: Micro-delay to avoid races
+  await microDelay(reconciliationConfig.insertionDelayMs); // default: 100ms
+
+  // Step 2: Read message text
+  let updatedText = message.mes || '';
+
+  // Step 3: Process each image
+  for (const deferred of deferredImages) {
+    // Idempotency check
+    const check = checkIdempotency(updatedText, promptId, imageUrl);
+    if (check.alreadyInserted) {
+      continue; // Skip duplicate
+    }
+
+    // Create marker + image HTML
+    const marker = createMarker(promptId, imageUrl);
+    const imageHtml = `\n${marker}\n<img src="${imageUrl}" data-prompt-id="${promptId}" />`;
+
+    // Insert
+    updatedText = insertAt(updatedText, position, imageHtml);
+  }
+
+  // Step 4: Single atomic write
+  message.mes = updatedText;
+
+  // Step 5: Save
+  await context.saveChat();
+
+  // Step 6: Post-insertion verification
+  const finalText = context.chat[messageId].mes;
+  verifyImagesPresent(finalText, deferredImages);
+}
+```
+
+#### When Reconciliation Runs
+
+From `message_handler.ts`:
+
+```typescript
+export async function handleMessageReceived(messageId: number, ...) {
+  // ... insert images ...
+
+  // Run reconciliation pass (restores missing images)
+  await reconcileMessageIfNeeded(messageId, context, settings);
+}
+
+async function reconcileMessageIfNeeded(...) {
+  const {updatedText, result} = reconcileMessage(messageId, message.mes, metadata);
+
+  if (result.restoredCount > 0) {
+    message.mes = updatedText;
+    await context.saveChat();
+    logger.info(`Restored ${result.restoredCount} missing images`);
+  }
+}
+```
+
+### Why This Pattern Works
+
+1. **Metadata is source of truth**: We always know which images should exist
+2. **Idempotency prevents duplicates**: Safe to run insertion multiple times
+3. **Reconciliation is a safety net**: Even if race conditions occur, images are restored
+4. **Micro-delay reduces races**: Most handlers finish before we read message.mes
+
+### When to Use This Pattern
+
+Use this pattern when:
+- ✅ Inserting content into `message.mes` that must persist
+- ✅ Multiple handlers might modify the same message
+- ✅ Content must survive SillyTavern's own post-processing
+- ✅ You need a "source of truth" separate from display layer
+
+Don't need this pattern when:
+- ❌ Only reading `message.mes` (no race condition)
+- ❌ Modifying metadata (already stable)
+- ❌ Single-handler scenario (no conflicts)
+
+### Example: Handling the Race Condition
+
+**Before (vulnerable to races):**
+```typescript
+function insertImage() {
+  const position = message.mes.indexOf(promptTag);
+  const imageHtml = `<img src="${url}" />`;
+  message.mes = message.mes.substring(0, position) + imageHtml + message.mes.substring(position);
+  await context.saveChat();
+  // ❌ No verification! Image could be lost if another handler runs
+}
+```
+
+**After (protected with idempotency + reconciliation):**
+```typescript
+async function insertImage() {
+  // Micro-delay
+  await microDelay(100);
+
+  // Idempotency check
+  if (checkIdempotency(message.mes, promptId, imageUrl).alreadyInserted) {
+    return; // Already inserted
+  }
+
+  // Insert with marker
+  const marker = createMarker(promptId, imageUrl);
+  const imageHtml = `${marker}\n<img src="${url}" data-prompt-id="${promptId}" />`;
+  message.mes = insertAt(message.mes, position, imageHtml);
+
+  // Save
+  await context.saveChat();
+
+  // Verify and reconcile if needed
+  if (!checkIdempotency(message.mes, promptId, imageUrl).alreadyInserted) {
+    logger.error('Image lost! Running reconciliation...');
+    const {updatedText} = reconcileMessage(messageId, message.mes, metadata);
+    message.mes = updatedText;
+    await context.saveChat();
+  }
+  // ✅ Image guaranteed to persist
+}
+```
+
+---
+
 ## Summary
 
 ### The Golden Rules
@@ -462,6 +680,8 @@ function handler2() {
 2. **Save EVERY TIME you mutate** (via `await saveMetadata()`)
 3. **Cache the reference** for efficiency (invalidate on `CHAT_CHANGED`)
 4. **Don't store references across chat changes** (they become stale)
+5. **Use idempotency markers** when inserting into `message.mes`
+6. **Run reconciliation** after insertion to verify content persisted
 
 ### Quick Reference
 
@@ -471,6 +691,8 @@ function handler2() {
 | You mutate metadata | Call `await saveMetadata()` | Persist to disk |
 | During same chat | Reuse cached reference | It's a live reference - no reload needed |
 | Batch operations | Mutate multiple times, save once | More efficient |
+| Inserting into `message.mes` | Use idempotency markers + reconciliation | Prevent race conditions |
+| After MESSAGE_RECEIVED | Run reconciliation pass | Restore any missing content |
 
 ---
 
@@ -480,3 +702,4 @@ function handler2() {
 - [st-context.js](https://github.com/SillyTavern/SillyTavern/blob/release/public/scripts/st-context.js) - See `getContext()` implementation
 - [Auto-Illustrator metadata.ts](../src/metadata.ts) - Our implementation
 - [Auto-Illustrator prompt_manager.ts](../src/prompt_manager.ts) - Auto-save mutation functions
+- [Auto-Illustrator reconciliation.ts](../src/reconciliation.ts) - Idempotency and reconciliation utilities

@@ -42,6 +42,10 @@ export interface QueuedPrompt {
   /** Timestamp when completed/failed */
   completedAt?: number;
 
+  // Message validation (for detecting modifications between detection and insertion)
+  /** Hash of message text at detection time */
+  messageHash?: string;
+
   // Regeneration metadata (presence indicates this is a regeneration request)
   /** Which image to replace (URL of existing image) */
   targetImageUrl?: string;
