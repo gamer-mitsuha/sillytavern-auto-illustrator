@@ -459,10 +459,12 @@ export class StreamingPreviewWidget {
           // Check if status changed
           const currentStatus = existingElement.getAttribute('data-status');
           if (currentStatus !== segment.status) {
-            // Status changed, recreate element
-            const imageContainer = this.createImageElement(segment);
-            imageContainer.setAttribute('data-segment-key', segmentKey);
-            content.replaceChild(imageContainer, existingElement);
+            // Status changed, smoothly transition
+            this.updateImageElement(
+              existingElement as HTMLElement,
+              segment,
+              currentStatus || 'detected'
+            );
           }
           elementIndex++;
         } else {
@@ -504,6 +506,88 @@ export class StreamingPreviewWidget {
   }
 
   /**
+   * Update an existing image element with smooth transition
+   * @param container - Existing container element
+   * @param segment - New segment data
+   * @param oldStatus - Previous status
+   */
+  private updateImageElement(
+    container: HTMLElement,
+    segment: ImageSegment,
+    oldStatus: string
+  ): void {
+    // Update status attribute
+    container.dataset.status = segment.status;
+
+    // Handle transition to completed image
+    if (segment.status === 'completed' && segment.imageUrl) {
+      // Fade out placeholder
+      const placeholder = container.querySelector(
+        '.ai-streaming-preview-image-placeholder, .ai-streaming-preview-image-failed'
+      );
+      if (placeholder) {
+        (placeholder as HTMLElement).style.opacity = '0';
+        (placeholder as HTMLElement).style.transition = 'opacity 0.3s ease';
+
+        // After fade out, replace with image
+        setTimeout(() => {
+          container.innerHTML = '';
+
+          const img = document.createElement('img');
+          img.src = segment.imageUrl!;
+          img.alt = segment.prompt;
+          img.className = 'ai-streaming-preview-image';
+          img.title = t('streamingPreview.clickToEnlarge');
+          img.style.opacity = '0';
+
+          // Click to open modal
+          img.addEventListener('click', () => {
+            this.openImageInModal(segment);
+          });
+
+          container.appendChild(img);
+
+          // Fade in image
+          requestAnimationFrame(() => {
+            img.style.transition = 'opacity 0.3s ease';
+            img.style.opacity = '1';
+          });
+        }, 300);
+      }
+    } else if (segment.status === 'failed') {
+      // Transition to failed state
+      container.innerHTML = '';
+      const failed = document.createElement('div');
+      failed.className = 'ai-streaming-preview-image-failed';
+      failed.innerHTML = `
+        <div class="ai-streaming-preview-image-failed-icon">⚠️</div>
+        <div class="ai-streaming-preview-image-failed-text">
+          ${t('streamingPreview.generationFailed')}
+        </div>
+      `;
+      container.appendChild(failed);
+    } else if (oldStatus !== segment.status) {
+      // Update placeholder state (detected -> generating)
+      const icon = container.querySelector(
+        '.ai-streaming-preview-image-placeholder-icon'
+      );
+      const text = container.querySelector(
+        '.ai-streaming-preview-image-placeholder-text'
+      );
+
+      if (icon) {
+        icon.textContent = segment.status === 'generating' ? '⏳' : '🖼️';
+      }
+      if (text) {
+        text.textContent =
+          segment.status === 'generating'
+            ? t('streamingPreview.generating')
+            : t('streamingPreview.imageDetected');
+      }
+    }
+  }
+
+  /**
    * Create an image element (placeholder or completed image)
    * @param segment - Image segment data
    * @returns HTML element
@@ -514,7 +598,7 @@ export class StreamingPreviewWidget {
     container.dataset.status = segment.status;
 
     if (segment.status === 'completed' && segment.imageUrl) {
-      // Show completed image
+      // Show completed image (no caption to save space)
       const img = document.createElement('img');
       img.src = segment.imageUrl;
       img.alt = segment.prompt;
@@ -527,12 +611,6 @@ export class StreamingPreviewWidget {
       });
 
       container.appendChild(img);
-
-      // Add prompt caption
-      const caption = document.createElement('div');
-      caption.className = 'ai-streaming-preview-image-caption';
-      caption.textContent = this.truncatePrompt(segment.prompt, 80);
-      container.appendChild(caption);
     } else if (segment.status === 'failed') {
       // Show failed state
       const failed = document.createElement('div');
