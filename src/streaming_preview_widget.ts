@@ -57,6 +57,8 @@ export class StreamingPreviewWidget {
   private promptDetectionPatterns: string[] = [];
   private autoScrollEnabled = true;
   private scrollCheckTimeout: number | null = null;
+  private isUserScrolling = false;
+  private lastScrollTop = 0;
 
   /**
    * Initialize the streaming preview widget
@@ -119,6 +121,8 @@ export class StreamingPreviewWidget {
     this.contentSegments = [];
     this.isVisible = true;
     this.autoScrollEnabled = true; // Reset auto-scroll for new message
+    this.isUserScrolling = false; // Reset user scroll detection
+    this.lastScrollTop = 0; // Reset scroll tracking
     this.render();
   }
 
@@ -373,6 +377,15 @@ export class StreamingPreviewWidget {
    * @param content - Content element
    */
   private handleScroll(content: HTMLElement): void {
+    const currentScrollTop = content.scrollTop;
+
+    // Detect if user is actively scrolling (not programmatic)
+    if (Math.abs(currentScrollTop - this.lastScrollTop) > 5) {
+      this.isUserScrolling = true;
+    }
+
+    this.lastScrollTop = currentScrollTop;
+
     // Clear existing timeout
     if (this.scrollCheckTimeout) {
       clearTimeout(this.scrollCheckTimeout);
@@ -381,16 +394,17 @@ export class StreamingPreviewWidget {
     // Check if user scrolled away from bottom
     const atBottom = this.isScrolledToBottom(content);
 
-    if (!atBottom) {
-      // User scrolled up, disable auto-scroll
+    if (!atBottom && this.isUserScrolling) {
+      // User scrolled up, disable auto-scroll immediately
       this.autoScrollEnabled = false;
       logger.trace('Auto-scroll disabled (user scrolled up)');
-    } else {
+    } else if (atBottom) {
       // User is at bottom, re-enable auto-scroll after a short delay
       this.scrollCheckTimeout = window.setTimeout(() => {
         this.autoScrollEnabled = true;
+        this.isUserScrolling = false;
         logger.trace('Auto-scroll re-enabled (user at bottom)');
-      }, 500);
+      }, 300);
     }
   }
 
@@ -486,9 +500,13 @@ export class StreamingPreviewWidget {
       elementIndex++;
     }
 
-    // Auto-scroll only if user was at bottom or auto-scroll is enabled
-    if (this.autoScrollEnabled && wasAtBottom) {
-      content.scrollTop = content.scrollHeight;
+    // Auto-scroll only if enabled and user isn't manually scrolling
+    if (this.autoScrollEnabled && wasAtBottom && !this.isUserScrolling) {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        content.scrollTop = content.scrollHeight;
+        this.lastScrollTop = content.scrollHeight;
+      });
     }
   }
 
