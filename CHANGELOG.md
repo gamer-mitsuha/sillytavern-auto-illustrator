@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Meta-prompt Injection Logic** - Reverted explicit generation type requirement, restoring default to 'normal' for better compatibility with various generation modes
+
 ## [1.5.0] - 2025-10-17
 
 ### Added
@@ -24,9 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clear UI warnings about token cost implications (+1 API call per message in Independent API mode)
   - Debug logging for monitoring LLM prompts and showing what blocks are skipped
   - Comprehensive implementation plan document (`docs/IMPLEMENTATION_PLAN_ISSUE_32.md`)
-
-### Fixed
-- **Meta-prompt Injection Logic** - Now requires explicit generation type instead of defaulting to 'normal', preventing unexpected meta-prompt injection in direct API calls like `generateRaw`
 
 ## [1.4.0] - 2025-10-15
 
