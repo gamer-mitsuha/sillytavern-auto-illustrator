@@ -26,6 +26,8 @@ const logger = createLogger('StreamingPreviewWidget');
 interface TextSegment {
   type: 'text';
   content: string;
+  startIndex?: number; // Position in original text where this segment starts
+  endIndex?: number; // Position in original text where this segment ends
 }
 
 /**
@@ -38,6 +40,8 @@ interface ImageSegment {
   imageUrl?: string;
   status: 'detected' | 'generating' | 'completed' | 'failed';
   error?: string;
+  startIndex?: number; // Position in original text where prompt starts
+  endIndex?: number; // Position in original text where prompt ends
 }
 
 type ContentSegment = TextSegment | ImageSegment;
@@ -59,6 +63,13 @@ export class StreamingPreviewWidget {
   private scrollCheckTimeout: number | null = null;
   private isUserScrolling = false;
   private lastScrollTop = 0;
+
+  // Smooth streaming buffer
+  private textBuffer = ''; // Target text to display
+  private displayedText = ''; // Currently displayed text
+  private streamingInterval: number | null = null;
+  private readonly CHARS_PER_FRAME = 3; // Characters to add per animation frame
+  private readonly FRAME_DELAY = 30; // Milliseconds between frames (33fps)
 
   /**
    * Initialize the streaming preview widget
@@ -119,6 +130,9 @@ export class StreamingPreviewWidget {
     this.currentMessageId = messageId;
     this.lastSeenText = '';
     this.contentSegments = [];
+    this.textBuffer = '';
+    this.displayedText = '';
+    this.stopSmoothStreaming(); // Stop any existing animation
     this.isVisible = true;
     this.autoScrollEnabled = true; // Reset auto-scroll for new message
     this.isUserScrolling = false; // Reset user scroll detection
@@ -138,9 +152,30 @@ export class StreamingPreviewWidget {
     logger.trace(
       `Updating text (${this.lastSeenText.length} -> ${text.length} chars)`
     );
+
+    // If text shrinks, it's likely being filtered (thinking chains removed)
+    // In this case, reset the display position to avoid freezing
+    if (text.length < this.lastSeenText.length) {
+      logger.debug(
+        `Text shrunk from ${this.lastSeenText.length} to ${text.length} chars - resetting display position`
+      );
+      // Reset displayed text to catch up with new filtered text
+      this.displayedText = text;
+    }
+
     this.lastSeenText = text;
-    this.parseTextAndUpdateSegments(text);
-    this.render();
+
+    // Update buffer with new text
+    this.textBuffer = text;
+
+    // Parse segments from the buffer text NOW (not in animation loop)
+    // This ensures we capture prompts before text might change
+    this.parseTextAndUpdateSegments(this.textBuffer);
+
+    // Start smooth streaming animation if not already running
+    if (!this.streamingInterval) {
+      this.startSmoothStreaming();
+    }
   }
 
   /**
@@ -154,9 +189,25 @@ export class StreamingPreviewWidget {
       this.promptDetectionPatterns
     );
 
+    const hadPrompts = this.contentSegments.some(s => s.type === 'image');
+    const hasNewPrompts = prompts.length > 0 && !hadPrompts;
+
+    logger.debug(
+      `Parsing text (${text.length} chars), found ${prompts.length} prompts (new: ${hasNewPrompts})`
+    );
+
+    // If we just detected new prompts, reset display position to current buffer
+    // This prevents freezing when segments structure changes
+    if (hasNewPrompts) {
+      logger.debug('New image prompts detected - syncing display position');
+      this.displayedText = this.textBuffer;
+    }
+
     if (prompts.length === 0) {
       // No prompts, just show text
-      this.contentSegments = [{type: 'text', content: text}];
+      this.contentSegments = [
+        {type: 'text', content: text, startIndex: 0, endIndex: text.length},
+      ];
       return;
     }
 
@@ -172,12 +223,14 @@ export class StreamingPreviewWidget {
         newSegments.push({
           type: 'text',
           content: text.substring(lastIndex, prompt.startIndex),
+          startIndex: lastIndex,
+          endIndex: prompt.startIndex,
         });
       }
 
-      // Find existing image segment to preserve its state
+      // Find existing image segment to preserve its state by matching prompt text
       const existingImage = this.contentSegments.find(
-        seg => seg.type === 'image' && seg.promptIndex === i
+        seg => seg.type === 'image' && seg.prompt === prompt.prompt
       ) as ImageSegment | undefined;
 
       // Add image placeholder/completed image
@@ -188,6 +241,8 @@ export class StreamingPreviewWidget {
         imageUrl: existingImage?.imageUrl,
         status: existingImage?.status || 'detected',
         error: existingImage?.error,
+        startIndex: prompt.startIndex,
+        endIndex: prompt.endIndex,
       });
 
       lastIndex = prompt.endIndex;
@@ -198,6 +253,8 @@ export class StreamingPreviewWidget {
       newSegments.push({
         type: 'text',
         content: text.substring(lastIndex),
+        startIndex: lastIndex,
+        endIndex: text.length,
       });
     }
 
@@ -219,6 +276,17 @@ export class StreamingPreviewWidget {
       `Image completed for message ${detail.messageId}, prompt: ${detail.promptPreview}`
     );
 
+    // Debug: log all current segments
+    logger.debug(
+      'Current segments:',
+      this.contentSegments.map(s =>
+        s.type === 'image'
+          ? `[IMAGE: ${s.prompt}]`
+          : `[TEXT: ${s.content.substring(0, 50)}...]`
+      )
+    );
+    logger.debug(`Looking for prompt: "${detail.promptText}"`);
+
     // Find and update the corresponding image segment by matching prompt text
     const imageSegment = this.contentSegments.find(
       seg =>
@@ -231,11 +299,111 @@ export class StreamingPreviewWidget {
       imageSegment.imageUrl = detail.imageUrl;
       imageSegment.status = 'completed';
       this.render();
+      logger.debug('Successfully updated image segment');
     } else {
       logger.warn(
         `Could not find image segment for prompt: ${detail.promptPreview}`
       );
+      logger.warn(
+        'Available prompts in segments:',
+        this.contentSegments
+          .filter(s => s.type === 'image')
+          .map(s => (s as ImageSegment).prompt)
+      );
     }
+  }
+
+  /**
+   * Start smooth streaming animation
+   */
+  private startSmoothStreaming(): void {
+    this.streamingInterval = window.setInterval(() => {
+      this.updateDisplayedText();
+    }, this.FRAME_DELAY);
+  }
+
+  /**
+   * Stop smooth streaming animation
+   */
+  private stopSmoothStreaming(): void {
+    if (this.streamingInterval) {
+      clearInterval(this.streamingInterval);
+      this.streamingInterval = null;
+    }
+  }
+
+  /**
+   * Update displayed text incrementally for smooth streaming effect
+   */
+  private updateDisplayedText(): void {
+    if (this.displayedText.length < this.textBuffer.length) {
+      // Add more characters to displayed text
+      const charsToAdd = Math.min(
+        this.CHARS_PER_FRAME,
+        this.textBuffer.length - this.displayedText.length
+      );
+      this.displayedText = this.textBuffer.substring(
+        0,
+        this.displayedText.length + charsToAdd
+      );
+
+      // Don't re-parse segments here - they're already parsed in updateText()
+      // Just render with current display position
+      this.render();
+    }
+    // Note: We keep the interval running even when caught up,
+    // so it can resume when new text arrives
+  }
+
+  /**
+   * Get segments adjusted for current display position
+   * Truncates text content to match displayedText length
+   */
+  private getDisplaySegments(): ContentSegment[] {
+    if (this.displayedText === this.textBuffer) {
+      return this.contentSegments;
+    }
+
+    // Calculate how much text to show based on displayedText length
+    const displayLength = this.displayedText.length;
+    const result: ContentSegment[] = [];
+
+    for (const segment of this.contentSegments) {
+      if (segment.type === 'text') {
+        const segmentStart = segment.startIndex ?? 0;
+        const segmentEnd =
+          segment.endIndex ?? segmentStart + segment.content.length;
+
+        // Only add text if it starts before display length
+        if (segmentStart < displayLength) {
+          const visibleLength = Math.min(
+            segment.content.length,
+            displayLength - segmentStart
+          );
+
+          if (visibleLength > 0) {
+            result.push({
+              type: 'text',
+              content: segment.content.substring(0, visibleLength),
+              startIndex: segmentStart,
+              endIndex: Math.min(segmentEnd, displayLength),
+            });
+          }
+        }
+
+        // Stop if we've gone past display length
+        if (segmentStart >= displayLength) {
+          break;
+        }
+      } else {
+        // For images, show if we've displayed past the end of the prompt tag
+        if (segment.endIndex && segment.endIndex <= displayLength) {
+          result.push(segment);
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -243,6 +411,12 @@ export class StreamingPreviewWidget {
    */
   markComplete(): void {
     logger.debug('Marking streaming as complete');
+
+    // Immediately show all remaining text
+    this.displayedText = this.textBuffer;
+    this.parseTextAndUpdateSegments(this.displayedText);
+    this.stopSmoothStreaming();
+
     this.render(); // Update to show "complete" state in header
   }
 
@@ -265,6 +439,9 @@ export class StreamingPreviewWidget {
     this.currentMessageId = -1;
     this.lastSeenText = '';
     this.contentSegments = [];
+    this.textBuffer = '';
+    this.displayedText = '';
+    this.stopSmoothStreaming();
     this.removeFromDOM();
   }
 
@@ -433,12 +610,15 @@ export class StreamingPreviewWidget {
       return;
     }
 
+    // Get segments adjusted for current display position
+    const displaySegments = this.getDisplaySegments();
+
     // Smart update: only update changed segments
     const existingElements = Array.from(content.children);
     let elementIndex = 0;
 
-    for (let i = 0; i < this.contentSegments.length; i++) {
-      const segment = this.contentSegments[i];
+    for (let i = 0; i < displaySegments.length; i++) {
+      const segment = displaySegments[i];
       const existingElement = existingElements[elementIndex];
 
       if (segment.type === 'text') {
@@ -447,7 +627,7 @@ export class StreamingPreviewWidget {
           existingElement &&
           existingElement.classList.contains('ai-streaming-preview-text')
         ) {
-          // Update text content if changed
+          // Update text content directly (smooth streaming handles the animation)
           if (existingElement.textContent !== segment.content) {
             existingElement.textContent = segment.content;
           }
