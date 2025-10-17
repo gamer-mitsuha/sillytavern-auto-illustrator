@@ -13,7 +13,6 @@ import {sessionManager} from './session_manager';
 import {
   handleStreamTokenStarted,
   handleMessageReceived,
-  handleChatChanged,
 } from './message_handler';
 import {addImageClickHandlers} from './manual_generation';
 import {
@@ -55,6 +54,8 @@ import {
 } from './progress_widget';
 import {initializeGalleryWidget, getGalleryWidget} from './gallery_widget';
 import {isIndependentApiMode} from './mode_utils';
+import {initializeChatChangedHandler} from './chat_changed_handler';
+import {initializeChatChangeOperations} from './chat_change_operations';
 
 const logger = createLogger('Main');
 
@@ -1155,11 +1156,7 @@ function registerEventHandlers(): void {
     }
   });
 
-  // Handle chat changes
-  const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
-  context.eventSource.on(CHAT_CHANGED, () => {
-    handleChatChanged();
-  });
+  // Note: CHAT_CHANGED is now handled by chat_changed_handler module
 
   logger.info('Event handlers registered:', {
     STREAM_TOKEN_RECEIVED,
@@ -1167,7 +1164,6 @@ function registerEventHandlers(): void {
     MESSAGE_UPDATED,
     GENERATION_STARTED,
     CHAT_COMPLETION_PROMPT_READY,
-    CHAT_CHANGED,
   });
 }
 
@@ -1190,8 +1186,9 @@ function initialize(): void {
   initializeI18n(context);
   logger.info('Initialized i18n');
 
-  // Metadata is initialized lazily on first use via getMetadata()
-  logger.info('Extension initialized, metadata will be loaded on first use');
+  // Initialize CHAT_CHANGED handler (single centralized handler)
+  initializeChatChangedHandler();
+  logger.info('Initialized centralized CHAT_CHANGED handler');
 
   // Load settings
   settings = loadSettings(context);
@@ -1199,6 +1196,17 @@ function initialize(): void {
 
   // Apply log level from settings
   setLogLevel(settings.logLevel);
+
+  // Initialize chat change operations module with current context and callbacks
+  // This must be done after settings are loaded
+  initializeChatChangeOperations(
+    context,
+    settings,
+    updateMaxConcurrent,
+    updateMinInterval,
+    updateUI
+  );
+  logger.info('Initialized chat change operations module');
 
   // Conditionally initialize extension components based on settings.enabled
   if (settings.enabled) {
@@ -1410,38 +1418,8 @@ function initialize(): void {
 
   logger.info('Extension initialized successfully');
 
-  // Set up extension prompt at the very end after everything is initialized
-  // Register CHAT_CHANGED handler for any future cleanup if needed
-  const CHAT_CHANGED = context.eventTypes.CHAT_CHANGED;
-
-  context.eventSource.on(CHAT_CHANGED, () => {
-    logger.info(
-      'CHAT_CHANGED - cancelling all sessions and reloading settings'
-    );
-
-    // Metadata will be loaded fresh on next getMetadata() call
-    // No need to explicitly refresh - getMetadata() always gets latest context
-
-    // Cancel all active streaming sessions
-    cancelAllSessions();
-
-    // Clear progress widget state for new chat
-    clearProgressWidgetState();
-
-    // Reload settings from server to ensure sync across devices
-    settings = loadSettings(context);
-    setLogLevel(settings.logLevel);
-    updateMaxConcurrent(settings.maxConcurrentGenerations);
-    updateMinInterval(settings.minGenerationInterval);
-
-    // Update UI with refreshed settings
-    updateUI();
-
-    // Re-add click handlers to all images when chat changes
-    setTimeout(() => {
-      addImageClickHandlers(settings);
-    }, 100);
-  });
+  // Note: CHAT_CHANGED is now handled by chat_changed_handler module
+  // which orchestrates all chat change operations in the correct order
 
   // Add click handlers to existing images
   addImageClickHandlers(settings);

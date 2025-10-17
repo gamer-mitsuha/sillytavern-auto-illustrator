@@ -31,6 +31,16 @@ import {
 } from './prompt_manager';
 
 // ============================================================================
+// Mocks
+// ============================================================================
+
+// Mock saveMetadata since all mutation functions now auto-save
+vi.mock('./metadata', () => ({
+  saveMetadata: vi.fn().mockResolvedValue(undefined),
+  getMetadata: vi.fn(),
+}));
+
+// ============================================================================
 // Test Fixtures
 // ============================================================================
 
@@ -61,7 +71,7 @@ function createTestMetadata(): AutoIllustratorChatMetadata {
 // ============================================================================
 
 describe('Prompt ID Generation', () => {
-  it('should generate consistent IDs for same inputs', () => {
+  it('should generate consistent IDs for same inputs', async () => {
     const text = '1girl, red dress';
     const messageId = 42;
     const promptIndex = 0;
@@ -73,7 +83,7 @@ describe('Prompt ID Generation', () => {
     expect(id1).toMatch(/^prompt_[a-z0-9]+$/);
   });
 
-  it('should generate different IDs for different promptIndex', () => {
+  it('should generate different IDs for different promptIndex', async () => {
     const text = '1girl, red dress';
     const messageId = 42;
 
@@ -83,7 +93,7 @@ describe('Prompt ID Generation', () => {
     expect(id1).not.toBe(id2);
   });
 
-  it('should generate different IDs for different messageId', () => {
+  it('should generate different IDs for different messageId', async () => {
     const text = '1girl, red dress';
     const promptIndex = 0;
 
@@ -93,7 +103,7 @@ describe('Prompt ID Generation', () => {
     expect(id1).not.toBe(id2);
   });
 
-  it('should be resistant to hash collisions with similar strings', () => {
+  it('should be resistant to hash collisions with similar strings', async () => {
     const messageId = 42;
     const promptIndex = 0;
 
@@ -118,7 +128,7 @@ describe('CRUD Operations', () => {
     metadata = createTestMetadata();
   });
 
-  it('should create prompt node with all required fields', () => {
+  it('should create prompt node with all required fields', async () => {
     const node = createPromptNode('test prompt', 42, 0, 'ai-message');
 
     expect(node.text).toBe('test prompt');
@@ -133,28 +143,28 @@ describe('CRUD Operations', () => {
     // not enforced at JavaScript runtime
   });
 
-  it('should get existing node', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should get existing node', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const retrieved = getPromptNode(node.id, metadata);
 
     expect(retrieved).toBe(node);
   });
 
-  it('should return null for non-existent node', () => {
+  it('should return null for non-existent node', async () => {
     const node = getPromptNode('prompt_nonexistent', metadata);
 
     expect(node).toBeNull();
   });
 
-  it('should delete node and clean up references', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
-    linkImageToPrompt(node.id, 'http://example.com/img.jpg', metadata);
+  it('should delete node and clean up references', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
+    await linkImageToPrompt(node.id, 'http://example.com/img.jpg', metadata);
 
     const registry = getRegistry(metadata);
     expect(registry.nodes[node.id]).toBeDefined();
     expect(registry.rootPromptIds).toContain(node.id);
 
-    deletePromptNode(node.id, metadata);
+    await deletePromptNode(node.id, metadata);
 
     expect(registry.nodes[node.id]).toBeUndefined();
     expect(registry.rootPromptIds).not.toContain(node.id);
@@ -163,15 +173,15 @@ describe('CRUD Operations', () => {
     ).toBeUndefined();
   });
 
-  it('should update lastUsedAt timestamp', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should update lastUsedAt timestamp', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const originalTime = node.metadata.lastUsedAt;
 
     // Wait a bit to ensure timestamp difference
     const futureTime = Date.now() + 1000;
     vi.spyOn(Date, 'now').mockReturnValue(futureTime);
 
-    updatePromptLastUsed(node.id, metadata);
+    await updatePromptLastUsed(node.id, metadata);
 
     expect(node.metadata.lastUsedAt).toBe(futureTime);
     expect(node.metadata.lastUsedAt).toBeGreaterThan(originalTime);
@@ -191,21 +201,21 @@ describe('Registration & Deduplication', () => {
     metadata = createTestMetadata();
   });
 
-  it('should register new prompt and add to registry', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should register new prompt and add to registry', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const registry = getRegistry(metadata);
 
     expect(registry.nodes[node.id]).toBe(node);
     expect(registry.rootPromptIds).toContain(node.id);
   });
 
-  it('should return existing node on duplicate registration', () => {
-    const node1 = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should return existing node on duplicate registration', async () => {
+    const node1 = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const originalTime = node1.metadata.lastUsedAt;
 
     // Wait and register again
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 1000);
-    const node2 = registerPrompt('test', 42, 0, 'ai-message', metadata);
+    const node2 = await registerPrompt('test', 42, 0, 'ai-message', metadata);
 
     expect(node2).toBe(node1);
     expect(node2.metadata.lastUsedAt).toBeGreaterThan(originalTime);
@@ -213,18 +223,42 @@ describe('Registration & Deduplication', () => {
     vi.restoreAllMocks();
   });
 
-  it('should create different nodes for multiple prompts in same message', () => {
-    const node1 = registerPrompt('prompt 1', 42, 0, 'ai-message', metadata);
-    const node2 = registerPrompt('prompt 2', 42, 1, 'ai-message', metadata);
+  it('should create different nodes for multiple prompts in same message', async () => {
+    const node1 = await registerPrompt(
+      'prompt 1',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const node2 = await registerPrompt(
+      'prompt 2',
+      42,
+      1,
+      'ai-message',
+      metadata
+    );
 
     expect(node1.id).not.toBe(node2.id);
     expect(node1.messageId).toBe(node2.messageId);
     expect(node1.promptIndex).not.toBe(node2.promptIndex);
   });
 
-  it('should create different nodes for same text in different messages', () => {
-    const node1 = registerPrompt('same text', 42, 0, 'ai-message', metadata);
-    const node2 = registerPrompt('same text', 43, 0, 'ai-message', metadata);
+  it('should create different nodes for same text in different messages', async () => {
+    const node1 = await registerPrompt(
+      'same text',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const node2 = await registerPrompt(
+      'same text',
+      43,
+      0,
+      'ai-message',
+      metadata
+    );
 
     expect(node1.id).not.toBe(node2.id);
     expect(node1.text).toBe(node2.text);
@@ -242,11 +276,11 @@ describe('Image Linking', () => {
     metadata = createTestMetadata();
   });
 
-  it('should link image to prompt', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should link image to prompt', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const imageUrl = 'http://example.com/img.jpg';
 
-    linkImageToPrompt(node.id, imageUrl, metadata);
+    await linkImageToPrompt(node.id, imageUrl, metadata);
 
     // URLs are normalized to pathname for consistent lookups
     const normalizedUrl = '/img.jpg';
@@ -255,13 +289,13 @@ describe('Image Linking', () => {
     expect(registry.imageToPromptId[normalizedUrl]).toBe(node.id);
   });
 
-  it('should link multiple images to same prompt', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should link multiple images to same prompt', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const img1 = 'http://example.com/img1.jpg';
     const img2 = 'http://example.com/img2.jpg';
 
-    linkImageToPrompt(node.id, img1, metadata);
-    linkImageToPrompt(node.id, img2, metadata);
+    await linkImageToPrompt(node.id, img1, metadata);
+    await linkImageToPrompt(node.id, img2, metadata);
 
     // URLs are normalized
     expect(node.generatedImages).toContain(normalizeUrl(img1));
@@ -269,24 +303,27 @@ describe('Image Linking', () => {
     expect(node.generatedImages).toHaveLength(2);
   });
 
-  it('should get prompt for image with O(1) lookup', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should get prompt for image with O(1) lookup', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const imageUrl = 'http://example.com/img.jpg';
 
-    linkImageToPrompt(node.id, imageUrl, metadata);
+    await linkImageToPrompt(node.id, imageUrl, metadata);
     // URLs are normalized, so look up with normalized URL
     const retrieved = getPromptForImage(normalizeUrl(imageUrl), metadata);
 
     expect(retrieved).toBe(node);
   });
 
-  it('should unlink image from prompt', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should unlink image from prompt', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const imageUrl = 'http://example.com/img.jpg';
 
-    linkImageToPrompt(node.id, imageUrl, metadata);
+    await linkImageToPrompt(node.id, imageUrl, metadata);
     // URLs are normalized, use normalized URL for unlinking
-    const result = unlinkImageFromPrompt(normalizeUrl(imageUrl), metadata);
+    const result = await unlinkImageFromPrompt(
+      normalizeUrl(imageUrl),
+      metadata
+    );
 
     expect(result).toBe(true);
     expect(node.generatedImages).not.toContain(normalizeUrl(imageUrl));
@@ -295,8 +332,8 @@ describe('Image Linking', () => {
     expect(registry.imageToPromptId[normalizeUrl(imageUrl)]).toBeUndefined();
   });
 
-  it('should return false when unlinking non-existent image', () => {
-    const result = unlinkImageFromPrompt(
+  it('should return false when unlinking non-existent image', async () => {
+    const result = await unlinkImageFromPrompt(
       'http://nonexistent.com/img.jpg',
       metadata
     );
@@ -304,12 +341,12 @@ describe('Image Linking', () => {
     expect(result).toBe(false);
   });
 
-  it('should avoid duplicate images in generatedImages array', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should avoid duplicate images in generatedImages array', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
     const imageUrl = 'http://example.com/img.jpg';
 
-    linkImageToPrompt(node.id, imageUrl, metadata);
-    linkImageToPrompt(node.id, imageUrl, metadata);
+    await linkImageToPrompt(node.id, imageUrl, metadata);
+    await linkImageToPrompt(node.id, imageUrl, metadata);
 
     expect(node.generatedImages).toHaveLength(1);
     expect(node.generatedImages[0]).toBe(normalizeUrl(imageUrl));
@@ -327,9 +364,15 @@ describe('Tree Operations', () => {
     metadata = createTestMetadata();
   });
 
-  it('should refine prompt and create child node', () => {
-    const parent = registerPrompt('original', 42, 0, 'ai-message', metadata);
-    const child = refinePrompt(
+  it('should refine prompt and create child node', async () => {
+    const parent = await registerPrompt(
+      'original',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
       parent.id,
       'refined text',
       'make it better',
@@ -344,9 +387,15 @@ describe('Tree Operations', () => {
     expect(parent.childIds).toContain(child.id);
   });
 
-  it('should inherit messageId and promptIndex from parent', () => {
-    const parent = registerPrompt('original', 42, 3, 'ai-message', metadata);
-    const child = refinePrompt(
+  it('should inherit messageId and promptIndex from parent', async () => {
+    const parent = await registerPrompt(
+      'original',
+      42,
+      3,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
       parent.id,
       'refined',
       'feedback',
@@ -358,9 +407,15 @@ describe('Tree Operations', () => {
     expect(child.promptIndex).toBe(parent.promptIndex);
   });
 
-  it('should not add child to rootPromptIds', () => {
-    const parent = registerPrompt('original', 42, 0, 'ai-message', metadata);
-    const child = refinePrompt(
+  it('should not add child to rootPromptIds', async () => {
+    const parent = await registerPrompt(
+      'original',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
       parent.id,
       'refined',
       'feedback',
@@ -373,16 +428,22 @@ describe('Tree Operations', () => {
     expect(registry.rootPromptIds).not.toContain(child.id);
   });
 
-  it('should get root from nested child', () => {
-    const root = registerPrompt('original', 42, 0, 'ai-message', metadata);
-    const child1 = refinePrompt(
+  it('should get root from nested child', async () => {
+    const root = await registerPrompt(
+      'original',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child1 = await refinePrompt(
       root.id,
       'v2',
       'feedback1',
       'ai-refined',
       metadata
     );
-    const child2 = refinePrompt(
+    const child2 = await refinePrompt(
       child1.id,
       'v3',
       'feedback2',
@@ -395,16 +456,22 @@ describe('Tree Operations', () => {
     expect(foundRoot).toBe(root);
   });
 
-  it('should get prompt chain from root to current', () => {
-    const root = registerPrompt('original', 42, 0, 'ai-message', metadata);
-    const child1 = refinePrompt(
+  it('should get prompt chain from root to current', async () => {
+    const root = await registerPrompt(
+      'original',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child1 = await refinePrompt(
       root.id,
       'v2',
       'feedback1',
       'ai-refined',
       metadata
     );
-    const child2 = refinePrompt(
+    const child2 = await refinePrompt(
       child1.id,
       'v3',
       'feedback2',
@@ -420,23 +487,29 @@ describe('Tree Operations', () => {
     expect(chain[2]).toBe(child2);
   });
 
-  it('should get direct children only', () => {
-    const parent = registerPrompt('original', 42, 0, 'ai-message', metadata);
-    const child1 = refinePrompt(
+  it('should get direct children only', async () => {
+    const parent = await registerPrompt(
+      'original',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child1 = await refinePrompt(
       parent.id,
       'v2',
       'feedback1',
       'ai-refined',
       metadata
     );
-    const child2 = refinePrompt(
+    const child2 = await refinePrompt(
       parent.id,
       'v3',
       'feedback2',
       'manual-refined',
       metadata
     );
-    const grandchild = refinePrompt(
+    const grandchild = await refinePrompt(
       child1.id,
       'v4',
       'feedback3',
@@ -452,11 +525,17 @@ describe('Tree Operations', () => {
     expect(children).not.toContain(grandchild);
   });
 
-  it('should support multiple levels of refinement', () => {
-    const root = registerPrompt('v1', 42, 0, 'ai-message', metadata);
-    const v2 = refinePrompt(root.id, 'v2', 'f1', 'ai-refined', metadata);
-    const v3 = refinePrompt(v2.id, 'v3', 'f2', 'ai-refined', metadata);
-    const v4 = refinePrompt(v3.id, 'v4', 'f3', 'manual-refined', metadata);
+  it('should support multiple levels of refinement', async () => {
+    const root = await registerPrompt('v1', 42, 0, 'ai-message', metadata);
+    const v2 = await refinePrompt(root.id, 'v2', 'f1', 'ai-refined', metadata);
+    const v3 = await refinePrompt(v2.id, 'v3', 'f2', 'ai-refined', metadata);
+    const v4 = await refinePrompt(
+      v3.id,
+      'v4',
+      'f3',
+      'manual-refined',
+      metadata
+    );
 
     const chain = getPromptChain(v4.id, metadata);
     expect(chain).toHaveLength(4);
@@ -465,11 +544,23 @@ describe('Tree Operations', () => {
     expect(root4).toBe(root);
   });
 
-  it('should get entire subtree with DFS', () => {
-    const root = registerPrompt('root', 42, 0, 'ai-message', metadata);
-    const child1 = refinePrompt(root.id, 'c1', 'f1', 'ai-refined', metadata);
-    const child2 = refinePrompt(root.id, 'c2', 'f2', 'ai-refined', metadata);
-    const grandchild1 = refinePrompt(
+  it('should get entire subtree with DFS', async () => {
+    const root = await registerPrompt('root', 42, 0, 'ai-message', metadata);
+    const child1 = await refinePrompt(
+      root.id,
+      'c1',
+      'f1',
+      'ai-refined',
+      metadata
+    );
+    const child2 = await refinePrompt(
+      root.id,
+      'c2',
+      'f2',
+      'ai-refined',
+      metadata
+    );
+    const grandchild1 = await refinePrompt(
       child1.id,
       'gc1',
       'f3',
@@ -498,11 +589,11 @@ describe('Query Operations', () => {
     metadata = createTestMetadata();
   });
 
-  it('should get prompts for message sorted by promptIndex', () => {
-    registerPrompt('prompt 2', 42, 2, 'ai-message', metadata);
-    registerPrompt('prompt 0', 42, 0, 'ai-message', metadata);
-    registerPrompt('prompt 1', 42, 1, 'ai-message', metadata);
-    registerPrompt('other message', 43, 0, 'ai-message', metadata);
+  it('should get prompts for message sorted by promptIndex', async () => {
+    await registerPrompt('prompt 2', 42, 2, 'ai-message', metadata);
+    await registerPrompt('prompt 0', 42, 0, 'ai-message', metadata);
+    await registerPrompt('prompt 1', 42, 1, 'ai-message', metadata);
+    await registerPrompt('other message', 43, 0, 'ai-message', metadata);
 
     const prompts = getPromptsForMessage(42, metadata);
 
@@ -512,18 +603,18 @@ describe('Query Operations', () => {
     expect(prompts[2].promptIndex).toBe(2);
   });
 
-  it('should return empty array for message with no prompts', () => {
-    registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should return empty array for message with no prompts', async () => {
+    await registerPrompt('test', 42, 0, 'ai-message', metadata);
 
     const prompts = getPromptsForMessage(99, metadata);
 
     expect(prompts).toEqual([]);
   });
 
-  it('should get all root prompts', () => {
-    const root1 = registerPrompt('root1', 42, 0, 'ai-message', metadata);
-    const root2 = registerPrompt('root2', 42, 1, 'ai-message', metadata);
-    const child = refinePrompt(
+  it('should get all root prompts', async () => {
+    const root1 = await registerPrompt('root1', 42, 0, 'ai-message', metadata);
+    const root2 = await registerPrompt('root2', 42, 1, 'ai-message', metadata);
+    const child = await refinePrompt(
       root1.id,
       'child',
       'feedback',
@@ -539,13 +630,19 @@ describe('Query Operations', () => {
     expect(roots).not.toContain(child);
   });
 
-  it('should get accurate statistics', () => {
-    const root1 = registerPrompt('root1', 42, 0, 'ai-message', metadata);
-    const root2 = registerPrompt('root2', 42, 1, 'ai-message', metadata);
-    const child = refinePrompt(root1.id, 'child', 'f', 'ai-refined', metadata);
+  it('should get accurate statistics', async () => {
+    const root1 = await registerPrompt('root1', 42, 0, 'ai-message', metadata);
+    const root2 = await registerPrompt('root2', 42, 1, 'ai-message', metadata);
+    const child = await refinePrompt(
+      root1.id,
+      'child',
+      'f',
+      'ai-refined',
+      metadata
+    );
 
-    linkImageToPrompt(root1.id, 'http://example.com/img1.jpg', metadata);
-    linkImageToPrompt(child.id, 'http://example.com/img2.jpg', metadata);
+    await linkImageToPrompt(root1.id, 'http://example.com/img1.jpg', metadata);
+    await linkImageToPrompt(child.id, 'http://example.com/img2.jpg', metadata);
 
     const stats = getPromptStats(metadata);
 
@@ -567,14 +664,14 @@ describe('Cleanup Operations', () => {
     metadata = createTestMetadata();
   });
 
-  it('should delete all prompts for a message', () => {
-    const node1 = registerPrompt('p1', 42, 0, 'ai-message', metadata);
-    const node2 = registerPrompt('p2', 42, 1, 'ai-message', metadata);
-    const node3 = registerPrompt('p3', 43, 0, 'ai-message', metadata);
+  it('should delete all prompts for a message', async () => {
+    const node1 = await registerPrompt('p1', 42, 0, 'ai-message', metadata);
+    const node2 = await registerPrompt('p2', 42, 1, 'ai-message', metadata);
+    const node3 = await registerPrompt('p3', 43, 0, 'ai-message', metadata);
 
-    linkImageToPrompt(node1.id, 'http://example.com/img1.jpg', metadata);
+    await linkImageToPrompt(node1.id, 'http://example.com/img1.jpg', metadata);
 
-    const count = deleteMessagePrompts(42, metadata);
+    const count = await deleteMessagePrompts(42, metadata);
 
     expect(count).toBe(2);
     expect(getPromptNode(node1.id, metadata)).toBeNull();
@@ -587,16 +684,22 @@ describe('Cleanup Operations', () => {
     ).toBeUndefined();
   });
 
-  it('should prune orphaned nodes with no images and no children', () => {
-    const orphan = registerPrompt('orphan', 42, 0, 'ai-message', metadata);
-    const withImage = registerPrompt(
+  it('should prune orphaned nodes with no images and no children', async () => {
+    const orphan = await registerPrompt(
+      'orphan',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const withImage = await registerPrompt(
       'with image',
       42,
       1,
       'ai-message',
       metadata
     );
-    const withChild = registerPrompt(
+    const withChild = await registerPrompt(
       'with child',
       42,
       2,
@@ -604,8 +707,12 @@ describe('Cleanup Operations', () => {
       metadata
     );
 
-    linkImageToPrompt(withImage.id, 'http://example.com/img.jpg', metadata);
-    const child = refinePrompt(
+    await linkImageToPrompt(
+      withImage.id,
+      'http://example.com/img.jpg',
+      metadata
+    );
+    const child = await refinePrompt(
       withChild.id,
       'child',
       'feedback',
@@ -613,7 +720,7 @@ describe('Cleanup Operations', () => {
       metadata
     );
 
-    const pruned = pruneOrphanedNodes(metadata);
+    const pruned = await pruneOrphanedNodes(metadata);
 
     // Both orphan and child get pruned (child has no images and no children)
     expect(pruned).toBe(2);
@@ -623,9 +730,15 @@ describe('Cleanup Operations', () => {
     expect(getPromptNode(withChild.id, metadata)).toBe(withChild);
   });
 
-  it('should preserve nodes with children during pruning', () => {
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
-    const child = refinePrompt(
+  it('should preserve nodes with children during pruning', async () => {
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
       parent.id,
       'child',
       'feedback',
@@ -634,29 +747,47 @@ describe('Cleanup Operations', () => {
     );
 
     // Parent has no images but has a child
-    const pruned = pruneOrphanedNodes(metadata);
+    const pruned = await pruneOrphanedNodes(metadata);
 
     expect(pruned).toBe(1); // Only child is pruned (no images, no children)
     expect(getPromptNode(parent.id, metadata)).toBe(parent);
     expect(getPromptNode(child.id, metadata)).toBeNull();
   });
 
-  it('should preserve nodes with images during pruning', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
-    linkImageToPrompt(node.id, 'http://example.com/img.jpg', metadata);
+  it('should preserve nodes with images during pruning', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
+    await linkImageToPrompt(node.id, 'http://example.com/img.jpg', metadata);
 
-    const pruned = pruneOrphanedNodes(metadata);
+    const pruned = await pruneOrphanedNodes(metadata);
 
     expect(pruned).toBe(0);
     expect(getPromptNode(node.id, metadata)).toBe(node);
   });
 
-  it('should maintain parent-child integrity after cleanup', () => {
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
-    const child1 = refinePrompt(parent.id, 'c1', 'f1', 'ai-refined', metadata);
-    const child2 = refinePrompt(parent.id, 'c2', 'f2', 'ai-refined', metadata);
+  it('should maintain parent-child integrity after cleanup', async () => {
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child1 = await refinePrompt(
+      parent.id,
+      'c1',
+      'f1',
+      'ai-refined',
+      metadata
+    );
+    const child2 = await refinePrompt(
+      parent.id,
+      'c2',
+      'f2',
+      'ai-refined',
+      metadata
+    );
 
-    deletePromptNode(child1.id, metadata);
+    await deletePromptNode(child1.id, metadata);
 
     expect(parent.childIds).toHaveLength(1);
     expect(parent.childIds).not.toContain(child1.id);
@@ -675,11 +806,16 @@ describe('Message Text Integration', () => {
     metadata = createTestMetadata();
   });
 
-  it('should detect prompts with custom patterns parameter', () => {
+  it('should detect prompts with custom patterns parameter', async () => {
     const messageText = 'Text <!--img-prompt="1girl, red dress"--> more text';
     const patterns = ['<!--img-prompt="([^"]*)"-->'];
 
-    const nodes = detectPromptsInMessage(42, messageText, patterns, metadata);
+    const nodes = await detectPromptsInMessage(
+      42,
+      messageText,
+      patterns,
+      metadata
+    );
 
     expect(nodes).toHaveLength(1);
     expect(nodes[0].text).toBe('1girl, red dress');
@@ -687,22 +823,32 @@ describe('Message Text Integration', () => {
     expect(nodes[0].promptIndex).toBe(0);
   });
 
-  it('should detect prompts with different pattern sets', () => {
+  it('should detect prompts with different pattern sets', async () => {
     const messageText = '[[img-prompt: test prompt]]';
     const patterns = ['\\[\\[img-prompt:\\s*([^\\]]+)\\]\\]'];
 
-    const nodes = detectPromptsInMessage(42, messageText, patterns, metadata);
+    const nodes = await detectPromptsInMessage(
+      42,
+      messageText,
+      patterns,
+      metadata
+    );
 
     expect(nodes).toHaveLength(1);
     expect(nodes[0].text).toBe('test prompt');
   });
 
-  it('should handle multiple prompts in message', () => {
+  it('should handle multiple prompts in message', async () => {
     const messageText =
       '<!--img-prompt="prompt 1"--> text <!--img-prompt="prompt 2"--> more';
     const patterns = ['<!--img-prompt="([^"]*)"-->'];
 
-    const nodes = detectPromptsInMessage(42, messageText, patterns, metadata);
+    const nodes = await detectPromptsInMessage(
+      42,
+      messageText,
+      patterns,
+      metadata
+    );
 
     expect(nodes).toHaveLength(2);
     expect(nodes[0].text).toBe('prompt 1');
@@ -711,8 +857,14 @@ describe('Message Text Integration', () => {
     expect(nodes[1].promptIndex).toBe(1);
   });
 
-  it('should replace prompt text at correct index', () => {
-    const node = registerPrompt('old prompt', 42, 1, 'ai-message', metadata);
+  it('should replace prompt text at correct index', async () => {
+    const node = await registerPrompt(
+      'old prompt',
+      42,
+      1,
+      'ai-message',
+      metadata
+    );
     const messageText =
       '<!--img-prompt="first"--> <!--img-prompt="old prompt"--> <!--img-prompt="third"-->';
     const patterns = ['<!--img-prompt="([^"]*)"-->'];
@@ -730,8 +882,14 @@ describe('Message Text Integration', () => {
     );
   });
 
-  it('should NOT mutate node.text when replacing', () => {
-    const node = registerPrompt('original text', 42, 0, 'ai-message', metadata);
+  it('should NOT mutate node.text when replacing', async () => {
+    const node = await registerPrompt(
+      'original text',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
     const messageText = '<!--img-prompt="original text"-->';
     const patterns = ['<!--img-prompt="([^"]*)"-->'];
 
@@ -747,11 +905,16 @@ describe('Message Text Integration', () => {
     expect(node.text).toBe('original text');
   });
 
-  it('should handle escaped quotes in prompts', () => {
+  it('should handle escaped quotes in prompts', async () => {
     const messageText = '<!--img-prompt="prompt with \\"quotes\\""-->';
     const patterns = ['<!--img-prompt="([^"]*)"-->'];
 
-    const nodes = detectPromptsInMessage(42, messageText, patterns, metadata);
+    const nodes = await detectPromptsInMessage(
+      42,
+      messageText,
+      patterns,
+      metadata
+    );
 
     // Depending on regex behavior, this may or may not capture the escaped quotes
     // This test documents the current behavior
@@ -770,38 +933,50 @@ describe('Edge Cases & Robustness', () => {
     metadata = createTestMetadata();
   });
 
-  it('should handle empty prompt text', () => {
-    const node = registerPrompt('', 42, 0, 'ai-message', metadata);
+  it('should handle empty prompt text', async () => {
+    const node = await registerPrompt('', 42, 0, 'ai-message', metadata);
 
     expect(node.text).toBe('');
     expect(node.id).toMatch(/^prompt_[a-z0-9]+$/);
   });
 
-  it('should handle very long prompt text (>1000 chars)', () => {
+  it('should handle very long prompt text (>1000 chars)', async () => {
     const longText = 'a'.repeat(1500);
-    const node = registerPrompt(longText, 42, 0, 'ai-message', metadata);
+    const node = await registerPrompt(longText, 42, 0, 'ai-message', metadata);
 
     expect(node.text).toBe(longText);
     expect(node.text).toHaveLength(1500);
   });
 
-  it('should handle special characters in prompt', () => {
+  it('should handle special characters in prompt', async () => {
     const specialChars =
       '1girl, "quotes", \\backslashes\\, unicode: 你好, emoji: 🎨';
-    const node = registerPrompt(specialChars, 42, 0, 'ai-message', metadata);
+    const node = await registerPrompt(
+      specialChars,
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
 
     expect(node.text).toBe(specialChars);
   });
 
-  it('should handle non-existent message ID gracefully', () => {
+  it('should handle non-existent message ID gracefully', async () => {
     const prompts = getPromptsForMessage(999, metadata);
 
     expect(prompts).toEqual([]);
   });
 
-  it('should detect cycles in tree traversal', () => {
-    const node1 = registerPrompt('n1', 42, 0, 'ai-message', metadata);
-    const node2 = refinePrompt(node1.id, 'n2', 'f', 'ai-refined', metadata);
+  it('should detect cycles in tree traversal', async () => {
+    const node1 = await registerPrompt('n1', 42, 0, 'ai-message', metadata);
+    const node2 = await refinePrompt(
+      node1.id,
+      'n2',
+      'f',
+      'ai-refined',
+      metadata
+    );
 
     // Manually create a cycle (this shouldn't happen in normal use)
     const registry = getRegistry(metadata);
@@ -814,12 +989,24 @@ describe('Edge Cases & Robustness', () => {
     expect(root).toBeDefined();
   });
 
-  it('should handle orphaned nodes (parent deleted but child remains)', () => {
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
-    const child = refinePrompt(parent.id, 'child', 'f', 'ai-refined', metadata);
+  it('should handle orphaned nodes (parent deleted but child remains)', async () => {
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
+      parent.id,
+      'child',
+      'f',
+      'ai-refined',
+      metadata
+    );
 
     // Delete parent
-    deletePromptNode(parent.id, metadata);
+    await deletePromptNode(parent.id, metadata);
 
     // Child should still exist
     const retrievedChild = getPromptNode(child.id, metadata);
@@ -831,21 +1018,25 @@ describe('Edge Cases & Robustness', () => {
     expect(root).toBeDefined();
   });
 
-  it('should handle multiple images linked to same prompt', () => {
-    const node = registerPrompt('test', 42, 0, 'ai-message', metadata);
+  it('should handle multiple images linked to same prompt', async () => {
+    const node = await registerPrompt('test', 42, 0, 'ai-message', metadata);
 
     for (let i = 0; i < 10; i++) {
-      linkImageToPrompt(node.id, `http://example.com/img${i}.jpg`, metadata);
+      await linkImageToPrompt(
+        node.id,
+        `http://example.com/img${i}.jpg`,
+        metadata
+      );
     }
 
     expect(node.generatedImages).toHaveLength(10);
   });
 
-  it('should handle concurrent registrations with deduplication', () => {
+  it('should handle concurrent registrations with deduplication', async () => {
     // Simulate multiple registrations of same prompt
     const nodes = [];
     for (let i = 0; i < 5; i++) {
-      const node = registerPrompt('same', 42, 0, 'ai-message', metadata);
+      const node = await registerPrompt('same', 42, 0, 'ai-message', metadata);
       nodes.push(node);
     }
 
@@ -855,7 +1046,7 @@ describe('Edge Cases & Robustness', () => {
     expect(nodes[0]).toBe(nodes[4]);
   });
 
-  it('should handle getRegistry initializing promptRegistry if not exists', () => {
+  it('should handle getRegistry initializing promptRegistry if not exists', async () => {
     const emptyMetadata: AutoIllustratorChatMetadata = {};
 
     const registry = getRegistry(emptyMetadata);
@@ -866,19 +1057,19 @@ describe('Edge Cases & Robustness', () => {
     expect(registry.rootPromptIds).toEqual([]);
   });
 
-  it('should throw error when refining non-existent prompt', () => {
-    expect(() => {
+  it('should throw error when refining non-existent prompt', async () => {
+    await expect(
       refinePrompt(
         'prompt_nonexistent',
         'new text',
         'feedback',
         'ai-refined',
         metadata
-      );
-    }).toThrow('Cannot refine non-existent prompt');
+      )
+    ).rejects.toThrow('Cannot refine non-existent prompt');
   });
 
-  it('should throw error when replacing prompt text with non-existent promptId', () => {
+  it('should throw error when replacing prompt text with non-existent promptId', async () => {
     const messageText = '<!--img-prompt="test"-->';
     const patterns = ['<!--img-prompt="([^"]*)"-->'];
 
@@ -897,12 +1088,18 @@ describe('Edge Cases & Robustness', () => {
   // NEW TESTS: ID Collision Handling in refinePrompt()
   // ===================================================================
 
-  it('should handle refinePrompt ID collision: same as parent (no-op)', () => {
-    const parent = registerPrompt('original', 42, 0, 'ai-message', metadata);
+  it('should handle refinePrompt ID collision: same as parent (no-op)', async () => {
+    const parent = await registerPrompt(
+      'original',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
     const registry = getRegistry(metadata);
 
     // Refine with same text (generates same ID as parent)
-    const result = refinePrompt(
+    const result = await refinePrompt(
       parent.id,
       'original',
       'no change',
@@ -917,21 +1114,33 @@ describe('Edge Cases & Robustness', () => {
     expect(Object.keys(registry.nodes)).toHaveLength(1); // Only parent in registry
   });
 
-  it('should handle refinePrompt ID collision: existing node reparented', () => {
+  it('should handle refinePrompt ID collision: existing node reparented', async () => {
     // Scenario: Refine parent to create a child that would collide with
     // an existing orphaned node at the same position
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
 
     // Manually create an orphaned node at same position with different text
     // (simulates a node that was orphaned after its parent was deleted)
-    const orphan = registerPrompt('orphan', 42, 0, 'ai-message', metadata);
+    const orphan = await registerPrompt(
+      'orphan',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
 
     const registry = getRegistry(metadata);
     const initialRootCount = registry.rootPromptIds.length;
 
     // Now refine parent with text matching the orphan
     // This should reparent the orphan under parent
-    const result = refinePrompt(
+    const result = await refinePrompt(
       parent.id,
       'orphan',
       'adopt orphan',
@@ -950,16 +1159,22 @@ describe('Edge Cases & Robustness', () => {
     expect(registry.rootPromptIds.length).toBe(initialRootCount - 1);
   });
 
-  it('should handle refinePrompt ID collision: existing root reparented', () => {
-    const root1 = registerPrompt('r1', 42, 0, 'ai-message', metadata);
-    const root2 = registerPrompt('r2', 42, 0, 'ai-message', metadata);
+  it('should handle refinePrompt ID collision: existing root reparented', async () => {
+    const root1 = await registerPrompt('r1', 42, 0, 'ai-message', metadata);
+    const root2 = await registerPrompt('r2', 42, 0, 'ai-message', metadata);
 
     const registry = getRegistry(metadata);
     expect(registry.rootPromptIds).toContain(root1.id);
     expect(registry.rootPromptIds).toContain(root2.id);
 
     // Refine root1 with text matching root2 (collision - same position)
-    const result = refinePrompt(root1.id, 'r2', 'f', 'ai-refined', metadata);
+    const result = await refinePrompt(
+      root1.id,
+      'r2',
+      'f',
+      'ai-refined',
+      metadata
+    );
 
     // Should reparent root2 under root1
     expect(result.id).toBe(root2.id);
@@ -973,16 +1188,22 @@ describe('Edge Cases & Robustness', () => {
   // NEW TESTS: Children Promotion in deletePromptNode()
   // ===================================================================
 
-  it('should promote children to roots when deleting parent', () => {
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
-    const child1 = refinePrompt(
+  it('should promote children to roots when deleting parent', async () => {
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child1 = await refinePrompt(
       parent.id,
       'child1',
       'f1',
       'ai-refined',
       metadata
     );
-    const child2 = refinePrompt(
+    const child2 = await refinePrompt(
       parent.id,
       'child2',
       'f2',
@@ -996,7 +1217,7 @@ describe('Edge Cases & Robustness', () => {
     expect(child2.parentId).toBe(parent.id);
 
     // Delete parent
-    deletePromptNode(parent.id, metadata);
+    await deletePromptNode(parent.id, metadata);
 
     // Children should be promoted to roots
     expect(child1.parentId).toBeNull();
@@ -1007,16 +1228,16 @@ describe('Edge Cases & Robustness', () => {
     expect(registry.nodes[parent.id]).toBeUndefined(); // Parent deleted
   });
 
-  it('should promote grandchildren correctly when deleting middle node', () => {
-    const root = registerPrompt('root', 42, 0, 'ai-message', metadata);
-    const middle = refinePrompt(
+  it('should promote grandchildren correctly when deleting middle node', async () => {
+    const root = await registerPrompt('root', 42, 0, 'ai-message', metadata);
+    const middle = await refinePrompt(
       root.id,
       'middle',
       'f1',
       'ai-refined',
       metadata
     );
-    const grandchild = refinePrompt(
+    const grandchild = await refinePrompt(
       middle.id,
       'grandchild',
       'f2',
@@ -1027,7 +1248,7 @@ describe('Edge Cases & Robustness', () => {
     const registry = getRegistry(metadata);
 
     // Delete middle node
-    deletePromptNode(middle.id, metadata);
+    await deletePromptNode(middle.id, metadata);
 
     // Grandchild should be promoted to root
     expect(grandchild.parentId).toBeNull();
@@ -1037,14 +1258,26 @@ describe('Edge Cases & Robustness', () => {
     expect(root.childIds).toEqual([]); // Middle removed from root's children
   });
 
-  it('should handle deleting node with no children', () => {
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
-    const child = refinePrompt(parent.id, 'child', 'f', 'ai-refined', metadata);
+  it('should handle deleting node with no children', async () => {
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
+      parent.id,
+      'child',
+      'f',
+      'ai-refined',
+      metadata
+    );
 
     const registry = getRegistry(metadata);
 
     // Delete child (leaf node)
-    deletePromptNode(child.id, metadata);
+    await deletePromptNode(child.id, metadata);
 
     // Parent should remain unchanged
     expect(parent.childIds).toEqual([]);
@@ -1053,13 +1286,25 @@ describe('Edge Cases & Robustness', () => {
     expect(registry.nodes[child.id]).toBeUndefined(); // Child deleted
   });
 
-  it('should handle deletePromptNode removing image associations', () => {
-    const parent = registerPrompt('parent', 42, 0, 'ai-message', metadata);
-    const child = refinePrompt(parent.id, 'child', 'f', 'ai-refined', metadata);
+  it('should handle deletePromptNode removing image associations', async () => {
+    const parent = await registerPrompt(
+      'parent',
+      42,
+      0,
+      'ai-message',
+      metadata
+    );
+    const child = await refinePrompt(
+      parent.id,
+      'child',
+      'f',
+      'ai-refined',
+      metadata
+    );
 
     // Link images to parent
-    linkImageToPrompt(parent.id, 'http://example.com/img1.jpg', metadata);
-    linkImageToPrompt(parent.id, 'http://example.com/img2.jpg', metadata);
+    await linkImageToPrompt(parent.id, 'http://example.com/img1.jpg', metadata);
+    await linkImageToPrompt(parent.id, 'http://example.com/img2.jpg', metadata);
 
     const registry = getRegistry(metadata);
     expect(parent.generatedImages).toHaveLength(2);
@@ -1068,7 +1313,7 @@ describe('Edge Cases & Robustness', () => {
     ).toBe(parent.id);
 
     // Delete parent
-    deletePromptNode(parent.id, metadata);
+    await deletePromptNode(parent.id, metadata);
 
     // Image associations should be removed
     expect(

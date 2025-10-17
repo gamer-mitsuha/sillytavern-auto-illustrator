@@ -73,7 +73,7 @@ export async function generateUpdatedPrompt(
     imageUrl,
   });
 
-  const metadata = getMetadata(context);
+  const metadata = getMetadata();
 
   // Find parent prompt for this image
   const parent = getPromptForImage(imageUrl, metadata);
@@ -125,7 +125,7 @@ export async function generateUpdatedPrompt(
   logger.info(`LLM generated updated prompt: "${updatedPrompt}"`);
 
   // Create child node in PromptManager tree
-  const childNode = refinePrompt(
+  const childNode = await refinePrompt(
     parentPromptId,
     updatedPrompt,
     userFeedback,
@@ -161,7 +161,7 @@ export async function applyPromptUpdate(
   context: SillyTavernContext,
   settings: AutoIllustratorSettings
 ): Promise<boolean> {
-  const metadata = getMetadata(context);
+  const metadata = getMetadata();
 
   // Find message containing this image
   const message = context.chat?.find(msg => msg.mes.includes(imageUrl));

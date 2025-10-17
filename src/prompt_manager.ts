@@ -9,9 +9,9 @@
  * - Provides O(1) lookups for all common queries
  *
  * Design principles:
+ * - All mutation functions are async and automatically save to disk
  * - All functions accept metadata directly (no internal context calls)
- * - Pure functions for better testability
- * - Caller responsible for saving metadata via saveMetadata()
+ * - Auto-save ensures metadata changes are persisted immediately
  *
  * ============================================================================
  * IMPORTANT USAGE PATTERNS
@@ -19,18 +19,16 @@
  *
  * 1. DETECTING PROMPTS:
  *    ```typescript
- *    const context = SillyTavern.getContext();
- *    const metadata = context.chat_metadata?.auto_illustrator;
- *    if (metadata) {
- *      const patterns = settings.promptDetectionPatterns;
- *      const nodes = detectPromptsInMessage(msgId, text, patterns, metadata);
- *    }
+ *    const metadata = getMetadata();
+ *    const patterns = settings.promptDetectionPatterns;
+ *    const nodes = await detectPromptsInMessage(msgId, text, patterns, metadata);
+ *    // Auto-saved!
  *    ```
  *
  * 2. UPDATING A PROMPT (creates child node):
  *    ```typescript
- *    // Step 1: Create refined child node
- *    const child = refinePrompt(
+ *    // Step 1: Create refined child node (auto-saves)
+ *    const child = await refinePrompt(
  *      parentId,
  *      newText,
  *      feedback,
@@ -49,25 +47,22 @@
  *    );
  *    message.mes = updatedText;
  *    await context.saveChat();
- *
- *    // Step 3: Link images to child (if regenerating)
- *    linkImageToPrompt(child.id, newImageUrl, metadata);
- *    await saveMetadata();
  *    ```
  *
  * 3. NODE.TEXT IS READONLY:
  *    ✅ Correct: Create child with new text via refinePrompt()
  *    ❌ Wrong:   node.text = newText (TypeScript will prevent this)
  *
- * 4. ALWAYS PASS PATTERNS AS PARAMETER:
- *    ✅ Correct: detectPromptsInMessage(..., settings.promptDetectionPatterns, ...)
- *    ❌ Wrong:   Hardcoding DEFAULT_PROMPT_DETECTION_PATTERNS inside functions
+ * 4. AUTO-SAVE BEHAVIOR:
+ *    All mutation functions (registerPrompt, linkImageToPrompt, deletePromptNode, etc.)
+ *    automatically save metadata to disk. No need to call saveMetadata() manually.
  */
 
 import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
 import {extractImagePromptsMultiPattern} from './regex';
 import {normalizeImageUrl} from './image_utils';
+import {saveMetadata} from './metadata';
 
 const logger = createLogger('PromptManager');
 
@@ -264,7 +259,7 @@ export function getPromptNode(
 }
 
 /**
- * Deletes a prompt node from the registry
+ * Deletes a prompt node from the registry (with auto-save)
  *
  * Removes the node and cleans up all references:
  * - Removes from parent's childIds
@@ -276,12 +271,12 @@ export function getPromptNode(
  * @param metadata - Chat metadata
  *
  * @example
- * deletePromptNode("prompt_abc123", metadata);
+ * await deletePromptNode("prompt_abc123", metadata);
  */
-export function deletePromptNode(
+export async function deletePromptNode(
   promptId: string,
   metadata: AutoIllustratorChatMetadata
-): void {
+): Promise<void> {
   const registry = getRegistry(metadata);
   const node = registry.nodes[promptId];
 
@@ -328,26 +323,31 @@ export function deletePromptNode(
   logger.debug(
     `Deleted prompt node: ${promptId} (promoted ${node.childIds.length} children to roots)`
   );
+
+  // Auto-save
+  await saveMetadata();
 }
 
 /**
- * Updates the lastUsedAt timestamp for a prompt node
+ * Updates the lastUsedAt timestamp for a prompt node (with auto-save)
  *
  * @param promptId - ID of node to update
  * @param metadata - Chat metadata
  *
  * @example
- * updatePromptLastUsed("prompt_abc123", metadata);
+ * await updatePromptLastUsed("prompt_abc123", metadata);
  */
-export function updatePromptLastUsed(
+export async function updatePromptLastUsed(
   promptId: string,
   metadata: AutoIllustratorChatMetadata
-): void {
+): Promise<void> {
   const registry = getRegistry(metadata);
   const node = registry.nodes[promptId];
 
   if (node) {
     node.metadata.lastUsedAt = Date.now();
+    // Auto-save
+    await saveMetadata();
   }
 }
 
@@ -356,7 +356,7 @@ export function updatePromptLastUsed(
 // ============================================================================
 
 /**
- * Registers a prompt in the registry
+ * Registers a prompt in the registry (with auto-save)
  *
  * If a prompt with the same (text, messageId, promptIndex) already exists,
  * returns the existing node and updates its lastUsedAt timestamp.
@@ -370,23 +370,23 @@ export function updatePromptLastUsed(
  * @returns The prompt node (existing or newly created)
  *
  * @example
- * const node = registerPrompt("1girl, red dress", 42, 0, 'ai-message', metadata);
+ * const node = await registerPrompt("1girl, red dress", 42, 0, 'ai-message', metadata);
  * console.log(node.id); // "prompt_abc123"
  */
-export function registerPrompt(
+export async function registerPrompt(
   text: string,
   messageId: number,
   promptIndex: number,
   source: PromptSource,
   metadata: AutoIllustratorChatMetadata
-): PromptNode {
+): Promise<PromptNode> {
   const registry = getRegistry(metadata);
   const id = generatePromptId(text, messageId, promptIndex);
 
   // Check if node already exists (deduplication)
   const existing = registry.nodes[id];
   if (existing) {
-    updatePromptLastUsed(id, metadata);
+    await updatePromptLastUsed(id, metadata);
     logger.debug(`Prompt already registered: ${id}`);
     return existing;
   }
@@ -404,11 +404,14 @@ export function registerPrompt(
     `Registered new prompt: ${id} (messageId: ${messageId}, index: ${promptIndex})`
   );
 
+  // Auto-save
+  await saveMetadata();
+
   return node;
 }
 
 /**
- * Links an image URL to a prompt
+ * Links an image URL to a prompt (with auto-save)
  *
  * Adds the image URL to the prompt's generatedImages array and updates
  * the imageToPromptId index for fast reverse lookup.
@@ -419,14 +422,14 @@ export function registerPrompt(
  * @param metadata - Chat metadata
  *
  * @example
- * linkImageToPrompt("prompt_abc123", "https://example.com/image.jpg", metadata);
+ * await linkImageToPrompt("prompt_abc123", "https://example.com/image.jpg", metadata);
  * // Stores as: "/image.jpg" -> "prompt_abc123"
  */
-export function linkImageToPrompt(
+export async function linkImageToPrompt(
   promptId: string,
   imageUrl: string,
   metadata: AutoIllustratorChatMetadata
-): void {
+): Promise<void> {
   const registry = getRegistry(metadata);
   const node = registry.nodes[promptId];
 
@@ -454,16 +457,19 @@ export function linkImageToPrompt(
   registry.imageToPromptId[normalizedUrl] = promptId;
 
   // Update last used timestamp
-  updatePromptLastUsed(promptId, metadata);
+  await updatePromptLastUsed(promptId, metadata);
 
   logger.debug(`Linked image to prompt ${promptId}: ${imageUrl}`);
   logger.info(
     `Registry now has ${Object.keys(registry.imageToPromptId).length} image mappings`
   );
+
+  // Auto-save
+  await saveMetadata();
 }
 
 /**
- * Unlinks an image URL from its prompt
+ * Unlinks an image URL from its prompt (with auto-save)
  *
  * Removes the image from the prompt's generatedImages array and removes
  * the imageToPromptId index entry.
@@ -473,15 +479,15 @@ export function linkImageToPrompt(
  * @returns True if image was found and unlinked, false otherwise
  *
  * @example
- * const unlinked = unlinkImageFromPrompt("https://example.com/image.jpg", metadata);
+ * const unlinked = await unlinkImageFromPrompt("https://example.com/image.jpg", metadata);
  * if (unlinked) {
  *   console.log("Image unlinked successfully");
  * }
  */
-export function unlinkImageFromPrompt(
+export async function unlinkImageFromPrompt(
   imageUrl: string,
   metadata: AutoIllustratorChatMetadata
-): boolean {
+): Promise<boolean> {
   const registry = getRegistry(metadata);
   const promptId = registry.imageToPromptId[imageUrl];
 
@@ -500,6 +506,10 @@ export function unlinkImageFromPrompt(
   delete registry.imageToPromptId[imageUrl];
 
   logger.debug(`Unlinked image from prompt ${promptId}: ${imageUrl}`);
+
+  // Auto-save
+  await saveMetadata();
+
   return true;
 }
 
@@ -547,7 +557,7 @@ export function getPromptForImage(
 // ============================================================================
 
 /**
- * Refines a prompt by creating a child node
+ * Refines a prompt by creating a child node (with auto-save)
  *
  * Creates a new prompt node as a child of the parent, inheriting the same
  * messageId and promptIndex. This represents a refined version of the prompt.
@@ -562,7 +572,7 @@ export function getPromptForImage(
  * @returns The new child prompt node
  *
  * @example
- * const refined = refinePrompt(
+ * const refined = await refinePrompt(
  *   "prompt_abc123",
  *   "1girl, long hair, detailed hands",
  *   "fix the hands",
@@ -570,13 +580,13 @@ export function getPromptForImage(
  *   metadata
  * );
  */
-export function refinePrompt(
+export async function refinePrompt(
   parentId: string,
   newText: string,
   feedback: string,
   source: 'ai-refined' | 'manual-refined',
   metadata: AutoIllustratorChatMetadata
-): PromptNode {
+): Promise<PromptNode> {
   const registry = getRegistry(metadata);
   const parent = registry.nodes[parentId];
 
@@ -629,6 +639,10 @@ export function refinePrompt(
     logger.info(
       `Reparented existing node ${childId} to ${parentId} (feedback: "${feedback}")`
     );
+
+    // Auto-save
+    await saveMetadata();
+
     return existingNode;
   }
 
@@ -655,6 +669,9 @@ export function refinePrompt(
   logger.info(
     `Refined prompt ${parentId} → ${child.id} (feedback: "${feedback}")`
   );
+
+  // Auto-save
+  await saveMetadata();
 
   return child;
 }
@@ -857,7 +874,7 @@ export function getPromptsForMessage(
 }
 
 /**
- * Deletes all prompt nodes for a message
+ * Deletes all prompt nodes for a message (with auto-save)
  *
  * Removes all prompts belonging to the specified message, including:
  * - The nodes themselves
@@ -870,17 +887,17 @@ export function getPromptsForMessage(
  * @returns Number of nodes deleted
  *
  * @example
- * const deleted = deleteMessagePrompts(42, metadata);
+ * const deleted = await deleteMessagePrompts(42, metadata);
  * console.log(`Deleted ${deleted} prompts`);
  */
-export function deleteMessagePrompts(
+export async function deleteMessagePrompts(
   messageId: number,
   metadata: AutoIllustratorChatMetadata
-): number {
+): Promise<number> {
   const prompts = getPromptsForMessage(messageId, metadata);
 
   for (const prompt of prompts) {
-    deletePromptNode(prompt.id, metadata);
+    await deletePromptNode(prompt.id, metadata);
   }
 
   logger.info(`Deleted ${prompts.length} prompts for message ${messageId}`);
@@ -888,7 +905,7 @@ export function deleteMessagePrompts(
 }
 
 /**
- * Prunes orphaned nodes (no images, no children)
+ * Prunes orphaned nodes (with auto-save)
  *
  * Removes nodes that have:
  * - Zero generated images AND
@@ -900,12 +917,12 @@ export function deleteMessagePrompts(
  * @returns Number of nodes pruned
  *
  * @example
- * const pruned = pruneOrphanedNodes(metadata);
+ * const pruned = await pruneOrphanedNodes(metadata);
  * console.log(`Pruned ${pruned} orphaned nodes`);
  */
-export function pruneOrphanedNodes(
+export async function pruneOrphanedNodes(
   metadata: AutoIllustratorChatMetadata
-): number {
+): Promise<number> {
   const registry = getRegistry(metadata);
   const toPrune: string[] = [];
 
@@ -918,7 +935,7 @@ export function pruneOrphanedNodes(
 
   // Delete them
   for (const id of toPrune) {
-    deletePromptNode(id, metadata);
+    await deletePromptNode(id, metadata);
   }
 
   logger.info(`Pruned ${toPrune.length} orphaned nodes`);
@@ -1001,12 +1018,12 @@ export function getPromptStats(metadata: AutoIllustratorChatMetadata): {
  * );
  * console.log(`Detected ${prompts.length} prompts`);
  */
-export function detectPromptsInMessage(
+export async function detectPromptsInMessage(
   messageId: number,
   messageText: string,
   patterns: string[],
   metadata: AutoIllustratorChatMetadata
-): PromptNode[] {
+): Promise<PromptNode[]> {
   // Extract prompts using centralized regex patterns
   const matches = extractImagePromptsMultiPattern(messageText, patterns);
 
@@ -1015,7 +1032,7 @@ export function detectPromptsInMessage(
   // Register each detected prompt
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
-    const node = registerPrompt(
+    const node = await registerPrompt(
       match.prompt,
       messageId,
       i, // promptIndex

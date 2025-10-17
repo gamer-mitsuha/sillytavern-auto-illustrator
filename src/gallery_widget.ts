@@ -17,6 +17,8 @@ import type {
   ProgressImageCompletedEventDetail,
 } from './progress_manager';
 import {extractImagesFromMessage} from './image_utils';
+import {getMetadata} from './metadata';
+import type {GalleryWidgetState} from './types';
 
 const logger = createLogger('GalleryWidget');
 
@@ -51,52 +53,45 @@ export class GalleryWidgetView {
   /**
    * Get gallery widget state from chat metadata
    */
-  private getGalleryState() {
-    const context = (window as any).SillyTavern?.getContext?.();
-    if (!context) {
-      return null;
-    }
+  private getGalleryState(): GalleryWidgetState | null {
+    try {
+      // Use unified metadata accessor
+      const metadata = getMetadata();
 
-    // Use proper SillyTavern API to access chat metadata
-    const {chatMetadata} = context;
-    if (!chatMetadata) {
-      return null;
-    }
+      // Initialize gallery widget state if doesn't exist
+      if (!metadata.galleryWidget) {
+        logger.info(
+          '[Gallery] Initializing new gallery widget state in metadata'
+        );
+        metadata.galleryWidget = {
+          visible: true, // Default visible for new chats
+          minimized: false,
+          expandedMessages: [],
+          messageOrder: 'newest-first',
+        };
+      }
 
-    // Ensure auto_illustrator subobject exists
-    if (!chatMetadata.auto_illustrator) {
-      chatMetadata.auto_illustrator = {};
-    }
+      // Ensure messageOrder exists (for backwards compatibility)
+      if (!metadata.galleryWidget.messageOrder) {
+        metadata.galleryWidget.messageOrder = 'newest-first';
+      }
 
-    // Initialize gallery widget state if doesn't exist
-    if (!chatMetadata.auto_illustrator.galleryWidget) {
-      logger.info(
-        '[Gallery] Initializing new gallery widget state in metadata'
+      // Log the actual state we're returning from metadata
+      logger.trace(
+        `[Gallery] getGalleryState returning: ${JSON.stringify(metadata.galleryWidget)}`
       );
-      chatMetadata.auto_illustrator.galleryWidget = {
-        visible: true, // Default visible for new chats
-        minimized: false,
-        expandedMessages: [],
-        messageOrder: 'newest-first',
-      };
+      return metadata.galleryWidget;
+    } catch (error) {
+      logger.warn('[Gallery] Metadata not initialized yet, deferring');
+      return null;
     }
-
-    // Ensure messageOrder exists (for backwards compatibility)
-    if (!chatMetadata.auto_illustrator.galleryWidget.messageOrder) {
-      chatMetadata.auto_illustrator.galleryWidget.messageOrder = 'newest-first';
-    }
-
-    // Log the actual state we're returning from metadata
-    logger.trace(
-      `[Gallery] getGalleryState returning: ${JSON.stringify(chatMetadata.auto_illustrator.galleryWidget)}`
-    );
-    return chatMetadata.auto_illustrator.galleryWidget;
   }
 
   /**
    * Load saved state from chat metadata
+   * Made public for use by chat_changed_handler
    */
-  private loadStateFromChatMetadata(): void {
+  public loadStateFromChatMetadata(): void {
     try {
       const state = this.getGalleryState();
       if (state) {
@@ -204,25 +199,8 @@ export class GalleryWidgetView {
       );
     }
 
-    // Listen for chat changes (when user switches to a different chat)
-    if (context?.eventTypes?.CHAT_CHANGED && context?.eventSource) {
-      context.eventSource.on(context.eventTypes.CHAT_CHANGED, () => {
-        logger.info(
-          '=== [Gallery] CHAT_CHANGED EVENT FIRED - reloading gallery widget state ==='
-        );
-        // Reload state from new chat's metadata
-        this.loadStateFromChatMetadata();
-        // Rescan new chat for images
-        this.refreshGallery();
-      });
-      logger.info(
-        '[Gallery] Successfully registered CHAT_CHANGED event listener'
-      );
-    } else {
-      logger.warn(
-        '[Gallery] Could not register CHAT_CHANGED listener - event system not available'
-      );
-    }
+    // Note: CHAT_CHANGED is now handled by chat_changed_handler module
+    // which will call reloadGalleryForNewChat() exported function
 
     logger.debug('Gallery event listeners setup complete');
   }
@@ -902,4 +880,18 @@ export function initializeGalleryWidget(manager: ProgressManager): void {
  */
 export function getGalleryWidget(): GalleryWidgetView | null {
   return galleryInstance;
+}
+
+/**
+ * Reload gallery for new chat (called by chat_changed_handler)
+ */
+export function reloadGalleryForNewChat(): void {
+  if (!galleryInstance) {
+    logger.debug('[Gallery] Instance not initialized yet, skipping reload');
+    return;
+  }
+
+  logger.info('[Gallery] CHAT_CHANGED - reloading gallery widget state');
+  galleryInstance.loadStateFromChatMetadata();
+  galleryInstance.refreshGallery();
 }

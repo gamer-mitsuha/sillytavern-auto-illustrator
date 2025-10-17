@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Architecture** - Centralized CHAT_CHANGED event handling to prevent race conditions and ensure proper execution order
+  - Created dedicated `chat_changed_handler` module that owns single CHAT_CHANGED event listener
+  - Extracted chat change operations into `chat_change_operations` module to avoid circular dependencies
+  - Removed 4 duplicate CHAT_CHANGED handlers (were in `index.ts` x2, `gallery_widget.ts`, `metadata.ts`)
+  - Unified metadata access through `getMetadata()` singleton pattern across all modules including gallery widget
+  - Execution order now guaranteed: 1) reload metadata → 2) cancel sessions → 3) clear state/reload settings → 4) reload gallery
+- **Metadata Management** - Implemented cached metadata pattern with automatic invalidation on CHAT_CHANGED event
+- **Prompt Manager** - All mutation functions now async with automatic metadata saving (breaks API compatibility)
+  - `registerPrompt()`, `linkImageToPrompt()`, `deletePromptNode()`, `refinePrompt()`, etc. now require `await`
+  - Eliminates manual `saveMetadata()` calls and prevents data loss
+  - See `docs/AUTO_SAVE_MIGRATION_GUIDE.md` for migration steps
+
+### Added
+- **Module** - New `chat_changed_handler.ts` for centralized CHAT_CHANGED event orchestration
+- **Module** - New `chat_change_operations.ts` for UI/settings operations on chat change (decoupled from main module)
+- **Type** - Added `GalleryWidgetState` interface and `messageOrder` property for gallery widget metadata
+- **Documentation** - Comprehensive guide to chatMetadata lifecycle (`docs/CHAT_METADATA_LIFECYCLE.md`)
+- **Documentation** - Auto-save migration guide (`docs/AUTO_SAVE_MIGRATION_GUIDE.md`)
+
 ### Fixed
+- **Race Conditions** - Gallery widget no longer directly accesses `context.chatMetadata`, uses `getMetadata()` to avoid stale references
+- **Event Handler Order** - Chat change operations now execute in guaranteed sequential order, preventing inconsistent state
 - **Meta-prompt Injection Logic** - Reverted explicit generation type requirement, restoring default to 'normal' for better compatibility with various generation modes
 
 ## [1.5.0] - 2025-10-17

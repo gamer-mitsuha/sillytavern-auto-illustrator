@@ -41,9 +41,7 @@ export function extractImagesFromMessage(
   const images: ModalImage[] = [];
 
   // Get metadata for prompt lookup
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const context = (window as any).SillyTavern?.getContext?.();
-  const metadata = getMetadata(context);
+  const metadata = getMetadata();
 
   // Find all img tags in the message
   const imgPattern = /<img\s+([^>]+)>/g;

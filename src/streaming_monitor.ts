@@ -104,9 +104,9 @@ export class StreamingMonitor {
    * Performs a final scan for any remaining prompts
    * Should be called before stopping the monitor to catch any last-moment prompts
    */
-  finalScan(): void {
+  async finalScan(): Promise<void> {
     logger.debug('Performing final scan for remaining prompts');
-    this.checkForNewPrompts();
+    await this.checkForNewPrompts();
   }
 
   /**
@@ -154,8 +154,8 @@ export class StreamingMonitor {
     }
 
     // Extract new prompts and register them in PromptManager
-    const metadata = getMetadata(context);
-    const newPromptsWithIds = this.extractAndRegisterNewPrompts(
+    const metadata = getMetadata();
+    const newPromptsWithIds = await this.extractAndRegisterNewPrompts(
       currentText,
       metadata
     );
@@ -204,10 +204,10 @@ export class StreamingMonitor {
    * @param metadata - Chat metadata for PromptManager
    * @returns Array of objects with match and registered promptId
    */
-  private extractAndRegisterNewPrompts(
+  private async extractAndRegisterNewPrompts(
     currentText: string,
     metadata: import('./types').AutoIllustratorChatMetadata
-  ): Array<{match: ImagePromptMatch; promptId: string}> {
+  ): Promise<Array<{match: ImagePromptMatch; promptId: string}>> {
     const patterns = this.settings.promptDetectionPatterns || [];
     const allPrompts = extractImagePromptsMultiPattern(currentText, patterns);
     const newPromptsWithIds: Array<{
@@ -222,7 +222,7 @@ export class StreamingMonitor {
       // This prevents duplicates when text positions shift after image insertion
       if (!this.queue.hasPromptByText(match.prompt)) {
         // Register this prompt in PromptManager with correct index
-        const promptNode = registerPrompt(
+        const promptNode = await registerPrompt(
           match.prompt,
           this.messageId,
           i, // Use index in allPrompts array

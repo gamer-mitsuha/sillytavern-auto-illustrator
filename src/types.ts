@@ -99,14 +99,21 @@ export interface AutoIllustratorChatMetadata {
   promptRegistry?: import('./prompt_manager').PromptRegistry;
 
   /** Gallery widget state (per-chat) */
-  galleryWidget?: {
-    /** Whether the gallery widget is visible */
-    visible: boolean;
-    /** Whether the gallery is minimized to FAB */
-    minimized: boolean;
-    /** Array of message IDs that are expanded in the gallery */
-    expandedMessages: number[];
-  };
+  galleryWidget?: GalleryWidgetState;
+}
+
+/**
+ * Gallery widget state stored in chat metadata
+ */
+export interface GalleryWidgetState {
+  /** Whether the gallery widget is visible */
+  visible: boolean;
+  /** Whether the gallery is minimized to FAB */
+  minimized: boolean;
+  /** Array of message IDs that are expanded in the gallery */
+  expandedMessages: number[];
+  /** Message ordering in gallery: newest-first or oldest-first */
+  messageOrder?: 'newest-first' | 'oldest-first';
 }
 
 /**

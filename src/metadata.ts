@@ -2,8 +2,15 @@
  * Metadata Module
  * Centralized management of auto-illustrator chat metadata
  *
- * This module maintains a module-level reference to the current chat's metadata
- * and refreshes it when CHAT_CHANGED event is detected.
+ * This module maintains a cached reference to the current chat's metadata
+ * and automatically refreshes it when CHAT_CHANGED event is detected.
+ *
+ * Key design decisions:
+ * - Cache metadata reference for performance (no need to call getContext() repeatedly)
+ * - Auto-invalidate cache on CHAT_CHANGED (ensures we always use current chat's data)
+ * - context.chatMetadata is a live reference, so cached pointer remains valid during session
+ *
+ * See docs/CHAT_METADATA_LIFECYCLE.md for detailed explanation
  */
 
 import {createLogger} from './logger';
@@ -12,34 +19,50 @@ import type {AutoIllustratorChatMetadata} from './types';
 const logger = createLogger('Metadata');
 
 /**
- * Gets the current chat's auto-illustrator metadata
- * Always fetches from SillyTavern context to ensure fresh data
- *
- * This follows the official SillyTavern extension pattern:
- * ```js
- * const { chatMetadata } = SillyTavern.getContext();
- * ```
- *
- * @param context - Optional context (for compatibility, not used)
- * @returns Auto-illustrator metadata for current chat
- * @throws Error if context not available
+ * Cached reference to current chat's metadata
+ * Set only in CHAT_CHANGED event handler
  */
-export function getMetadata(
-  _context?: SillyTavernContext
-): AutoIllustratorChatMetadata {
-  // Always get fresh context to ensure we have latest metadata (including loaded from server)
+let currentMetadata: AutoIllustratorChatMetadata | null = null;
+
+/**
+ * Gets the current chat's auto-illustrator metadata
+ * Returns cached reference (must be set by CHAT_CHANGED handler first)
+ *
+ * @returns Auto-illustrator metadata for current chat
+ * @throws Error if metadata not initialized (CHAT_CHANGED hasn't fired yet)
+ */
+export function getMetadata(): AutoIllustratorChatMetadata {
+  if (!currentMetadata) {
+    throw new Error(
+      'Metadata not initialized. Make sure CHAT_CHANGED event has fired.'
+    );
+  }
+
+  return currentMetadata;
+}
+
+/**
+ * Loads and caches metadata from context
+ * Called automatically on CHAT_CHANGED event
+ * Exported for use by chat_changed_handler
+ */
+export function loadMetadataFromContext(): void {
+  logger.trace('Loading metadata from context (CHAT_CHANGED event)');
+
   const context = SillyTavern.getContext();
   if (!context) {
-    throw new Error('Cannot get metadata: SillyTavern context not available');
+    logger.error('Cannot load metadata: context not available');
+    currentMetadata = null;
+    return;
   }
 
-  if (!context.chatMetadata) {
-    context.chatMetadata = {};
-  }
+  // context.chatMetadata is a reference to SillyTavern's global chat_metadata
+  // We should NEVER reassign it, only read/modify its properties
+  const chatMetadata = context.chatMetadata;
 
   // Create metadata structure if it doesn't exist (new chat or not saved yet)
-  if (!context.chatMetadata.auto_illustrator) {
-    context.chatMetadata.auto_illustrator = {
+  if (!chatMetadata.auto_illustrator) {
+    chatMetadata.auto_illustrator = {
       promptRegistry: {
         nodes: {},
         imageToPromptId: {},
@@ -49,8 +72,25 @@ export function getMetadata(
     logger.debug('Created new metadata structure for chat');
   }
 
-  return context.chatMetadata.auto_illustrator;
+  // Cache the reference
+  currentMetadata = chatMetadata.auto_illustrator;
+  logger.trace('Cached metadata reference for current chat');
 }
+
+/**
+ * Initialize metadata on module load
+ * Load metadata for current chat (if any)
+ * Note: CHAT_CHANGED event is handled by chat_changed_handler module
+ */
+(function initializeMetadata() {
+  // Load metadata for current chat on extension startup
+  try {
+    loadMetadataFromContext();
+    logger.debug('Initial metadata loaded on module initialization');
+  } catch (error) {
+    logger.warn('Could not load initial metadata:', error);
+  }
+})();
 
 /**
  * Saves the current metadata to the server

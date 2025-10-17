@@ -258,7 +258,7 @@ async function showPromptUpdateDialog(
   const normalizedUrl = normalizeImageUrl(imageUrl);
 
   // Get metadata and find prompt
-  const metadata = getMetadata(context);
+  const metadata = getMetadata();
 
   // DEBUG: Log registry state to diagnose issue
   const registry = metadata.promptRegistry;
@@ -603,7 +603,7 @@ async function rebuildPromptFromMessage(
   }
 
   // Register the prompt
-  const promptNode = registerPrompt(
+  const promptNode = await registerPrompt(
     promptText,
     messageId,
     promptIndex,
@@ -612,10 +612,7 @@ async function rebuildPromptFromMessage(
   );
 
   // Link the image to the prompt
-  linkImageToPrompt(promptNode.id, imageUrl, metadata);
-
-  // Save metadata
-  await saveMetadata();
+  await linkImageToPrompt(promptNode.id, imageUrl, metadata);
 
   logger.info(
     `Rebuilt and registered prompt (ID: ${promptNode.id}): ${promptText.substring(0, 50)}...`
@@ -759,7 +756,7 @@ async function performRegeneration(
   promptId?: string
 ): Promise<void> {
   // Get prompt from image using prompt_manager (with normalized URL)
-  const metadata = getMetadata(context);
+  const metadata = getMetadata();
   let promptNode = promptId
     ? getPromptNode(promptId, metadata)
     : getPromptForImage(normalizedUrl, metadata);

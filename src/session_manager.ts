@@ -185,7 +185,7 @@ export class SessionManager {
       }
 
       // Batch insertion through DOM queue
-      const metadata = getMetadata(context);
+      const metadata = getMetadata();
       const {insertDeferredImages} = await import('./image_generator');
 
       const insertedCount = await scheduleDomOperation(
@@ -276,7 +276,7 @@ export class SessionManager {
     }
 
     // Get prompt details from prompt_manager
-    const metadata = getMetadata(context);
+    const metadata = getMetadata();
     const promptNode = getPromptNode(promptId, metadata);
 
     if (!promptNode) {
@@ -401,7 +401,7 @@ export class SessionManager {
       }
 
       // Batch insertion through DOM queue
-      const metadata = getMetadata(context);
+      const metadata = getMetadata();
       const {insertDeferredImages} = await import('./image_generator');
 
       const insertedCount = await scheduleDomOperation(
