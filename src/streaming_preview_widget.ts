@@ -68,7 +68,7 @@ export class StreamingPreviewWidget {
   private textBuffer = ''; // Target text to display
   private displayedText = ''; // Currently displayed text
   private streamingInterval: number | null = null;
-  private readonly CHARS_PER_FRAME = 3; // Characters to add per animation frame
+  private readonly CHARS_PER_FRAME = 2; // Characters to add per animation frame (2 chars/30ms = ~67 chars/sec)
   private readonly FRAME_DELAY = 30; // Milliseconds between frames (33fps)
   private readonly INITIAL_BUFFER_DELAY = 1500; // Wait 1.5s before starting to build buffer
   private streamingStartTime = 0; // When streaming started
