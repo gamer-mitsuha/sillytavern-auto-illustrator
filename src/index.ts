@@ -598,6 +598,7 @@ function handleSettingsChange(): void {
       META_PROMPT_DEPTH.STEP
     );
     settings.metaPromptDepth = clampedValue;
+    logger.debug(`Meta prompt depth updated: ${clampedValue}`);
     // Update UI to show validated value
     metaPromptDepthInput.value = clampedValue.toString();
 

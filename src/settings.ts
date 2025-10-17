@@ -16,6 +16,9 @@ import {
   UI_ELEMENT_IDS,
 } from './constants';
 import {t} from './i18n';
+import {createLogger} from './logger';
+
+const logger = createLogger('Settings');
 
 export {EXTENSION_NAME};
 
@@ -42,14 +45,24 @@ export function loadSettings(
   const saved = context.extensionSettings[EXTENSION_NAME];
 
   if (!saved) {
+    logger.debug('No saved settings found, using defaults');
     return defaults;
   }
+
+  logger.debug('Loading saved settings:', {
+    savedMetaPromptDepth: saved.metaPromptDepth,
+    defaultMetaPromptDepth: defaults.metaPromptDepth,
+  });
 
   // Merge saved settings with defaults to handle missing fields
   const merged = {
     ...defaults,
     ...saved,
   };
+
+  logger.debug('Merged settings:', {
+    mergedMetaPromptDepth: merged.metaPromptDepth,
+  });
 
   // Load preset content for current preset ID
   const preset = getPresetById(
@@ -70,8 +83,12 @@ export function saveSettings(
   settings: AutoIllustratorSettings,
   context: SillyTavernContext
 ): void {
+  logger.debug('Saving settings:', {
+    metaPromptDepth: settings.metaPromptDepth,
+  });
   context.extensionSettings[EXTENSION_NAME] = settings;
   context.saveSettingsDebounced();
+  logger.debug('Settings saved to context.extensionSettings');
 }
 
 /**
