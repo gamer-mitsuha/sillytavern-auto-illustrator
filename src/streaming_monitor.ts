@@ -31,6 +31,7 @@ export class StreamingMonitor {
   private intervalMs: number;
   private isRunning = false;
   private onNewPromptsCallback?: () => void;
+  private onTextUpdateCallback?: (text: string) => void;
   private hasSeenFirstToken = false;
 
   /**
@@ -39,17 +40,20 @@ export class StreamingMonitor {
    * @param settings - Extension settings
    * @param intervalMs - Polling interval in milliseconds
    * @param onNewPrompts - Optional callback when new prompts are added
+   * @param onTextUpdate - Optional callback when streaming text updates
    */
   constructor(
     queue: ImageGenerationQueue,
     settings: AutoIllustratorSettings,
     intervalMs = 300,
-    onNewPrompts?: () => void
+    onNewPrompts?: () => void,
+    onTextUpdate?: (text: string) => void
   ) {
     this.queue = queue;
     this.settings = settings;
     this.intervalMs = intervalMs;
     this.onNewPromptsCallback = onNewPrompts;
+    this.onTextUpdateCallback = onTextUpdate;
   }
 
   /**
@@ -151,6 +155,11 @@ export class StreamingMonitor {
       logger.trace(
         `Text changed (${this.lastSeenText.length} -> ${currentText.length} chars)`
       );
+    }
+
+    // Notify text update callback for streaming preview widget
+    if (this.onTextUpdateCallback) {
+      this.onTextUpdateCallback(currentText);
     }
 
     // Extract new prompts and register them in PromptManager

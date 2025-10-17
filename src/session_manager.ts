@@ -22,6 +22,7 @@ import {createLogger} from './logger';
 import type {GenerationSession, SessionType, ImageInsertionMode} from './types';
 import {getMetadata} from './metadata';
 import {getPromptNode} from './prompt_manager';
+import {getStreamingPreviewWidget} from './index';
 
 const logger = createLogger('SessionManager');
 
@@ -79,7 +80,10 @@ export class SessionManager {
     const queue = new ImageGenerationQueue();
     const processor = new QueueProcessor(queue, settings);
 
-    // Create monitor with callback to trigger processor
+    // Get streaming preview widget instance
+    const previewWidget = getStreamingPreviewWidget();
+
+    // Create monitor with callbacks
     const monitor = new StreamingMonitor(
       queue,
       settings,
@@ -87,6 +91,12 @@ export class SessionManager {
       () => {
         // Callback: trigger processor when new prompts detected
         processor.trigger();
+      },
+      (text: string) => {
+        // Callback: update streaming preview widget with text
+        if (previewWidget) {
+          previewWidget.updateText(text);
+        }
       }
     );
 
@@ -103,6 +113,12 @@ export class SessionManager {
     };
 
     this.sessions.set(messageId, session);
+
+    // Start streaming preview widget
+    if (previewWidget) {
+      previewWidget.start(messageId);
+      logger.debug(`Streaming preview widget started for message ${messageId}`);
+    }
 
     // Start monitoring and processing
     monitor.start(messageId);
@@ -161,6 +177,15 @@ export class SessionManager {
       logger.info(
         `Monitor stopped, sealed ${finalTotal} prompts for message ${messageId}`
       );
+
+      // Mark streaming as complete in preview widget
+      const previewWidget = getStreamingPreviewWidget();
+      if (previewWidget && previewWidget.isActive()) {
+        previewWidget.markComplete();
+        logger.debug(
+          `Marked streaming preview as complete for message ${messageId}`
+        );
+      }
 
       // EXPLICIT CONDITION 2: Wait for all tasks to complete
       logger.info(

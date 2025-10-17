@@ -1149,9 +1149,155 @@ User clicks image #2 in message #20
 
 ---
 
-## 13. Appendix
+## 13. Streaming Preview Widget
 
-### 13.1 Glossary
+### 13.1 Desired Behavior
+
+**Users can view streaming text with inline images in a dedicated preview widget, providing an immersive reading experience during LLM generation.**
+
+### 13.2 Requirements
+
+**PREVIEW-001**: Display streaming text in real-time as LLM generates response
+
+**PREVIEW-002**: Show image placeholders at detected prompt positions with status indicators
+
+**PREVIEW-003**: Insert completed images inline at their correct text positions (immersive experience)
+
+**PREVIEW-004**: Widget persists after streaming until manually dismissed by user
+
+**PREVIEW-005**: Support minimize/expand states for flexible screen usage
+
+**PREVIEW-006**: Completed images are clickable for full-screen modal view
+
+**PREVIEW-007**: Widget works alongside existing progress and gallery widgets without interference
+
+**PREVIEW-008**: Widget state clears automatically when chat changes
+
+### 13.3 Examples
+
+**Example 1: Basic Streaming with Inline Images**
+```
+User: "Describe a forest scene"
+
+T+0s:   Streaming starts
+        Widget appears at top showing: "Waiting for streaming content..."
+
+T+1s:   LLM streams: "The forest is beautiful..."
+        Widget shows: "The forest is beautiful..."
+
+T+2s:   Prompt detected: <img-prompt="forest, trees, sunlight">
+        Widget shows:
+          "The forest is beautiful..."
+          [Placeholder: 🖼️ Image detected - "forest, trees, sunlight"]
+
+T+3s:   Image generation starts
+        Widget updates placeholder:
+          [⏳ Generating image... - "forest, trees, sunlight"]
+
+T+5s:   Image completes during streaming
+        Widget replaces placeholder with actual image inline:
+          "The forest is beautiful..."
+          [Image: forest scene] ← Clickable
+          "...with a small river..."
+
+T+8s:   Streaming ends
+        Widget title updates to "Streaming complete"
+        Widget remains visible for user to review
+
+Result: User sees text and images together in real-time
+```
+
+**Example 2: Multiple Images During Streaming**
+```
+T+0s:   Streaming starts with text
+T+1s:   First prompt detected → placeholder shown
+T+2s:   More text streams
+T+3s:   Second prompt detected → second placeholder shown
+T+5s:   First image completes → replaces placeholder
+T+7s:   More text streams after second placeholder
+T+8s:   Streaming ends, second image still generating
+T+10s:  Second image completes → inserts inline
+T+10s:  Widget shows "Streaming complete" with all content visible
+
+Result: Images appear inline as they complete, maintaining reading flow
+```
+
+**Example 3: User Interactions**
+```
+Scenario: Long streaming response with 3 images
+
+User Action 1: Widget auto-scrolls to show latest content
+User Action 2: Clicks completed image → Opens full-screen modal
+User Action 3: Clicks "Minimize" → Widget collapses to header bar
+User Action 4: Clicks "Expand" → Widget shows full content again
+User Action 5: Streaming ends, clicks "Close (×)" → Widget disappears
+
+Result: User has full control over widget visibility and image viewing
+```
+
+**Example 4: Chat Change Behavior**
+```
+Scenario: User switches to different chat during streaming
+
+T+0s:   Streaming active for chat A, widget visible
+T+5s:   User switches to chat B
+T+5s:   Widget automatically clears and hides
+T+10s:  New streaming starts in chat B
+T+10s:  Widget appears fresh for chat B content
+
+Result: Widget state correctly tied to current chat
+```
+
+### 13.4 UI Design
+
+**Widget Layout:**
+```
+┌────────────────────────────────────────────┐
+│ 📖 Live Preview        [Minimize] [×]      │
+├────────────────────────────────────────────┤
+│ The castle stands tall on the hill.        │
+│                                             │
+│ ┌───────────────────────────┐              │
+│ │   [Castle Image]          │ ← Inline     │
+│ │   Click to enlarge        │              │
+│ └───────────────────────────┘              │
+│ "Prompt: castle on hill..."                │
+│                                             │
+│ Its towers reach the sky...                │
+│                                             │
+│ ┌───────────────────────────┐              │
+│ │ ⏳ Generating image...    │ ← Pending    │
+│ │ "Prompt: towers, flags"   │              │
+│ └───────────────────────────┘              │
+└────────────────────────────────────────────┘
+```
+
+**Minimized State:**
+```
+┌──────────────────────────────┐
+│ 📖 Live Preview  [Expand] [×]│
+└──────────────────────────────┘
+```
+
+**Placeholder States:**
+1. **Detected** (Gray, dashed border): "🖼️ Image detected"
+2. **Generating** (Purple, pulsing): "⏳ Generating image..."
+3. **Completed** (Full image, smooth fade-in): Clickable for modal
+4. **Failed** (Red border): "⚠️ Generation failed"
+
+### 13.5 Anti-Patterns
+
+❌ **DO NOT** auto-hide widget after streaming completes (user manually dismisses)
+❌ **DO NOT** modify existing progress or gallery widgets
+❌ **DO NOT** block or interfere with the actual message rendering
+❌ **DO NOT** show widget when extension is disabled
+❌ **DO NOT** keep widget visible after chat changes
+
+---
+
+## 14. Appendix
+
+### 14.1 Glossary
 
 - **Prompt**: Text pattern like `<img-prompt="sunset, beach">` that triggers image generation
 - **Streaming**: Real-time LLM response generation (character by character)
@@ -1160,7 +1306,7 @@ User clicks image #2 in message #20
 - **Task**: Individual image generation within an operation
 - **Session**: Isolated state for streaming image generation per message
 
-### 13.2 How to Update This Document
+### 14.2 How to Update This Document
 
 **When adding new features**:
 1. Add requirements in appropriate section
@@ -1178,13 +1324,14 @@ User clicks image #2 in message #20
 2. Update examples to match new behavior
 3. Mark deprecated behaviors in anti-patterns section
 
-### 13.3 Version History
+### 14.3 Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-10-12 | Initial behavior-focused PRD with 39 concrete examples covering all features |
 | 1.1 | 2025-10-15 | Added modal viewer behaviors: image rotation, tap navigation, View All Images button |
 | 1.2 | 2025-10-17 | Added prompt generation modes section, metaPromptDepth setting, updated settings table |
+| 1.3 | 2025-10-18 | Added streaming preview widget section with inline image display and user control features |
 
 ---
 

@@ -188,5 +188,16 @@
   "settings.llmPromptWritingGuidelinesDesc": "How should the AI write image prompts? (tag structure, quality tags, style)",
   "settings.resetToDefault": "Reset to Default",
   "toast.llmPromptGenerationFailed": "Failed to generate image prompts using independent API",
-  "toast.warning": "Warning"
+  "toast.warning": "Warning",
+  "streamingPreview.title": "Live Preview",
+  "streamingPreview.minimize": "Minimize",
+  "streamingPreview.expand": "Expand",
+  "streamingPreview.close": "Close",
+  "streamingPreview.imageDetected": "Image detected",
+  "streamingPreview.generating": "Generating image...",
+  "streamingPreview.clickToEnlarge": "Click to enlarge",
+  "streamingPreview.generationFailed": "Generation failed",
+  "streamingPreview.streamingComplete": "Streaming complete",
+  "streamingPreview.retryGeneration": "Retry",
+  "streamingPreview.waitingForContent": "Waiting for streaming content..."
 }
