@@ -14,6 +14,7 @@ import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
 import type {PromptRegistry} from './prompt_manager';
 import {PLACEHOLDER_IMAGE_URL} from './constants';
+import {normalizeImageUrl} from './image_utils';
 
 const logger = createLogger('reconciliation');
 
@@ -88,10 +89,14 @@ export interface ReconciliationResult {
 
 /**
  * Creates an idempotency marker for an image insertion
+ * Normalizes the image URL to ensure consistency
  */
 export function createMarker(promptId: string, imageUrl: string): string {
+  // Normalize URL to ensure consistent format (preserves data URIs)
+  const normalizedUrl = normalizeImageUrl(imageUrl);
+
   // Escape special characters in URL
-  const escapedUrl = imageUrl
+  const escapedUrl = normalizedUrl
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
@@ -130,13 +135,16 @@ export function parseMarker(
 
 /**
  * Checks if an image has already been inserted (idempotency check)
+ * Normalizes the image URL to ensure consistent comparison
  */
 export function checkIdempotency(
   messageText: string,
   promptId: string,
   imageUrl: string
 ): IdempotencyCheckResult {
-  const marker = createMarker(promptId, imageUrl);
+  // Normalize URL before creating marker to ensure consistent comparison
+  const normalizedUrl = normalizeImageUrl(imageUrl);
+  const marker = createMarker(promptId, normalizedUrl);
   const position = messageText.indexOf(marker);
 
   if (position !== -1) {
@@ -151,7 +159,7 @@ export function checkIdempotency(
   }
 
   // Also check for image URL directly (legacy insertions without markers)
-  const escapedUrl = imageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedUrl = normalizedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const imgTagPattern = new RegExp(`<img[^>]*src="${escapedUrl}"[^>]*>`, 'i');
   const legacyFound = imgTagPattern.test(messageText);
 

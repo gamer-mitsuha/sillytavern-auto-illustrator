@@ -37,10 +37,11 @@ describe('Reconciliation Module', () => {
 
       const marker = createMarker(promptId, imageUrl);
 
+      // URL gets normalized to /image (query params stripped by URL parsing)
+      // So we just verify the marker is created and doesn't contain raw HTML
+      expect(marker).toContain('<!-- auto-illustrator:');
       expect(marker).not.toContain('<value>');
       expect(marker).not.toContain('"test"');
-      expect(marker).toContain('&lt;');
-      expect(marker).toContain('&quot;');
     });
   });
 
@@ -54,7 +55,8 @@ describe('Reconciliation Module', () => {
 
       expect(parsed).not.toBeNull();
       expect(parsed?.promptId).toBe(promptId);
-      expect(parsed?.imageUrl).toBe(imageUrl);
+      // URL gets normalized to /image.png
+      expect(parsed?.imageUrl).toBe('/image.png');
     });
 
     it('should return null for invalid marker', () => {
@@ -65,15 +67,17 @@ describe('Reconciliation Module', () => {
       expect(parsed).toBeNull();
     });
 
-    it('should unescape special characters in imageUrl', () => {
+    it('should preserve data URIs', () => {
       const promptId = 'test-prompt';
-      const imageUrl = 'https://example.com/image?param=<value>&other="test"';
-      const marker = createMarker(promptId, imageUrl);
+      const dataUri =
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4Ij48L3N2Zz4=';
+      const marker = createMarker(promptId, dataUri);
 
       const parsed = parseMarker(marker);
 
       expect(parsed).not.toBeNull();
-      expect(parsed?.imageUrl).toBe(imageUrl);
+      // Data URIs should be preserved as-is
+      expect(parsed?.imageUrl).toBe(dataUri);
     });
   });
 
@@ -94,8 +98,10 @@ describe('Reconciliation Module', () => {
     it('should detect already inserted image without marker (legacy)', () => {
       const promptId = 'test-prompt-123';
       const imageUrl = 'https://example.com/image.png';
+      // Use normalized URL in the message text since that's what would be in real messages
+      const normalizedUrl = '/image.png';
 
-      const messageText = `Some text\n<img src="${imageUrl}" alt="test" />\nMore text`;
+      const messageText = `Some text\n<img src="${normalizedUrl}" alt="test" />\nMore text`;
 
       const result = checkIdempotency(messageText, promptId, imageUrl);
 
@@ -113,6 +119,22 @@ describe('Reconciliation Module', () => {
 
       expect(result.alreadyInserted).toBe(false);
       expect(result.markerPosition).toBe(-1);
+    });
+
+    it('should normalize data URIs consistently', () => {
+      const promptId = 'test-prompt-123';
+      const dataUri =
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4Ij48L3N2Zz4=';
+
+      // Create marker with normalized data URI
+      const marker = createMarker(promptId, dataUri);
+      const messageText = `<!--img-prompt="test"-->\n${marker}\n<img src="${dataUri}" />`;
+
+      // Check with same data URI - should find it
+      const result = checkIdempotency(messageText, promptId, dataUri);
+
+      expect(result.alreadyInserted).toBe(true);
+      expect(result.markerPosition).toBeGreaterThan(-1);
     });
   });
 
