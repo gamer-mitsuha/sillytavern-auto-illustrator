@@ -19,9 +19,9 @@ export const EXTENSION_NAME = 'auto_illustrator';
  */
 export const STREAMING_POLL_INTERVAL = {
   DEFAULT: 300,
-  MIN: 100,
+  MIN: 10,
   MAX: 1000,
-  STEP: 50,
+  STEP: 10,
 } as const;
 
 /**

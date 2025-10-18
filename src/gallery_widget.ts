@@ -42,6 +42,8 @@ export class GalleryWidgetView {
   private isWidgetVisible = true; // Default visible for new chats
   private isWidgetMinimized = false;
   private messageOrder: 'newest-first' | 'oldest-first' = 'newest-first';
+  private refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly REFRESH_DEBOUNCE_MS = 500; // Debounce gallery refreshes by 500ms
 
   constructor(manager: ProgressManager) {
     this.progressManager = manager;
@@ -171,8 +173,8 @@ export class GalleryWidgetView {
       logger.debug(
         `Gallery notified of new image for message ${detail.messageId}`
       );
-      // Rescan chat to update gallery
-      this.refreshGallery();
+      // Only update the specific message that changed (not full rescan)
+      this.updateSingleMessage(detail.messageId);
     });
 
     const context = (window as any).SillyTavern?.getContext?.();
@@ -236,18 +238,87 @@ export class GalleryWidgetView {
   }
 
   /**
-   * Refresh gallery by rescanning chat
+   * Refresh gallery by rescanning chat (debounced to prevent freeze with large galleries)
+   * When multiple images complete rapidly, this batches the refreshes to avoid
+   * scanning 629+ images multiple times per second
    */
   public refreshGallery(): void {
-    logger.debug('Refreshing gallery...');
-    this.scanChatForImages();
+    // Clear existing timeout
+    if (this.refreshTimeout) {
+      clearTimeout(this.refreshTimeout);
+    }
+
+    // Schedule refresh after debounce period
+    this.refreshTimeout = setTimeout(async () => {
+      logger.debug('Refreshing gallery...');
+      await this.scanChatForImagesAsync();
+      this.updateDisplay();
+      this.refreshTimeout = null;
+    }, this.REFRESH_DEBOUNCE_MS);
+  }
+
+  /**
+   * Update gallery for a single message (incremental update)
+   * Called when an image completes - much faster than full rescan
+   */
+  private updateSingleMessage(messageId: number): void {
+    const context = (window as any).SillyTavern?.getContext?.();
+    if (!context?.chat || messageId < 0 || messageId >= context.chat.length) {
+      logger.warn(
+        `Cannot update message ${messageId}: invalid or unavailable`
+      );
+      return;
+    }
+
+    const message = context.chat[messageId];
+
+    // Skip user and system messages
+    if (message.is_user || message.is_system) {
+      return;
+    }
+
+    const messageText = message.mes || '';
+    const images = extractImagesFromMessage(messageText, messageId);
+
+    logger.debug(
+      `Updated message ${messageId}: found ${images.length} images`
+    );
+
+    if (images.length > 0) {
+      // Create message preview (first 100 chars, strip HTML)
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = messageText;
+      const plainText = tempDiv.textContent || tempDiv.innerText || '';
+      const messagePreview =
+        plainText.substring(0, 100) + (plainText.length > 100 ? '...' : '');
+
+      // Load previously expanded state
+      const expandedMessages = this.loadExpandedState();
+
+      // Update or create the message group
+      this.messageGroups.set(messageId, {
+        messageId,
+        messagePreview,
+        images,
+        isExpanded:
+          expandedMessages.has(messageId) ||
+          this.messageGroups.get(messageId)?.isExpanded ||
+          false,
+      });
+    } else {
+      // No images in this message - remove from groups if exists
+      this.messageGroups.delete(messageId);
+    }
+
+    // Update display immediately (no need to rescan everything)
     this.updateDisplay();
   }
 
   /**
-   * Scan chat messages to extract all generated images
+   * Scan chat messages to extract all generated images (async to prevent blocking)
+   * Yields control to event loop every 10 messages to prevent UI freeze with large chats
    */
-  private scanChatForImages(): void {
+  private async scanChatForImagesAsync(): Promise<void> {
     // Get SillyTavern context
     const context = (window as any).SillyTavern?.getContext?.();
     if (!context?.chat) {
@@ -261,7 +332,8 @@ export class GalleryWidgetView {
     // Load previously expanded state
     const expandedMessages = this.loadExpandedState();
 
-    // Scan each message
+    // Scan each message, yielding control every 10 messages to prevent blocking
+    const YIELD_INTERVAL = 10; // Process 10 messages before yielding
     for (let messageId = 0; messageId < chat.length; messageId++) {
       const message = chat[messageId];
 
@@ -296,6 +368,12 @@ export class GalleryWidgetView {
             this.messageGroups.get(messageId)?.isExpanded ||
             false,
         });
+      }
+
+      // Yield control to event loop every YIELD_INTERVAL messages
+      // This prevents blocking the UI when scanning large chats (100+ messages)
+      if (messageId % YIELD_INTERVAL === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
 

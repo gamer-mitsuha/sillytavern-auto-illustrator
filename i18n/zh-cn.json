@@ -188,5 +188,16 @@
   "settings.llmPromptWritingGuidelinesDesc": "AI应如何编写图片提示词？（标签结构、质量标签、风格）",
   "settings.resetToDefault": "重置为默认",
   "toast.llmPromptGenerationFailed": "使用独立API生成图片提示词失败",
-  "toast.warning": "警告"
+  "toast.warning": "警告",
+  "streamingPreview.title": "实时预览",
+  "streamingPreview.minimize": "最小化",
+  "streamingPreview.expand": "展开",
+  "streamingPreview.close": "关闭",
+  "streamingPreview.imageDetected": "检测到图片",
+  "streamingPreview.generating": "正在生成图片...",
+  "streamingPreview.clickToEnlarge": "点击放大",
+  "streamingPreview.generationFailed": "生成失败",
+  "streamingPreview.streamingComplete": "流式传输完成",
+  "streamingPreview.retryGeneration": "重试",
+  "streamingPreview.waitingForContent": "等待流式内容..."
 }

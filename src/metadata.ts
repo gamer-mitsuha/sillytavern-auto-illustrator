@@ -96,7 +96,8 @@ export function loadMetadataFromContext(): void {
  * Saves the current metadata to the server
  * Call this after modifying metadata (e.g., after registering prompts or linking images)
  *
- * Uses the official SillyTavern pattern: context.saveMetadata()
+ * Uses debounced save to prevent blocking during streaming operations.
+ * The save is delayed by 1 second to batch multiple rapid changes.
  */
 export async function saveMetadata(): Promise<void> {
   const context = SillyTavern.getContext();
@@ -106,14 +107,24 @@ export async function saveMetadata(): Promise<void> {
   }
 
   try {
-    // Use SillyTavern's saveMetadata() if available, otherwise saveChat()
-    if (context.saveMetadata) {
-      await context.saveMetadata();
-      logger.trace('Metadata saved to server via saveMetadata()');
+    // Prefer debounced save to prevent blocking I/O during streaming
+    // This schedules a save after 1s of inactivity (batches rapid changes)
+    if (typeof context.saveMetadataDebounced === 'function') {
+      context.saveMetadataDebounced();
+      logger.debug('Metadata save scheduled (debounced, 1s delay)');
     } else {
-      // Fallback for older SillyTavern versions
-      await context.saveChat();
-      logger.trace('Metadata saved to server via saveChat()');
+      logger.warn(
+        'saveMetadataDebounced not available, using immediate save (may cause freeze during streaming)'
+      );
+      if (context.saveMetadata) {
+        // Fallback to immediate save if debounced version not available
+        await context.saveMetadata();
+        logger.trace('Metadata saved to server via saveMetadata()');
+      } else {
+        // Fallback for older SillyTavern versions
+        await context.saveChat();
+        logger.trace('Metadata saved to server via saveChat()');
+      }
     }
   } catch (error) {
     logger.error('Failed to save metadata:', error);

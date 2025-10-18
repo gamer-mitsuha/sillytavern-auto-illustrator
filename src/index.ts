@@ -54,6 +54,7 @@ import {
   clearProgressWidgetState,
 } from './progress_widget';
 import {initializeGalleryWidget, getGalleryWidget} from './gallery_widget';
+import {StreamingPreviewWidget} from './streaming_preview_widget';
 import {isIndependentApiMode} from './mode_utils';
 import {initializeChatChangedHandler} from './chat_changed_handler';
 import {initializeChatChangeOperations} from './chat_change_operations';
@@ -64,9 +65,18 @@ const logger = createLogger('Main');
 let context: SillyTavernContext;
 let settings: AutoIllustratorSettings;
 let isEditingPreset = false; // Track if user is currently editing a preset
+let streamingPreviewWidget: StreamingPreviewWidget | null = null; // Streaming preview widget instance
 
 // Generation state
 export let currentGenerationType: string | null = null; // Track generation type for filtering
+
+/**
+ * Get the streaming preview widget instance
+ * @returns Streaming preview widget or null if not initialized
+ */
+export function getStreamingPreviewWidget(): StreamingPreviewWidget | null {
+  return streamingPreviewWidget;
+}
 
 /**
  * Checks if streaming generation is currently active
@@ -1248,6 +1258,13 @@ function initialize(): void {
     } else {
       logger.info('Gallery widget disabled - skipping initialization');
     }
+
+    // Initialize streaming preview widget (always enabled when extension is enabled)
+    streamingPreviewWidget = new StreamingPreviewWidget(
+      progressManager,
+      settings.promptDetectionPatterns || DEFAULT_PROMPT_DETECTION_PATTERNS
+    );
+    logger.info('Initialized StreamingPreviewWidget');
   } else {
     logger.info(
       'Extension is disabled - skipping SessionManager and widget initialization'

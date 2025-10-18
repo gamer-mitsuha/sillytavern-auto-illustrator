@@ -8,6 +8,7 @@
 import {createLogger, setLogLevel} from './logger';
 import {loadSettings} from './settings';
 import {clearProgressWidgetState} from './progress_widget';
+import {getStreamingPreviewWidget} from './index';
 import {addImageClickHandlers} from './manual_generation';
 
 // Types are in globals.d.ts (no need to import)
@@ -75,6 +76,13 @@ export function executeChatChangeOperations(): void {
     // Step 1: Clear progress widget state for new chat
     logger.trace('Clearing progress widget state');
     clearProgressWidgetState();
+
+    // Clear streaming preview widget state
+    const previewWidget = getStreamingPreviewWidget();
+    if (previewWidget) {
+      logger.trace('Clearing streaming preview widget state');
+      previewWidget.clearState();
+    }
 
     // Step 2: Reload settings from server to ensure sync across devices
     logger.trace('Reloading settings from server');
