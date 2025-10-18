@@ -14,8 +14,6 @@
   "settings.saveAs": "另存为...",
   "settings.cancel": "取消",
   "settings.presetContentPreview": "预设内容预览：",
-  "settings.streamingEnabled": "启用流式图像生成",
-  "settings.streamingEnabledDesc": "在流式文本到达时生成图像（减少感知延迟）",
   "settings.streamingPollInterval": "流式轮询间隔（毫秒）",
   "settings.streamingPollIntervalDesc": "检查流式传输期间新提示的频率（越低 = 检测越快，CPU使用越多）",
   "settings.maxConcurrent": "最大并发生成数",

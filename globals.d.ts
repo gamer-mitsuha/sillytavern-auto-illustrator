@@ -122,7 +122,6 @@ declare global {
     metaPromptDepth: number;
     currentPresetId: string;
     customPresets: MetaPromptPreset[];
-    streamingEnabled: boolean;
     streamingPollInterval: number;
     monitorPollingInterval: number;
     maxConcurrentGenerations: number;

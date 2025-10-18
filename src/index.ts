@@ -122,9 +122,6 @@ function updateUI(): void {
   const presetPreview = document.getElementById(
     UI_ELEMENT_IDS.PRESET_PREVIEW
   ) as HTMLPreElement;
-  const streamingEnabledCheckbox = document.getElementById(
-    UI_ELEMENT_IDS.STREAMING_ENABLED
-  ) as HTMLInputElement;
   const streamingPollIntervalInput = document.getElementById(
     UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL
   ) as HTMLInputElement;
@@ -173,8 +170,6 @@ function updateUI(): void {
 
   // Update basic settings
   if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
-  if (streamingEnabledCheckbox)
-    streamingEnabledCheckbox.checked = settings.streamingEnabled;
   if (streamingPollIntervalInput)
     streamingPollIntervalInput.value =
       settings.streamingPollInterval.toString();
@@ -372,9 +367,6 @@ function handleSettingsChange(): void {
   const metaPromptTextarea = document.getElementById(
     UI_ELEMENT_IDS.META_PROMPT
   ) as HTMLTextAreaElement;
-  const streamingEnabledCheckbox = document.getElementById(
-    UI_ELEMENT_IDS.STREAMING_ENABLED
-  ) as HTMLInputElement;
   const streamingPollIntervalInput = document.getElementById(
     UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL
   ) as HTMLInputElement;
@@ -433,8 +425,6 @@ function handleSettingsChange(): void {
   const wasShowProgressWidget = settings.showProgressWidget;
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
-  settings.streamingEnabled =
-    streamingEnabledCheckbox?.checked ?? settings.streamingEnabled;
 
   // Validate and clamp numeric settings
   if (streamingPollIntervalInput) {
@@ -1048,7 +1038,7 @@ function registerEventHandlers(): void {
   // Register streaming handlers using v2 message handlers
   const STREAM_TOKEN_RECEIVED = context.eventTypes.STREAM_TOKEN_RECEIVED;
   context.eventSource.on(STREAM_TOKEN_RECEIVED, () => {
-    if (!settings.streamingEnabled || !settings.enabled) {
+    if (!settings.enabled) {
       return;
     }
     // STREAM_TOKEN_RECEIVED doesn't provide messageId - get it from chat
@@ -1314,9 +1304,6 @@ function initialize(): void {
     const presetCancelButton = document.getElementById(
       UI_ELEMENT_IDS.META_PROMPT_PRESET_CANCEL
     );
-    const streamingEnabledCheckbox = document.getElementById(
-      UI_ELEMENT_IDS.STREAMING_ENABLED
-    );
     const streamingPollIntervalInput = document.getElementById(
       UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL
     );
@@ -1378,7 +1365,6 @@ function initialize(): void {
     presetSaveAsButton?.addEventListener('click', handlePresetSaveAs);
     presetDeleteButton?.addEventListener('click', handlePresetDelete);
     presetCancelButton?.addEventListener('click', handlePresetCancel);
-    streamingEnabledCheckbox?.addEventListener('change', handleSettingsChange);
     streamingPollIntervalInput?.addEventListener(
       'change',
       handleSettingsChange
