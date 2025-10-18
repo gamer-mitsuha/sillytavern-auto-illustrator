@@ -245,19 +245,22 @@ export class SessionManager {
         // Even if no restoration needed, ensure final rendering events are emitted
         // This ensures proper message rendering when streaming is disabled
         logger.debug(
-          `No restoration needed for message ${messageId}, emitting final MESSAGE_EDITED`
+          `No restoration needed for message ${messageId}, emitting final rendering events`
         );
 
         // Emit MESSAGE_EDITED to trigger any post-processing
-        // (insertDeferredImages already emitted it, but emit again for consistency)
         const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
         await context.eventSource.emit(MESSAGE_EDITED, messageId);
 
         // Update DOM to ensure final render
         context.updateMessageBlock(messageId, message);
 
+        // Emit MESSAGE_UPDATED to notify other extensions
+        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+        await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+
         logger.debug(
-          `Final MESSAGE_EDITED emitted and DOM updated for message ${messageId}`
+          `Final rendering events emitted (MESSAGE_EDITED, MESSAGE_UPDATED) and DOM updated for message ${messageId}`
         );
       }
     } catch (error) {
