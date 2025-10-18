@@ -67,9 +67,13 @@ export class StreamingPreviewWidget {
   // Smooth streaming buffer
   private textBuffer = ''; // Target text to display
   private displayedText = ''; // Currently displayed text
-  private streamingInterval: number | null = null;
-  private readonly CHARS_PER_FRAME = 2; // Characters to add per animation frame (2 chars/30ms = ~67 chars/sec)
-  private readonly FRAME_DELAY = 30; // Milliseconds between frames (33fps)
+  private animationFrameId: number | null = null; // RAF ID for animation loop
+  private lastUpdateTime = 0; // Last time display was updated (for char calculations)
+  private lastRenderTime = 0; // Last time DOM was rendered
+  private lastRenderedText = ''; // Text content at last render (for change detection)
+  private renderScheduled = false; // Whether a render is already scheduled
+  private readonly CHARS_PER_SECOND = 120; // Display rate: ~120 chars/second (faster streaming feel)
+  private readonly RENDER_INTERVAL_MS = 100; // Render every 100ms max (10fps for DOM)
   private readonly INITIAL_BUFFER_DELAY = 1500; // Wait 1.5s before starting to build buffer
   private streamingStartTime = 0; // When streaming started
   private hasStartedDisplaying = false; // Whether we've started showing text
@@ -135,8 +139,18 @@ export class StreamingPreviewWidget {
     this.contentSegments = [];
     this.textBuffer = '';
     this.displayedText = '';
-    this.stopSmoothStreaming(); // Stop any existing animation
-    this.streamingStartTime = Date.now(); // Record when streaming started
+    this.lastUpdateTime = 0;
+    this.lastRenderTime = 0;
+    this.lastRenderedText = '';
+    this.renderScheduled = false;
+
+    // Cancel any existing animation
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+
+    this.streamingStartTime = performance.now(); // Record when streaming started
     this.hasStartedDisplaying = false; // Haven't started displaying yet
     this.isVisible = true;
     this.autoScrollEnabled = true; // Reset auto-scroll for new message
@@ -158,14 +172,14 @@ export class StreamingPreviewWidget {
       `Updating text (${this.lastSeenText.length} -> ${text.length} chars)`
     );
 
-    // If text shrinks, it's likely being filtered (thinking chains removed)
-    // In this case, reset the display position to avoid freezing
-    if (text.length < this.lastSeenText.length) {
+    // Detect text shrinking (regex filtering removes content)
+    const textShrank = text.length < this.lastSeenText.length;
+    if (textShrank) {
       logger.debug(
-        `Text shrunk from ${this.lastSeenText.length} to ${text.length} chars - resetting display position`
+        `Text shrunk from ${this.lastSeenText.length} to ${text.length} chars (regex filtering)`
       );
-      // Reset displayed text to catch up with new filtered text
-      this.displayedText = text;
+      // Don't reset displayedText here - let animate() handle it smoothly
+      // The animation loop will detect textBuffer < displayedText and cap it
     }
 
     this.lastSeenText = text;
@@ -177,9 +191,10 @@ export class StreamingPreviewWidget {
     // This ensures we capture prompts before text might change
     this.parseTextAndUpdateSegments(this.textBuffer);
 
-    // Start smooth streaming animation if not already running
-    if (!this.streamingInterval) {
-      this.startSmoothStreaming();
+    // Ensure animation loop is running to advance displayedText smoothly
+    if (!this.animationFrameId) {
+      this.lastUpdateTime = performance.now();
+      this.animationFrameId = requestAnimationFrame(this.animate);
     }
   }
 
@@ -188,24 +203,26 @@ export class StreamingPreviewWidget {
    * @param text - Full message text
    */
   private parseTextAndUpdateSegments(text: string): void {
+    const startTime = performance.now();
+
     // Extract all image prompts from text
     const prompts = extractImagePromptsMultiPattern(
       text,
       this.promptDetectionPatterns
     );
 
+    const extractTime = performance.now() - startTime;
     const hadPrompts = this.contentSegments.some(s => s.type === 'image');
-    const hasNewPrompts = prompts.length > 0 && !hadPrompts;
+    const foundNewPrompts = prompts.length > 0 && !hadPrompts;
 
-    logger.debug(
-      `Parsing text (${text.length} chars), found ${prompts.length} prompts (new: ${hasNewPrompts})`
-    );
-
-    // If we just detected new prompts, reset display position to current buffer
-    // This prevents freezing when segments structure changes
-    if (hasNewPrompts) {
-      logger.debug('New image prompts detected - syncing display position');
-      this.displayedText = this.textBuffer;
+    if (foundNewPrompts) {
+      logger.info(
+        `🖼️ FIRST PROMPTS DETECTED! Found ${prompts.length} prompts (extract: ${extractTime.toFixed(2)}ms)`
+      );
+    } else if (prompts.length > 0) {
+      logger.debug(
+        `Parsing text (${text.length} chars), found ${prompts.length} prompts (extract: ${extractTime.toFixed(2)}ms)`
+      );
     }
 
     if (prompts.length === 0) {
@@ -264,6 +281,23 @@ export class StreamingPreviewWidget {
     }
 
     this.contentSegments = newSegments;
+
+    // If new prompts were detected, fast-forward displayedText to show them immediately
+    // This prevents visual freeze where prompt appears but display is still catching up
+    if (foundNewPrompts && prompts.length > 0) {
+      const lastPrompt = prompts[prompts.length - 1];
+      // Show at least up to the end of the last detected prompt
+      if (this.displayedText.length < lastPrompt.endIndex) {
+        this.displayedText = text.substring(0, lastPrompt.endIndex);
+        logger.debug(
+          `Fast-forwarded display to show prompt (${this.displayedText.length} chars)`
+        );
+        // Render IMMEDIATELY (bypass throttling) to show the prompt without delay
+        this.render();
+        this.lastRenderTime = performance.now();
+        this.lastRenderedText = this.displayedText;
+      }
+    }
   }
 
   /**
@@ -273,6 +307,8 @@ export class StreamingPreviewWidget {
   private handleImageCompleted(
     detail: ProgressImageCompletedEventDetail
   ): void {
+    const startTime = performance.now();
+
     if (detail.messageId !== this.currentMessageId || !this.isVisible) {
       return;
     }
@@ -303,8 +339,15 @@ export class StreamingPreviewWidget {
     if (imageSegment) {
       imageSegment.imageUrl = detail.imageUrl;
       imageSegment.status = 'completed';
+
+      const renderStart = performance.now();
       this.render();
-      logger.debug('Successfully updated image segment');
+      const renderTime = performance.now() - renderStart;
+
+      const totalTime = performance.now() - startTime;
+      logger.debug(
+        `Successfully updated image segment (render: ${renderTime.toFixed(2)}ms, total: ${totalTime.toFixed(2)}ms)`
+      );
     } else {
       logger.warn(
         `Could not find image segment for prompt: ${detail.promptPreview}`
@@ -319,61 +362,119 @@ export class StreamingPreviewWidget {
   }
 
   /**
-   * Start smooth streaming animation
+   * Animation loop using requestAnimationFrame
+   * CRITICAL: Must be fast (< 1ms) - only updates displayedText position
+   * Rendering happens separately via scheduleRender()
    */
-  private startSmoothStreaming(): void {
-    this.streamingInterval = window.setInterval(() => {
-      this.updateDisplayedText();
-    }, this.FRAME_DELAY);
-  }
-
-  /**
-   * Stop smooth streaming animation
-   */
-  private stopSmoothStreaming(): void {
-    if (this.streamingInterval) {
-      clearInterval(this.streamingInterval);
-      this.streamingInterval = null;
-    }
-  }
-
-  /**
-   * Update displayed text incrementally for smooth streaming effect
-   */
-  private updateDisplayedText(): void {
-    // Check if we should wait for initial buffer to build up
+  private animate = (timestamp: number): void => {
+    // Check initial buffer delay
     if (!this.hasStartedDisplaying) {
-      const elapsedTime = Date.now() - this.streamingStartTime;
-
-      if (elapsedTime < this.INITIAL_BUFFER_DELAY) {
-        // Still building buffer, don't display yet
+      const elapsed = timestamp - this.streamingStartTime;
+      if (elapsed < this.INITIAL_BUFFER_DELAY) {
+        // Still building buffer - continue animation but don't update display
+        this.animationFrameId = requestAnimationFrame(this.animate);
         return;
       }
-
-      // Buffer delay elapsed, start displaying
       this.hasStartedDisplaying = true;
+      this.lastUpdateTime = timestamp; // Start timing from now
       logger.debug(
         `Buffer delay elapsed, starting display (buffer: ${this.textBuffer.length} chars)`
       );
     }
 
-    if (this.displayedText.length < this.textBuffer.length) {
-      // Add more characters to displayed text
-      const charsToAdd = Math.min(
-        this.CHARS_PER_FRAME,
-        this.textBuffer.length - this.displayedText.length
+    // Handle text shrinking (regex removing content)
+    if (this.textBuffer.length < this.displayedText.length) {
+      logger.debug(
+        `Text shrunk during animation - capping display (${this.displayedText.length} → ${this.textBuffer.length})`
       );
-      this.displayedText = this.textBuffer.substring(
-        0,
-        this.displayedText.length + charsToAdd
+      // Cap displayedText to textBuffer length
+      this.displayedText = this.textBuffer;
+      this.lastUpdateTime = timestamp;
+
+      // Schedule immediate render for text shrinking
+      this.scheduleRender();
+
+      // Continue animation
+      this.animationFrameId = requestAnimationFrame(this.animate);
+      return;
+    }
+
+    // Normal forward streaming - update display position only (fast!)
+    if (this.displayedText.length < this.textBuffer.length) {
+      // Calculate how many chars to add based on elapsed time
+      const elapsed = timestamp - this.lastUpdateTime;
+      const charsToAdd = Math.max(
+        1,
+        Math.floor((elapsed / 1000) * this.CHARS_PER_SECOND)
       );
 
-      // Don't re-parse segments here - they're already parsed in updateText()
-      // Just render with current display position
-      this.render();
+      // Update display position (just string manipulation, very fast)
+      const newLength = Math.min(
+        this.displayedText.length + charsToAdd,
+        this.textBuffer.length
+      );
+      this.displayedText = this.textBuffer.substring(0, newLength);
+      this.lastUpdateTime = timestamp;
+
+      // Schedule render if not already scheduled
+      this.scheduleRender();
     }
-    // Note: We keep the interval running even when caught up,
-    // so it can resume when new text arrives
+
+    // Continue animation if still active and not caught up
+    if (this.isVisible && this.displayedText.length < this.textBuffer.length) {
+      this.animationFrameId = requestAnimationFrame(this.animate);
+    } else if (
+      this.displayedText.length === this.textBuffer.length &&
+      this.animationFrameId
+    ) {
+      // Caught up - schedule final render and stop
+      this.scheduleRender();
+      this.animationFrameId = null;
+    }
+  };
+
+  /**
+   * Schedule a render if not already scheduled
+   * Renders are throttled to RENDER_INTERVAL_MS (~10fps) to avoid excessive DOM updates
+   * This is called from the fast animate() loop but executes independently
+   */
+  private scheduleRender(): void {
+    // Already scheduled, skip
+    if (this.renderScheduled) {
+      return;
+    }
+
+    // Check if enough time has passed since last render
+    const now = performance.now();
+    const timeSinceRender = now - this.lastRenderTime;
+
+    if (timeSinceRender >= this.RENDER_INTERVAL_MS) {
+      // Enough time passed - render immediately
+      this.performRender();
+    } else {
+      // Schedule for later
+      this.renderScheduled = true;
+      const delay = this.RENDER_INTERVAL_MS - timeSinceRender;
+      setTimeout(() => {
+        this.renderScheduled = false;
+        this.performRender();
+      }, delay);
+    }
+  }
+
+  /**
+   * Actually perform the render
+   * Only renders if displayedText has changed since last render
+   */
+  private performRender(): void {
+    // Skip render if nothing changed
+    if (this.displayedText === this.lastRenderedText) {
+      return;
+    }
+
+    this.render();
+    this.lastRenderTime = performance.now();
+    this.lastRenderedText = this.displayedText;
   }
 
   /**
@@ -395,6 +496,12 @@ export class StreamingPreviewWidget {
         const segmentEnd =
           segment.endIndex ?? segmentStart + segment.content.length;
 
+        // Stop processing text segments if we've gone past display length
+        if (segmentStart >= displayLength) {
+          // But don't break - we still need to check for images at this position
+          continue;
+        }
+
         // Only add text if it starts before display length
         if (segmentStart < displayLength) {
           const visibleLength = Math.min(
@@ -410,11 +517,6 @@ export class StreamingPreviewWidget {
               endIndex: Math.min(segmentEnd, displayLength),
             });
           }
-        }
-
-        // Stop if we've gone past display length
-        if (segmentStart >= displayLength) {
-          break;
         }
       } else {
         // For images, show if we've displayed past the end of the prompt tag
@@ -433,10 +535,15 @@ export class StreamingPreviewWidget {
   markComplete(): void {
     logger.debug('Marking streaming as complete');
 
+    // Cancel animation
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+
     // Immediately show all remaining text
     this.displayedText = this.textBuffer;
     this.parseTextAndUpdateSegments(this.displayedText);
-    this.stopSmoothStreaming();
 
     this.render(); // Update to show "complete" state in header
   }
@@ -456,13 +563,19 @@ export class StreamingPreviewWidget {
    */
   close(): void {
     logger.debug('Closing streaming preview widget');
+
+    // Cancel animation before closing
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+
     this.isVisible = false;
     this.currentMessageId = -1;
     this.lastSeenText = '';
     this.contentSegments = [];
     this.textBuffer = '';
     this.displayedText = '';
-    this.stopSmoothStreaming();
     this.removeFromDOM();
   }
 
