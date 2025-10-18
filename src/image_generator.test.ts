@@ -12,6 +12,7 @@ import {
 } from './image_generator';
 import type {DeferredImage, QueuedPrompt} from './types';
 import type {AutoIllustratorChatMetadata} from './types';
+import * as messageRenderer from './utils/message_renderer';
 
 // Mock dependencies
 vi.mock('./logger', () => ({
@@ -49,6 +50,10 @@ vi.mock('./prompt_manager', () => ({
 vi.mock('./metadata', () => ({
   saveMetadata: vi.fn().mockResolvedValue(undefined),
   getMetadata: vi.fn(),
+}));
+
+vi.mock('./utils/message_renderer', () => ({
+  renderMessageUpdate: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('Image Generator V2', () => {
@@ -198,7 +203,8 @@ describe('Image Generator V2', () => {
       expect(count).toBe(1);
       expect(mockContext.chat[1].mes).toContain('<img src=');
       expect(mockContext.chat[1].mes).toContain('http://example.com/cat.jpg');
-      expect(mockContext.saveChat).toHaveBeenCalled();
+      // saveChat is now handled by renderMessageUpdate
+      expect(messageRenderer.renderMessageUpdate).toHaveBeenCalledWith(1);
     });
 
     it('should replace existing image (regeneration replace mode)', async () => {
@@ -344,7 +350,7 @@ describe('Image Generator V2', () => {
       expect(mockContext.chat[1].mes).not.toContain('old.jpg');
     });
 
-    it('should emit correct events and save chat', async () => {
+    it('should call renderMessageUpdate to handle events and save', async () => {
       const deferred: DeferredImage[] = [
         {
           prompt: {
@@ -366,16 +372,8 @@ describe('Image Generator V2', () => {
 
       await insertDeferredImages(deferred, 1, mockContext, mockMetadata);
 
-      expect(mockContext.eventSource.emit).toHaveBeenCalledWith(
-        'MESSAGE_EDITED',
-        1
-      );
-      expect(mockContext.updateMessageBlock).toHaveBeenCalledWith(
-        1,
-        mockContext.chat[1]
-      );
-      // MESSAGE_UPDATED is no longer emitted to prevent other extensions from stripping images
-      expect(mockContext.saveChat).toHaveBeenCalled();
+      // Should call renderMessageUpdate with the message ID
+      expect(messageRenderer.renderMessageUpdate).toHaveBeenCalledWith(1);
     });
 
     it('should handle errors gracefully', async () => {
@@ -408,8 +406,8 @@ describe('Image Generator V2', () => {
       );
 
       expect(count).toBe(0);
-      // Should still save chat even if no images inserted
-      expect(mockContext.saveChat).toHaveBeenCalled();
+      // Should still call renderMessageUpdate even if no images inserted
+      expect(messageRenderer.renderMessageUpdate).toHaveBeenCalledWith(1);
     });
   });
 });

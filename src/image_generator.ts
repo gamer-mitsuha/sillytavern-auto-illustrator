@@ -10,7 +10,7 @@ import {createLogger} from './logger';
 import {t, tCount} from './i18n';
 import {progressManager} from './progress_manager';
 import {attachRegenerationHandlers} from './manual_generation';
-import {saveMetadata} from './metadata';
+import {renderMessageUpdate} from './utils/message_renderer';
 import {
   checkIdempotency,
   createImageTag,
@@ -532,29 +532,14 @@ export async function insertDeferredImages(
     `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} → ${updatedText.length} chars)`
   );
 
-  // Emit MESSAGE_EDITED to trigger regex "Run on Edit"
-  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-  await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-  // Re-render the message block to display images in DOM
-  context.updateMessageBlock(messageId, message);
+  // Render message with proper event sequence and save
+  await renderMessageUpdate(messageId);
 
   // Attach click handlers to newly inserted images
   if (settings) {
     attachRegenerationHandlers(messageId, context, settings);
     logger.debug('Attached click handlers to newly inserted images');
   }
-
-  // DO NOT emit MESSAGE_UPDATED - it causes other extensions to strip our images
-  // The message is already saved and rendered, MESSAGE_EDITED is sufficient
-
-  // Save metadata to persist PromptRegistry (image-prompt associations)
-  await saveMetadata();
-  logger.debug('Metadata saved (PromptRegistry persisted)');
-
-  // Save the chat to persist the inserted images
-  await context.saveChat();
-  logger.debug('Chat saved after inserting deferred images');
 
   // Post-insertion verification: check that images survived
   if (reconciliationConfig.enableMarkers && successCount > 0) {

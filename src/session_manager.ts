@@ -23,6 +23,7 @@ import type {GenerationSession, SessionType, ImageInsertionMode} from './types';
 import {getMetadata} from './metadata';
 import {getPromptNode} from './prompt_manager';
 import {getStreamingPreviewWidget} from './index';
+import {renderMessageUpdate} from './utils/message_renderer';
 
 const logger = createLogger('SessionManager');
 
@@ -206,7 +207,7 @@ export class SessionManager {
 
       // Run reconciliation pass
       const {reconcileMessage} = await import('./reconciliation');
-      const {getMetadata, saveMetadata} = await import('./metadata');
+      const {getMetadata} = await import('./metadata');
 
       const message = context.chat?.[messageId];
       if (!message) {
@@ -227,20 +228,8 @@ export class SessionManager {
         );
         message.mes = updatedText;
 
-        // Emit MESSAGE_EDITED first
-        const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-        await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-        // Update DOM
-        context.updateMessageBlock(messageId, message);
-
-        // Save
-        await saveMetadata();
-        await context.saveChat();
-
-        // Emit MESSAGE_UPDATED
-        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-        await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+        // Render message with proper event sequence and save
+        await renderMessageUpdate(messageId);
       } else {
         // Even if no restoration needed, ensure final rendering events are emitted
         // This ensures proper message rendering when streaming is disabled
@@ -248,16 +237,8 @@ export class SessionManager {
           `No restoration needed for message ${messageId}, emitting final rendering events`
         );
 
-        // Emit MESSAGE_EDITED to trigger any post-processing
-        const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-        await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-        // Update DOM to ensure final render
-        context.updateMessageBlock(messageId, message);
-
-        // Emit MESSAGE_UPDATED to notify other extensions
-        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-        await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+        // Render message with proper event sequence (skip save since no changes)
+        await renderMessageUpdate(messageId, {skipSave: true});
 
         logger.debug(
           `Final rendering events emitted (MESSAGE_EDITED, MESSAGE_UPDATED) and DOM updated for message ${messageId}`

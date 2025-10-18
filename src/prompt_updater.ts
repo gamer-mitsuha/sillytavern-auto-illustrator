@@ -12,8 +12,9 @@ import {
   replacePromptTextInMessage,
   type PromptNode,
 } from './prompt_manager';
-import {getMetadata, saveMetadata} from './metadata';
+import {getMetadata} from './metadata';
 import {DEFAULT_PROMPT_DETECTION_PATTERNS} from './constants';
+import {renderMessageUpdate} from './utils/message_renderer';
 
 // Re-export PromptNode type for consumers
 export type {PromptNode};
@@ -191,18 +192,8 @@ export async function applyPromptUpdate(
   // Update message
   message.mes = updatedText;
 
-  // Emit proper event sequence for DOM update
-  const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-  await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-  context.updateMessageBlock(messageId, message);
-
-  const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-  await context.eventSource.emit(MESSAGE_UPDATED, messageId);
-
-  // Save chat
-  await context.saveChat();
-  await saveMetadata();
+  // Render message with proper event sequence and save
+  await renderMessageUpdate(messageId);
 
   logger.info('Prompt updated successfully in message', {
     messageId,

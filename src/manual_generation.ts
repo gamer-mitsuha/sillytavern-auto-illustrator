@@ -20,7 +20,7 @@ import {
   registerPrompt,
   linkImageToPrompt,
 } from './prompt_manager';
-import {getMetadata, saveMetadata} from './metadata';
+import {getMetadata} from './metadata';
 import type {ImageInsertionMode} from './types';
 import {t} from './i18n';
 import {
@@ -28,6 +28,7 @@ import {
   applyPromptUpdate,
   type PromptNode,
 } from './prompt_updater';
+import {renderMessageUpdate} from './utils/message_renderer';
 import {openImageModal} from './modal_viewer';
 import {scheduleDomOperation} from './dom_queue';
 import {collectAllImagesFromChat, normalizeImageUrl} from './image_utils';
@@ -510,8 +511,8 @@ async function deleteImage(imageUrl: string): Promise<void> {
       );
       message.mes = message.mes.replace(imgPattern, '');
 
-      context.updateMessageBlock(i, message);
-      await context.saveChat();
+      // Render message with proper event sequence and save
+      await renderMessageUpdate(i);
 
       // Re-attach click handlers after DOM update
       if (settings) {

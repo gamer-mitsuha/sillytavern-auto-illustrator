@@ -15,6 +15,7 @@ import {insertPromptTagsWithContext} from './prompt_insertion';
 import {isIndependentApiMode} from './mode_utils';
 import {reconcileMessage} from './reconciliation';
 import {getMetadata, saveMetadata} from './metadata';
+import {renderMessageUpdate} from './utils/message_renderer';
 
 const logger = createLogger('MessageHandler');
 
@@ -165,7 +166,7 @@ export async function handleMessageReceived(
 
         // Step 3: Save updated message with prompt tags
         message.mes = finalText;
-        await context.saveChat();
+        await saveMetadata();
         logger.info(
           `Inserted ${totalInserted} prompt tags into message (${insertionResult.failedSuggestions.length} appended at end)`
         );
@@ -286,21 +287,8 @@ async function reconcileMessageIfNeeded(
 
       message.mes = updatedText;
 
-      // Emit MESSAGE_EDITED first (for regex "Run on Edit")
-      const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
-      await context.eventSource.emit(MESSAGE_EDITED, messageId);
-
-      // Update DOM to show restored images
-      context.updateMessageBlock(messageId, message);
-
-      // Save metadata and chat
-      await saveMetadata();
-      await context.saveChat();
-      logger.debug(`[${source}] Reconciliation: metadata and chat saved`);
-
-      // Emit MESSAGE_UPDATED to notify other extensions
-      const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
-      await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+      // Render message with proper event sequence and save
+      await renderMessageUpdate(messageId);
 
       logger.info(
         `[${source}] Reconciliation complete: message saved and events emitted`

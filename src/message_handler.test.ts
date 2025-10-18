@@ -28,6 +28,15 @@ vi.mock('./session_manager', () => ({
   },
 }));
 
+vi.mock('./utils/message_renderer', () => ({
+  renderMessageUpdate: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('./metadata', () => ({
+  getMetadata: vi.fn(() => ({})),
+  saveMetadata: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('Message Handler V2', () => {
   let mockContext: any;
   let mockSettings: any;

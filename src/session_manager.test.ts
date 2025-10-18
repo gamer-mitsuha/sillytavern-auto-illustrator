@@ -40,6 +40,9 @@ vi.mock('./prompt_manager', () => ({
     text: 'test prompt text',
   })),
 }));
+vi.mock('./utils/message_renderer', () => ({
+  renderMessageUpdate: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe('SessionManager', () => {
   let manager: SessionManager;
