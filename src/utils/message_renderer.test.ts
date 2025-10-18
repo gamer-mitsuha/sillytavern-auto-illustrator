@@ -13,12 +13,13 @@ vi.mock('../metadata', () => ({
 
 // Mock the logger
 vi.mock('../logger', () => ({
-  logger: {
+  createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
-  },
+    trace: vi.fn(),
+  }),
 }));
 
 describe('message_renderer', () => {

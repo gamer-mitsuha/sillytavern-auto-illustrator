@@ -17,7 +17,7 @@ import type {
   ProgressImageCompletedEventDetail,
 } from './progress_manager';
 import {extractImagesFromMessage} from './image_utils';
-import {getMetadata} from './metadata';
+import {getMetadata, saveMetadata} from './metadata';
 import type {GalleryWidgetState} from './types';
 
 const logger = createLogger('GalleryWidget');
@@ -126,19 +126,12 @@ export class GalleryWidgetView {
           .filter(([, group]) => group.isExpanded)
           .map(([messageId]) => messageId);
 
-        // Use proper SillyTavern API to save metadata
-        const context = (window as any).SillyTavern?.getContext?.();
-        if (context?.saveMetadata) {
-          await context.saveMetadata();
+        // Save metadata using our wrapper function
+        await saveMetadata();
 
-          logger.info(
-            `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, messageOrder=${this.messageOrder}, expandedMessages=${state.expandedMessages.length}`
-          );
-        } else {
-          logger.warn(
-            '[Gallery] Cannot save metadata - saveMetadata function not available'
-          );
-        }
+        logger.info(
+          `[Gallery] Saved state to chat metadata: visible=${this.isWidgetVisible}, minimized=${this.isWidgetMinimized}, messageOrder=${this.messageOrder}, expandedMessages=${state.expandedMessages.length}`
+        );
       } else {
         logger.warn('[Gallery] Cannot save state - no chat metadata available');
       }
