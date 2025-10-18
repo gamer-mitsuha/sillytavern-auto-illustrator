@@ -199,5 +199,7 @@
   "streamingPreview.generationFailed": "Generation failed",
   "streamingPreview.streamingComplete": "Streaming complete",
   "streamingPreview.retryGeneration": "Retry",
-  "streamingPreview.waitingForContent": "Waiting for streaming content..."
+  "streamingPreview.waitingForContent": "Waiting for streaming content...",
+  "placeholder.generationFailed": "Generation Failed",
+  "placeholder.clickToRetry": "Click to retry generation"
 }

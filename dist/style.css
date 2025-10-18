@@ -2339,3 +2339,18 @@
     font-size: 0.8rem;
   }
 }
+
+/* Failed image placeholder styling (img tags with data-failed-placeholder attribute) */
+img[data-failed-placeholder='true'] {
+  cursor: pointer;
+  opacity: 0.8;
+  border: 2px solid #dc3545;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+img[data-failed-placeholder='true']:hover {
+  opacity: 1;
+  border-color: #ff6b6b;
+  transform: scale(1.05);
+}

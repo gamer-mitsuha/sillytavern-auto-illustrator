@@ -13,6 +13,7 @@
 import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
 import type {PromptRegistry} from './prompt_manager';
+import {PLACEHOLDER_IMAGE_URL} from './image_generator';
 
 const logger = createLogger('reconciliation');
 
@@ -337,20 +338,24 @@ export function reconcileMessage(
           continue;
         }
 
-        // Create image HTML using shared function
-        // This ensures consistent format with regular image insertion
-        const imageHtml = createImageTag(
+        // Check if this is a placeholder image by comparing URL directly
+        const isPlaceholder = imageUrl === PLACEHOLDER_IMAGE_URL;
+
+        // Create image tag using shared function
+        // Works for both normal images and failed placeholders (both use img tags with real URLs)
+        const contentHtml = createImageTag(
           imageUrl,
           promptNode.text,
           promptNode.id,
-          true // include marker
+          true, // include marker
+          isPlaceholder // isFailed - adds placeholder attributes
         );
 
         // Insert after the prompt tag
         const insertPoint = insertionPoint + matchedPattern.length;
         updatedText =
           updatedText.substring(0, insertPoint) +
-          imageHtml +
+          contentHtml +
           updatedText.substring(insertPoint);
 
         result.restoredCount++;
@@ -418,30 +423,50 @@ function escapeHtmlAttribute(str: string): string {
  * Creates an image tag with consistent formatting
  * Used by both image insertion and reconciliation to ensure consistent format
  *
- * @param imageUrl - URL of the image
+ * @param imageUrl - URL of the image (or placeholder data URI)
  * @param promptText - Full text of the prompt
  * @param promptId - ID of the prompt node
  * @param includeMarker - Whether to include the idempotency marker (default: true)
+ * @param isFailed - Whether this is a failed placeholder image (default: false)
  * @returns HTML string with marker and img tag
  */
 export function createImageTag(
   imageUrl: string,
   promptText: string,
   promptId: string,
-  includeMarker = true
+  includeMarker = true,
+  isFailed = false
 ): string {
   // Create prompt preview (max 50 chars)
   const promptPreview =
     promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '');
 
-  // IMPORTANT: title must start with "AI generated image" for gallery widget to recognize it
-  const imageTitle = `AI generated image: ${promptPreview}`;
+  // Title depends on whether it's a failed placeholder or normal image
+  let imageTitle: string;
+  if (isFailed) {
+    // For failed placeholders, include error message in title
+    imageTitle = `Image generation failed: ${promptPreview}\nClick to retry`;
+  } else {
+    // IMPORTANT: title must start with "AI generated image" for gallery widget to recognize it
+    imageTitle = `AI generated image: ${promptPreview}`;
+  }
 
   // Create marker if enabled
   const marker = includeMarker ? createMarker(promptId, imageUrl) : '';
 
+  // Build attributes
+  const baseAttrs = `src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"`;
+
+  // Add data-failed-placeholder attribute for failed placeholders
+  const failedAttr = isFailed ? ' data-failed-placeholder="true"' : '';
+
+  // Add full prompt text for failed placeholders (needed for regeneration)
+  const promptTextAttr = isFailed
+    ? ` data-prompt-text="${escapeHtmlAttribute(promptText)}"`
+    : '';
+
   // Create image tag with all attributes
-  const imgTag = `<img src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`;
+  const imgTag = `<img ${baseAttrs}${failedAttr}${promptTextAttr} />`;
 
   // Return with or without marker
   return marker ? `\n${marker}\n${imgTag}\n` : `\n${imgTag}\n`;

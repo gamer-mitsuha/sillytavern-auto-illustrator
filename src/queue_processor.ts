@@ -4,7 +4,7 @@
  */
 
 import {ImageGenerationQueue} from './streaming_image_queue';
-import {generateImage} from './image_generator';
+import {generateImage, PLACEHOLDER_IMAGE_URL} from './image_generator';
 import type {QueuedPrompt, DeferredImage} from './types';
 import {createLogger} from './logger';
 import {progressManager} from './progress_manager';
@@ -209,25 +209,53 @@ export class QueueProcessor {
         // Update progress tracking
         progressManager.completeTask(this.messageId);
       } else {
-        // Failed
-        this.queue.updateState(prompt.id, 'FAILED', {
-          error: 'Image generation returned null',
-        });
-        logger.warn(`Failed to generate image for: ${prompt.prompt}`);
-
-        // Update progress tracking (count failed as completed)
-        progressManager.failTask(this.messageId);
+        // Failed - create placeholder for user to retry
+        this.handleGenerationFailure(prompt, 'Image generation returned null');
       }
     } catch (error) {
-      // Error
-      this.queue.updateState(prompt.id, 'FAILED', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // Error - create placeholder for user to retry
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       logger.error('Error generating image:', error);
-
-      // Update progress tracking (count error as completed)
-      progressManager.failTask(this.messageId);
+      this.handleGenerationFailure(prompt, errorMessage);
     }
+  }
+
+  /**
+   * Handles generation failure by creating a placeholder image
+   * @param prompt - The prompt that failed
+   * @param errorMessage - Error message to log
+   */
+  private handleGenerationFailure(
+    prompt: QueuedPrompt,
+    errorMessage: string
+  ): void {
+    // Update queue state
+    this.queue.updateState(prompt.id, 'FAILED', {error: errorMessage});
+    logger.warn(`Failed to generate image for: ${prompt.prompt}`);
+
+    // Get placeholder image URL and create prompt preview
+    const promptId = prompt.targetPromptId || '';
+    const promptPreview =
+      prompt.prompt.length > 60
+        ? prompt.prompt.substring(0, 57) + '...'
+        : prompt.prompt;
+
+    // Add placeholder to deferred images for insertion
+    this.deferredImages.push({
+      prompt,
+      imageUrl: PLACEHOLDER_IMAGE_URL, // Placeholder image URL (data URI)
+      promptId,
+      promptPreview,
+      completedAt: Date.now(),
+      isFailed: true, // Mark as failed placeholder
+    });
+    logger.debug(
+      `Created failed placeholder for prompt (${this.deferredImages.length} total)`
+    );
+
+    // Update progress tracking (count failed as completed)
+    progressManager.failTask(this.messageId);
   }
 
   /**

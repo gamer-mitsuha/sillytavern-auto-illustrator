@@ -4,11 +4,8 @@
  */
 
 import Bottleneck from 'bottleneck';
-import {extractImagePrompts} from './image_extractor';
 import type {DeferredImage} from './types';
 import {createLogger} from './logger';
-import {t, tCount} from './i18n';
-import {progressManager} from './progress_manager';
 import {attachRegenerationHandlers} from './manual_generation';
 import {renderMessageUpdate} from './utils/message_renderer';
 import {
@@ -103,6 +100,16 @@ export function updateMinInterval(minInterval: number): void {
   logger.info(`Updating minTime: ${minInterval}ms`);
   imageLimiter.updateSettings({minTime: minInterval});
 }
+
+/**
+ * Predefined placeholder image for failed image generation
+ * Simple SVG warning icon with red/orange error theme
+ * Used for:
+ * - Creating placeholder images when generation fails (queue_processor.ts)
+ * - Detecting placeholder images during reconciliation (reconciliation.ts)
+ */
+export const PLACEHOLDER_IMAGE_URL =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIGZpbGw9IiNmZmVkZWQiLz4KICA8Y2lyY2xlIGN4PSI2NCIgY3k9IjY0IiByPSI1MCIgZmlsbD0iI2RjMzU0NSIgc3Ryb2tlPSIjYzgyMzMzIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8dGV4dCB4PSI2NCIgeT0iNzQiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2MCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7imqDvuI88L3RleHQ+Cjwvc3ZnPg==';
 
 // Old createImageTag and insertImageAfterPrompt functions removed
 // Now using the shared createImageTag function defined at the top of the file
@@ -477,33 +484,38 @@ export async function insertDeferredImages(
           // Found the exact prompt tag that was queued
           const insertPosition = matchPosition + fullMatch.length;
 
-          // Create image tag using shared function for consistency
-          const newImgTag = createImageTag(
+          // Create image tag using shared function
+          // Works for both normal images and failed placeholders (both use img tags)
+          const contentToInsert = createImageTag(
             deferred.imageUrl,
             queuedPrompt.prompt,
             deferred.promptId,
-            reconciliationConfig.enableMarkers
+            reconciliationConfig.enableMarkers,
+            deferred.isFailed || false // Pass isFailed flag for placeholder styling
           );
 
           // Insert after prompt tag
           updatedText =
             updatedText.substring(0, insertPosition) +
-            newImgTag +
+            contentToInsert +
             updatedText.substring(insertPosition);
 
           successCount++;
 
+          const imageType = deferred.isFailed
+            ? 'failed placeholder'
+            : 'new image';
           logger.debug(
-            `Inserted new image after prompt at position ${insertPosition}${reconciliationConfig.enableMarkers ? ' (with marker)' : ''}`
+            `Inserted ${imageType} after prompt at position ${insertPosition}${reconciliationConfig.enableMarkers ? ' (with marker)' : ''}`
           );
 
           // Link image to prompt using prompt_manager
-          logger.info('=== DEBUG: Linking new streaming image ===');
-          logger.info(`Image URL (raw): ${deferred.imageUrl}`);
+          logger.info(`=== DEBUG: Linking ${imageType} ===`);
+          logger.info(`Image URL: ${deferred.imageUrl}`);
           logger.info(`Prompt ID: ${deferred.promptId}`);
 
           linkImageToPrompt(deferred.promptId, deferred.imageUrl, metadata);
-          logger.debug(`Linked new image to prompt: ${deferred.promptId}`);
+          logger.debug(`Linked ${imageType} to prompt: ${deferred.promptId}`);
         } else {
           logger.warn(
             'Could not find prompt tag for insertion (tag may have been removed or modified)'

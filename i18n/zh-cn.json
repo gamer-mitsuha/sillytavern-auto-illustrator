@@ -199,5 +199,7 @@
   "streamingPreview.generationFailed": "生成失败",
   "streamingPreview.streamingComplete": "流式传输完成",
   "streamingPreview.retryGeneration": "重试",
-  "streamingPreview.waitingForContent": "等待流式内容..."
+  "streamingPreview.waitingForContent": "等待流式内容...",
+  "placeholder.generationFailed": "生成失败",
+  "placeholder.clickToRetry": "点击重试生成"
 }

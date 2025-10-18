@@ -860,6 +860,7 @@ export function attachRegenerationHandlers(
 
   // Find all images that follow prompt comment tags in the RAW text
   // Strategy: Parse the raw message text to find prompt tags and ALL consecutive images after each prompt
+  // Note: Both normal images and failed placeholders use <img> tags now
   const regeneratableImages: HTMLImageElement[] = [];
 
   // First, find all prompt positions
@@ -886,7 +887,7 @@ export function attachRegenerationHandlers(
         : messageText.length;
     const textSegment = messageText.substring(startPos, endPos);
 
-    // Find all images in this segment
+    // Find all images in this segment (includes both normal and failed placeholders)
     imgPattern.lastIndex = 0; // Reset regex
     while ((match = imgPattern.exec(textSegment)) !== null) {
       const imgAttrs = match[1];
@@ -918,6 +919,7 @@ export function attachRegenerationHandlers(
     `Attaching regeneration handlers to ${regeneratableImages.length} images in message ${messageId}`
   );
 
+  // Attach handlers to all images (including failed placeholders)
   regeneratableImages.forEach(img => {
     // Add visual indicator
     img.style.cursor = 'pointer';

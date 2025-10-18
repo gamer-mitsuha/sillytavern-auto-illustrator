@@ -61,7 +61,7 @@ export interface QueuedPrompt {
 export interface DeferredImage {
   /** The queued prompt metadata */
   prompt: QueuedPrompt;
-  /** Generated image URL */
+  /** Generated image URL (or placeholder HTML if isFailed is true) */
   imageUrl: string;
   /** Links to PromptNode.id from prompt_manager for image association tracking */
   promptId: string;
@@ -69,6 +69,8 @@ export interface DeferredImage {
   promptPreview?: string;
   /** Timestamp when image was generated */
   completedAt: number;
+  /** When true, imageUrl contains placeholder HTML instead of a URL (generation failed) */
+  isFailed?: boolean;
 }
 
 /**

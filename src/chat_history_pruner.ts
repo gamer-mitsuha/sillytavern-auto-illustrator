@@ -48,6 +48,7 @@ export function pruneGeneratedImages(
       const afterPrompt = result.substring(prompt.endIndex);
 
       // Find all consecutive images after this prompt
+      // Matches any <img> tag (including both normal images and placeholder images)
       const imgTagRegex = /^\s*<img\s+[^>]*>/g;
       let match;
       let totalLength = 0;
@@ -117,6 +118,7 @@ export function pruneGeneratedImagesAndPrompts(
       const afterPrompt = result.substring(prompt.endIndex);
 
       // Find all consecutive images after this prompt
+      // Matches any <img> tag (including both normal images and placeholder images)
       const imgTagRegex = /^\s*<img\s+[^>]*>/g;
       let match;
       let totalImageLength = 0;
@@ -130,7 +132,7 @@ export function pruneGeneratedImagesAndPrompts(
         }
       }
 
-      // Remove BOTH the prompt tag AND the images
+      // Remove BOTH the prompt tag AND the images/placeholders
       // Unlike pruneGeneratedImages which keeps the prompt tag,
       // this removes everything from startIndex to endIndex + images
       result =
