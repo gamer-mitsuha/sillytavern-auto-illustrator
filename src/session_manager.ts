@@ -122,7 +122,7 @@ export class SessionManager {
     }
 
     // Start monitoring and processing
-    monitor.start(messageId);
+    await monitor.start(messageId);
     processor.start(messageId);
 
     logger.debug(

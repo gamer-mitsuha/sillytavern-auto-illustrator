@@ -60,7 +60,7 @@ export class StreamingMonitor {
    * Starts monitoring a message for new prompts
    * @param messageId - Index of the message in chat array
    */
-  start(messageId: number): void {
+  async start(messageId: number): Promise<void> {
     if (this.isRunning) {
       logger.warn('Already running, stopping previous monitor');
       this.stop();
@@ -80,8 +80,8 @@ export class StreamingMonitor {
       this.checkForNewPrompts();
     }, this.intervalMs);
 
-    // Do an immediate check
-    this.checkForNewPrompts();
+    // Do an immediate check (await to ensure prompts are registered before any image generation)
+    await this.checkForNewPrompts();
   }
 
   /**

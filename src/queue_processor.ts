@@ -206,8 +206,10 @@ export class QueueProcessor {
           promptPreview
         );
 
-        // Update progress tracking
-        progressManager.completeTask(this.messageId);
+        // Update progress tracking (defensive check for race conditions)
+        if (progressManager.isTracking(this.messageId)) {
+          progressManager.completeTask(this.messageId);
+        }
       } else {
         // Failed
         this.queue.updateState(prompt.id, 'FAILED', {
@@ -215,8 +217,10 @@ export class QueueProcessor {
         });
         logger.warn(`Failed to generate image for: ${prompt.prompt}`);
 
-        // Update progress tracking (count failed as completed)
-        progressManager.failTask(this.messageId);
+        // Update progress tracking (count failed as completed, defensive check for race conditions)
+        if (progressManager.isTracking(this.messageId)) {
+          progressManager.failTask(this.messageId);
+        }
       }
     } catch (error) {
       // Error
@@ -225,8 +229,10 @@ export class QueueProcessor {
       });
       logger.error('Error generating image:', error);
 
-      // Update progress tracking (count error as completed)
-      progressManager.failTask(this.messageId);
+      // Update progress tracking (count error as completed, defensive check for race conditions)
+      if (progressManager.isTracking(this.messageId)) {
+        progressManager.failTask(this.messageId);
+      }
     }
   }
 
