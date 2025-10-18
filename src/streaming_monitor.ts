@@ -75,6 +75,10 @@ export class StreamingMonitor {
       `Starting monitor for message ${messageId} (interval: ${this.intervalMs}ms)`
     );
 
+    // Register message for progress tracking immediately (total=0 initially)
+    // This ensures the message is always tracked, eliminating any race conditions
+    progressManager.registerTask(messageId, 0);
+
     // Start polling
     this.pollInterval = setInterval(() => {
       this.checkForNewPrompts();
