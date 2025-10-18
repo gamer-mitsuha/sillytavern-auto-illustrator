@@ -132,6 +132,125 @@ export class SessionManager {
   }
 
   /**
+   * Sets up auto-finalization for streaming session (used for non-streaming messages)
+   * Listens for progress:all-tasks-complete event and triggers finalization
+   *
+   * This is used when streaming is disabled in SillyTavern but we still need to
+   * process the complete message and wait for images to generate before inserting.
+   *
+   * @param messageId - Message ID
+   * @param context - SillyTavern context
+   * @param settings - Extension settings
+   */
+  setupStreamingCompletion(
+    messageId: number,
+    context: SillyTavernContext,
+    settings: AutoIllustratorSettings
+  ): void {
+    // Check if listener already exists
+    if (this.completionListeners.has(messageId)) {
+      logger.debug(
+        `Completion listener already exists for message ${messageId}`
+      );
+      return;
+    }
+
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail.messageId === messageId) {
+        logger.info(
+          `All tasks complete for non-streaming message ${messageId}, finalizing...`
+        );
+        // Remove listener to avoid duplicate calls
+        progressManager.removeEventListener(
+          'progress:all-tasks-complete',
+          handler
+        );
+        this.completionListeners.delete(messageId);
+
+        // Trigger finalization (with reconciliation)
+        this.finalizeNonStreamingAndInsert(messageId, context, settings);
+      }
+    };
+
+    progressManager.addEventListener('progress:all-tasks-complete', handler);
+    this.completionListeners.set(messageId, handler);
+    logger.debug(
+      `Set up auto-finalization listener for non-streaming message ${messageId}`
+    );
+  }
+
+  /**
+   * Finalizes non-streaming session and inserts all deferred images
+   * Similar to finalizeStreamingAndInsert but also runs reconciliation
+   *
+   * @param messageId - Message ID to finalize
+   * @param context - SillyTavern context
+   * @param settings - Extension settings
+   */
+  private async finalizeNonStreamingAndInsert(
+    messageId: number,
+    context: SillyTavernContext,
+    settings: AutoIllustratorSettings
+  ): Promise<void> {
+    try {
+      // Finalize and insert images
+      const insertedCount = await this.finalizeStreamingAndInsert(
+        messageId,
+        context
+      );
+
+      logger.info(
+        `Processed non-streaming message ${messageId}: ${insertedCount} images inserted`
+      );
+
+      // Run reconciliation pass
+      const {reconcileMessage} = await import('./reconciliation');
+      const {getMetadata, saveMetadata} = await import('./metadata');
+
+      const message = context.chat?.[messageId];
+      if (!message) {
+        logger.warn(`Message ${messageId} not found for reconciliation`);
+        return;
+      }
+
+      const metadata = getMetadata();
+      const {updatedText, result} = reconcileMessage(
+        messageId,
+        message.mes || '',
+        metadata
+      );
+
+      if (result.restoredCount > 0) {
+        logger.info(
+          `Reconciliation restored ${result.restoredCount} missing images`
+        );
+        message.mes = updatedText;
+
+        // Emit MESSAGE_EDITED first
+        const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+        await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+        // Update DOM
+        context.updateMessageBlock(messageId, message);
+
+        // Save
+        await saveMetadata();
+        await context.saveChat();
+
+        // Emit MESSAGE_UPDATED
+        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+        await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+      }
+    } catch (error) {
+      logger.error(
+        `Error finalizing non-streaming message ${messageId}:`,
+        error
+      );
+    }
+  }
+
+  /**
    * Finalizes streaming and inserts all deferred images
    * Uses explicit await conditions instead of Barrier
    *

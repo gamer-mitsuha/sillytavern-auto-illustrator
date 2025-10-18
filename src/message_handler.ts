@@ -181,22 +181,12 @@ export async function handleMessageReceived(
       // Start a new streaming session with the complete message
       await sessionManager.startStreamingSession(messageId, context, settings);
 
-      // Immediately finalize to process all prompts at once
-      const insertedCount = await sessionManager.finalizeStreamingAndInsert(
-        messageId,
-        context
-      );
+      // Set up one-time completion listener to auto-finalize when all images are done
+      // This ensures images are generated BEFORE we try to insert them
+      sessionManager.setupStreamingCompletion(messageId, context, settings);
 
       logger.info(
-        `Processed non-streaming message ${messageId}: ${insertedCount} images inserted`
-      );
-
-      // Run reconciliation pass
-      await reconcileMessageIfNeeded(
-        messageId,
-        context,
-        settings,
-        'MESSAGE_RECEIVED:non-streaming'
+        `Started non-streaming session for message ${messageId}, will auto-finalize when images complete`
       );
     } catch (error) {
       logger.error(
