@@ -172,12 +172,6 @@ export function createSettingsUI(): string {
 
           <hr>
 
-          <label class="checkbox_label" for="${UI_ELEMENT_IDS.STREAMING_ENABLED}">
-            <input id="${UI_ELEMENT_IDS.STREAMING_ENABLED}" type="checkbox" />
-            <span>${t('settings.streamingEnabled')}</span>
-            <small>${t('settings.streamingEnabledDesc')}</small>
-          </label>
-
           <label for="${UI_ELEMENT_IDS.STREAMING_POLL_INTERVAL}">
             <span>${t('settings.streamingPollInterval')}</span>
             <small>${t('settings.streamingPollIntervalDesc')}</small>

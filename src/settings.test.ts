@@ -103,7 +103,6 @@ describe('settings', () => {
 
       expect(loaded.enabled).toBe(false);
       expect(loaded.metaPrompt).toBeTruthy(); // Should use default
-      expect(loaded.streamingEnabled).toBe(true); // Should use default
     });
   });
 

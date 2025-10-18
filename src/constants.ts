@@ -162,7 +162,6 @@ export const DEFAULT_PROMPT_DETECTION_PATTERNS = [
  */
 export const DEFAULT_SETTINGS = {
   enabled: true,
-  streamingEnabled: true,
   streamingPollInterval: STREAMING_POLL_INTERVAL.DEFAULT,
   monitorPollingInterval: STREAMING_POLL_INTERVAL.DEFAULT,
   maxConcurrentGenerations: MAX_CONCURRENT_GENERATIONS.DEFAULT,
@@ -201,7 +200,6 @@ export const UI_ELEMENT_IDS = {
   PRESET_EDITOR: 'auto_illustrator_preset_editor',
   PRESET_VIEWER: 'auto_illustrator_preset_viewer',
   PRESET_PREVIEW: 'auto_illustrator_preset_preview',
-  STREAMING_ENABLED: 'auto_illustrator_streaming_enabled',
   STREAMING_POLL_INTERVAL: 'auto_illustrator_streaming_poll_interval',
   MAX_CONCURRENT: 'auto_illustrator_max_concurrent',
   MIN_GENERATION_INTERVAL: 'auto_illustrator_min_generation_interval',

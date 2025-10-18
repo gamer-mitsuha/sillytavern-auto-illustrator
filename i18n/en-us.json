@@ -14,8 +14,6 @@
   "settings.saveAs": "Save As...",
   "settings.cancel": "Cancel",
   "settings.presetContentPreview": "Preset Content Preview:",
-  "settings.streamingEnabled": "Enable Streaming Image Generation",
-  "settings.streamingEnabledDesc": "Generate images as streaming text arrives (reduces perceived latency)",
   "settings.streamingPollInterval": "Streaming Poll Interval (ms)",
   "settings.streamingPollIntervalDesc": "How often to check for new prompts during streaming (lower = faster detection, more CPU usage)",
   "settings.maxConcurrent": "Max Concurrent Generations",
