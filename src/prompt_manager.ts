@@ -46,7 +46,7 @@
  *      metadata
  *    );
  *    message.mes = updatedText;
- *    await context.saveChat();
+ *    await renderMessageUpdate(messageId);
  *    ```
  *
  * 3. NODE.TEXT IS READONLY:
@@ -1080,7 +1080,7 @@ export async function detectPromptsInMessage(
  *   metadata
  * );
  * message.mes = updatedText;
- * await context.saveChat();
+ * await renderMessageUpdate(messageId);
  */
 export function replacePromptTextInMessage(
   promptId: string,
