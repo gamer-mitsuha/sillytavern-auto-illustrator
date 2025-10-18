@@ -302,6 +302,12 @@ export function createSettingsUI(): string {
             <small>${t('settings.showGalleryWidgetDesc')}</small>
           </label>
 
+          <label class="checkbox_label" for="${UI_ELEMENT_IDS.SHOW_STREAMING_PREVIEW_WIDGET}">
+            <input id="${UI_ELEMENT_IDS.SHOW_STREAMING_PREVIEW_WIDGET}" type="checkbox" />
+            <span>${t('settings.showStreamingPreviewWidget')}</span>
+            <small>${t('settings.showStreamingPreviewWidgetDesc')}</small>
+          </label>
+
           <label for="${UI_ELEMENT_IDS.LOG_LEVEL}">
             <span>${t('settings.logLevel')}</span>
             <small>${t('settings.logLevelDesc')}</small>

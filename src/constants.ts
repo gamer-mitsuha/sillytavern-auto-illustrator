@@ -175,6 +175,7 @@ export const DEFAULT_SETTINGS = {
   commonStyleTagsPosition: 'prefix' as const,
   showGalleryWidget: true,
   showProgressWidget: true,
+  showStreamingPreviewWidget: true,
   enableClickToRegenerate: true,
   promptGenerationMode: PROMPT_GENERATION_MODE.DEFAULT,
   metaPromptDepth: META_PROMPT_DEPTH.DEFAULT,
@@ -212,6 +213,8 @@ export const UI_ELEMENT_IDS = {
   COMMON_STYLE_TAGS_POSITION: 'auto_illustrator_common_style_tags_position',
   SHOW_GALLERY_WIDGET: 'auto_illustrator_show_gallery_widget',
   SHOW_PROGRESS_WIDGET: 'auto_illustrator_show_progress_widget',
+  SHOW_STREAMING_PREVIEW_WIDGET:
+    'auto_illustrator_show_streaming_preview_widget',
   PROMPT_GENERATION_MODE_SHARED: 'auto_illustrator_prompt_gen_mode_shared',
   PROMPT_GENERATION_MODE_INDEPENDENT:
     'auto_illustrator_prompt_gen_mode_independent',

@@ -152,6 +152,9 @@ function updateUI(): void {
   const showProgressWidgetCheckbox = document.getElementById(
     UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
   ) as HTMLInputElement;
+  const showStreamingPreviewWidgetCheckbox = document.getElementById(
+    UI_ELEMENT_IDS.SHOW_STREAMING_PREVIEW_WIDGET
+  ) as HTMLInputElement;
   const promptGenModeRegexRadio = document.getElementById(
     UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED
   ) as HTMLInputElement;
@@ -191,6 +194,9 @@ function updateUI(): void {
     showGalleryWidgetCheckbox.checked = settings.showGalleryWidget;
   if (showProgressWidgetCheckbox)
     showProgressWidgetCheckbox.checked = settings.showProgressWidget;
+  if (showStreamingPreviewWidgetCheckbox)
+    showStreamingPreviewWidgetCheckbox.checked =
+      settings.showStreamingPreviewWidget;
 
   // Update prompt generation mode radio buttons
   if (promptGenModeRegexRadio && promptGenModeLLMRadio) {
@@ -397,6 +403,9 @@ function handleSettingsChange(): void {
   const showProgressWidgetCheckbox = document.getElementById(
     UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
   ) as HTMLInputElement;
+  const showStreamingPreviewWidgetCheckbox = document.getElementById(
+    UI_ELEMENT_IDS.SHOW_STREAMING_PREVIEW_WIDGET
+  ) as HTMLInputElement;
   const promptGenModeRegexRadio = document.getElementById(
     UI_ELEMENT_IDS.PROMPT_GENERATION_MODE_SHARED
   ) as HTMLInputElement;
@@ -423,6 +432,7 @@ function handleSettingsChange(): void {
   const wasEnabled = settings.enabled;
   const wasShowGalleryWidget = settings.showGalleryWidget;
   const wasShowProgressWidget = settings.showProgressWidget;
+  const wasShowStreamingPreviewWidget = settings.showStreamingPreviewWidget;
   settings.enabled = enabledCheckbox?.checked ?? settings.enabled;
   settings.metaPrompt = metaPromptTextarea?.value ?? settings.metaPrompt;
 
@@ -627,6 +637,9 @@ function handleSettingsChange(): void {
     showGalleryWidgetCheckbox?.checked ?? settings.showGalleryWidget;
   settings.showProgressWidget =
     showProgressWidgetCheckbox?.checked ?? settings.showProgressWidget;
+  settings.showStreamingPreviewWidget =
+    showStreamingPreviewWidgetCheckbox?.checked ??
+    settings.showStreamingPreviewWidget;
 
   // Apply log level
   setLogLevel(settings.logLevel);
@@ -644,7 +657,8 @@ function handleSettingsChange(): void {
   if (
     wasEnabled !== settings.enabled ||
     wasShowGalleryWidget !== settings.showGalleryWidget ||
-    wasShowProgressWidget !== settings.showProgressWidget
+    wasShowProgressWidget !== settings.showProgressWidget ||
+    wasShowStreamingPreviewWidget !== settings.showStreamingPreviewWidget
   ) {
     toastr.info(t('toast.reloadRequired'), t('extensionName'), {
       timeOut: 5000,
@@ -662,6 +676,11 @@ function handleSettingsChange(): void {
     if (wasShowProgressWidget !== settings.showProgressWidget) {
       logger.info(
         `Progress widget ${settings.showProgressWidget ? 'enabled' : 'disabled'} - reload required`
+      );
+    }
+    if (wasShowStreamingPreviewWidget !== settings.showStreamingPreviewWidget) {
+      logger.info(
+        `Streaming preview widget ${settings.showStreamingPreviewWidget ? 'enabled' : 'disabled'} - reload required`
       );
     }
   }
@@ -1249,12 +1268,18 @@ function initialize(): void {
       logger.info('Gallery widget disabled - skipping initialization');
     }
 
-    // Initialize streaming preview widget (always enabled when extension is enabled)
-    streamingPreviewWidget = new StreamingPreviewWidget(
-      progressManager,
-      settings.promptDetectionPatterns || DEFAULT_PROMPT_DETECTION_PATTERNS
-    );
-    logger.info('Initialized StreamingPreviewWidget');
+    // Initialize streaming preview widget if enabled
+    if (settings.showStreamingPreviewWidget) {
+      streamingPreviewWidget = new StreamingPreviewWidget(
+        progressManager,
+        settings.promptDetectionPatterns || DEFAULT_PROMPT_DETECTION_PATTERNS
+      );
+      logger.info('Initialized StreamingPreviewWidget');
+    } else {
+      logger.info(
+        'Streaming preview widget disabled - skipping initialization'
+      );
+    }
   } else {
     logger.info(
       'Extension is disabled - skipping SessionManager and widget initialization'
@@ -1420,8 +1445,15 @@ function initialize(): void {
     const showProgressWidgetCheckbox = document.getElementById(
       UI_ELEMENT_IDS.SHOW_PROGRESS_WIDGET
     ) as HTMLInputElement;
+    const showStreamingPreviewWidgetCheckbox = document.getElementById(
+      UI_ELEMENT_IDS.SHOW_STREAMING_PREVIEW_WIDGET
+    ) as HTMLInputElement;
     showGalleryWidgetCheckbox?.addEventListener('change', handleSettingsChange);
     showProgressWidgetCheckbox?.addEventListener(
+      'change',
+      handleSettingsChange
+    );
+    showStreamingPreviewWidgetCheckbox?.addEventListener(
       'change',
       handleSettingsChange
     );

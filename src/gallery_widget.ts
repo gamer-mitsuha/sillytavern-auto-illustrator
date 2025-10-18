@@ -264,9 +264,7 @@ export class GalleryWidgetView {
   private updateSingleMessage(messageId: number): void {
     const context = (window as any).SillyTavern?.getContext?.();
     if (!context?.chat || messageId < 0 || messageId >= context.chat.length) {
-      logger.warn(
-        `Cannot update message ${messageId}: invalid or unavailable`
-      );
+      logger.warn(`Cannot update message ${messageId}: invalid or unavailable`);
       return;
     }
 
@@ -280,9 +278,7 @@ export class GalleryWidgetView {
     const messageText = message.mes || '';
     const images = extractImagesFromMessage(messageText, messageId);
 
-    logger.debug(
-      `Updated message ${messageId}: found ${images.length} images`
-    );
+    logger.debug(`Updated message ${messageId}: found ${images.length} images`);
 
     if (images.length > 0) {
       // Create message preview (first 100 chars, strip HTML)

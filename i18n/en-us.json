@@ -46,6 +46,8 @@
   "settings.showProgressWidgetDesc": "Display the progress widget that shows generation status and completed images",
   "settings.showGalleryWidget": "Show Gallery Widget",
   "settings.showGalleryWidgetDesc": "Display the gallery widget that shows all images in the current chat",
+  "settings.showStreamingPreviewWidget": "Show Streaming Preview Widget",
+  "settings.showStreamingPreviewWidgetDesc": "Display the streaming preview widget that shows real-time text and image placeholders during generation",
   "settings.validationSuccess": "✅ Detection patterns can find image generation prompts in meta prompt",
   "settings.validationWarning": "⚠️ Warning: Detection patterns cannot find any image generation prompts in the current meta prompt. This may indicate a mismatch.",
   "settings.validationHint": "The regex patterns should match the format used in your meta prompt template.",

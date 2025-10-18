@@ -133,6 +133,7 @@ declare global {
     commonStyleTagsPosition: 'prefix' | 'suffix';
     showGalleryWidget: boolean;
     showProgressWidget: boolean;
+    showStreamingPreviewWidget: boolean;
     enableClickToRegenerate: boolean;
     promptGenerationMode:
       | 'shared-api'
