@@ -4,7 +4,8 @@
  */
 
 import {ImageGenerationQueue} from './streaming_image_queue';
-import {generateImage, PLACEHOLDER_IMAGE_URL} from './image_generator';
+import {generateImage} from './image_generator';
+import {PLACEHOLDER_IMAGE_URL} from './constants';
 import type {QueuedPrompt, DeferredImage} from './types';
 import {createLogger} from './logger';
 import {progressManager} from './progress_manager';

@@ -13,7 +13,7 @@
 import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
 import type {PromptRegistry} from './prompt_manager';
-import {PLACEHOLDER_IMAGE_URL} from './image_generator';
+import {PLACEHOLDER_IMAGE_URL} from './constants';
 
 const logger = createLogger('reconciliation');
 
