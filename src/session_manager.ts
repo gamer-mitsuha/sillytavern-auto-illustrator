@@ -241,6 +241,24 @@ export class SessionManager {
         // Emit MESSAGE_UPDATED
         const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
         await context.eventSource.emit(MESSAGE_UPDATED, messageId);
+      } else {
+        // Even if no restoration needed, ensure final rendering events are emitted
+        // This ensures proper message rendering when streaming is disabled
+        logger.debug(
+          `No restoration needed for message ${messageId}, emitting final MESSAGE_EDITED`
+        );
+
+        // Emit MESSAGE_EDITED to trigger any post-processing
+        // (insertDeferredImages already emitted it, but emit again for consistency)
+        const MESSAGE_EDITED = context.eventTypes.MESSAGE_EDITED;
+        await context.eventSource.emit(MESSAGE_EDITED, messageId);
+
+        // Update DOM to ensure final render
+        context.updateMessageBlock(messageId, message);
+
+        logger.debug(
+          `Final MESSAGE_EDITED emitted and DOM updated for message ${messageId}`
+        );
       }
     } catch (error) {
       logger.error(
