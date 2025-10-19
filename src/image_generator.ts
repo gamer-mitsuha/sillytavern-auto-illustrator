@@ -418,7 +418,7 @@ export async function insertDeferredImages(
           logger.info(`Image URL (raw): ${deferred.imageUrl}`);
           logger.info(`Prompt ID: ${queuedPrompt.targetPromptId}`);
 
-          linkImageToPrompt(
+          await linkImageToPrompt(
             queuedPrompt.targetPromptId,
             deferred.imageUrl,
             metadata
@@ -504,7 +504,11 @@ export async function insertDeferredImages(
           logger.info(`Image URL: ${deferred.imageUrl}`);
           logger.info(`Prompt ID: ${deferred.promptId}`);
 
-          linkImageToPrompt(deferred.promptId, deferred.imageUrl, metadata);
+          await linkImageToPrompt(
+            deferred.promptId,
+            deferred.imageUrl,
+            metadata
+          );
           logger.debug(`Linked ${imageType} to prompt: ${deferred.promptId}`);
         } else {
           logger.warn(

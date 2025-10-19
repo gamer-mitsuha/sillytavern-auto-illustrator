@@ -140,6 +140,18 @@ export const META_PROMPT_DEPTH = {
 } as const;
 
 /**
+ * Final reconciliation delay configuration (milliseconds)
+ * Controls how long to wait after GENERATION_ENDED before running final reconciliation
+ * This helps recover images removed by other extensions that run async handlers
+ */
+export const FINAL_RECONCILIATION_DELAY = {
+  DEFAULT: 5000,
+  MIN: 0,
+  MAX: 30000,
+  STEP: 1000,
+} as const;
+
+/**
  * Default frequency guidelines for LLM prompt generation
  * Tells the LLM when to generate image prompts
  */
@@ -193,6 +205,7 @@ export const DEFAULT_SETTINGS = {
   contextMessageCount: CONTEXT_MESSAGE_COUNT.DEFAULT,
   llmFrequencyGuidelines: DEFAULT_LLM_FREQUENCY_GUIDELINES,
   llmPromptWritingGuidelines: DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
+  finalReconciliationDelayMs: FINAL_RECONCILIATION_DELAY.DEFAULT,
 };
 
 /**

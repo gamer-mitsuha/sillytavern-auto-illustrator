@@ -144,6 +144,8 @@ declare global {
     contextMessageCount: number;
     llmFrequencyGuidelines: string;
     llmPromptWritingGuidelines: string;
+    /** Delay (ms) before running final reconciliation after GENERATION_ENDED (default: 5000, 0 to disable) */
+    finalReconciliationDelayMs: number;
   }
 
   interface ImagePromptMatch {

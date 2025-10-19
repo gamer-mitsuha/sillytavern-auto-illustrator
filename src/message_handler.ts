@@ -19,6 +19,82 @@ import {renderMessageUpdate} from './utils/message_renderer';
 
 const logger = createLogger('MessageHandler');
 
+// Map of messageId -> timeout ID for delayed reconciliations
+const delayedReconciliations = new Map<number, NodeJS.Timeout>();
+
+/**
+ * Schedules a delayed reconciliation for a message
+ * Cancels any existing delayed reconciliation for the same message
+ */
+function scheduleDelayedReconciliation(
+  messageId: number,
+  delayMs: number,
+  context: SillyTavernContext,
+  settings: AutoIllustratorSettings
+): void {
+  // Cancel existing delayed reconciliation for this message
+  const existing = delayedReconciliations.get(messageId);
+  if (existing) {
+    clearTimeout(existing);
+    logger.debug(
+      `Cancelled existing delayed reconciliation for message ${messageId}`
+    );
+  }
+
+  if (delayMs <= 0) {
+    logger.debug('Delayed reconciliation disabled (delay <= 0)');
+    return;
+  }
+
+  logger.info(
+    `Scheduling delayed reconciliation for message ${messageId} in ${delayMs}ms`
+  );
+
+  const timeoutId = setTimeout(async () => {
+    delayedReconciliations.delete(messageId);
+
+    logger.info(
+      `Running delayed final reconciliation for message ${messageId}`
+    );
+
+    // Re-fetch context to ensure it's fresh
+    const freshContext = SillyTavern.getContext();
+    if (!freshContext) {
+      logger.warn('Context not available for delayed reconciliation');
+      return;
+    }
+
+    await reconcileMessageIfNeeded(
+      messageId,
+      freshContext,
+      settings,
+      'GENERATION_ENDED:delayed'
+    );
+  }, delayMs);
+
+  delayedReconciliations.set(messageId, timeoutId);
+}
+
+/**
+ * Cancels all pending delayed reconciliations
+ * Called when chat changes
+ */
+export function cancelAllDelayedReconciliations(): void {
+  if (delayedReconciliations.size === 0) {
+    return;
+  }
+
+  logger.info(
+    `Cancelling ${delayedReconciliations.size} delayed reconciliation(s)`
+  );
+
+  for (const timeoutId of delayedReconciliations.values()) {
+    clearTimeout(timeoutId);
+  }
+
+  delayedReconciliations.clear();
+}
+
 /**
  * Handles STREAM_TOKEN_STARTED event
  * Starts a streaming session for the message
@@ -313,7 +389,7 @@ async function reconcileMessageIfNeeded(
 
 /**
  * Handles GENERATION_ENDED event
- * Runs a reconciliation pass as a final safety check
+ * Runs immediate reconciliation and schedules delayed final reconciliation
  *
  * @param messageId - Message ID that finished generation
  * @param context - SillyTavern context
@@ -326,9 +402,21 @@ export async function handleGenerationEnded(
 ): Promise<void> {
   logger.debug(`GENERATION_ENDED event for message ${messageId}`);
 
-  const message = context.chat?.[messageId];
+  // SillyTavern bug workaround: GENERATION_ENDED sometimes emits chat.length instead of chat.length - 1
+  // Valid message indices are 0 to length-1, so messageId should never equal chat.length
+  let adjustedMessageId = messageId;
+  if (messageId === context.chat?.length) {
+    adjustedMessageId = messageId - 1;
+    logger.warn(
+      `GENERATION_ENDED messageId ${messageId} equals chat.length, adjusting to ${adjustedMessageId}`
+    );
+  }
+
+  const message = context.chat?.[adjustedMessageId];
   if (!message) {
-    logger.debug(`Message ${messageId} not found, skipping reconciliation`);
+    logger.debug(
+      `Message ${adjustedMessageId} not found, skipping reconciliation`
+    );
     return;
   }
 
@@ -338,16 +426,25 @@ export async function handleGenerationEnded(
     return;
   }
 
-  // Run reconciliation as a final safety check
-  // This catches any images that were removed by other handlers after insertion
+  // Run immediate reconciliation as a first pass
+  // This catches most cases where images are missing
   logger.debug(
-    `Running final reconciliation pass for message ${messageId} (GENERATION_ENDED)`
+    `Running immediate reconciliation for message ${adjustedMessageId} (GENERATION_ENDED)`
   );
   await reconcileMessageIfNeeded(
-    messageId,
+    adjustedMessageId,
     context,
     settings,
-    'GENERATION_ENDED'
+    'GENERATION_ENDED:immediate'
+  );
+
+  // Schedule delayed final reconciliation to catch late edits from other extensions
+  // This is particularly important when images finish generating before streaming ends
+  scheduleDelayedReconciliation(
+    adjustedMessageId,
+    settings.finalReconciliationDelayMs,
+    context,
+    settings
   );
 }
 
@@ -406,10 +503,13 @@ export function createEventHandlers(settings: AutoIllustratorSettings): {
 
 /**
  * Handles chat change event
- * Cancels all active sessions when switching chats
+ * Cancels all active sessions and delayed reconciliations when switching chats
  */
 export function handleChatChanged(): void {
   logger.info('Chat changed, cancelling all active sessions');
+
+  // Cancel any pending delayed reconciliations
+  cancelAllDelayedReconciliations();
 
   const activeSessions = sessionManager.getAllSessions();
 
