@@ -21,7 +21,7 @@ import {scheduleDomOperation} from './dom_queue';
 import {createLogger} from './logger';
 import type {GenerationSession, SessionType, ImageInsertionMode} from './types';
 import {getMetadata} from './metadata';
-import {getPromptNode} from './prompt_manager';
+import {getPromptNode, deleteMessagePrompts} from './prompt_manager';
 import {getStreamingPreviewWidget} from './index';
 import {renderMessageUpdate} from './utils/message_renderer';
 
@@ -75,6 +75,17 @@ export class SessionManager {
     // Cancel any other type of session for this message
     if (existingSession) {
       this.cancelSession(messageId);
+    }
+
+    // Clean up stale prompts from previous generations of this message
+    // This prevents reconciliation warnings for prompts that no longer exist
+    // (e.g., when a message is regenerated multiple times)
+    const metadata = getMetadata();
+    const deletedCount = await deleteMessagePrompts(messageId, metadata);
+    if (deletedCount > 0) {
+      logger.debug(
+        `Cleaned up ${deletedCount} stale prompt(s) for message ${messageId}`
+      );
     }
 
     // Create shared queue and processor

@@ -39,6 +39,7 @@ vi.mock('./prompt_manager', () => ({
     id: 'test-prompt-id',
     text: 'test prompt text',
   })),
+  deleteMessagePrompts: vi.fn().mockResolvedValue(0),
 }));
 vi.mock('./utils/message_renderer', () => ({
   renderMessageUpdate: vi.fn().mockResolvedValue(undefined),
@@ -119,6 +120,30 @@ describe('SessionManager', () => {
 
       expect(manager.isActive(0)).toBe(true);
       expect(manager.isActive()).toBe(true);
+    });
+
+    it('should clean up stale prompts when starting a streaming session', async () => {
+      const {deleteMessagePrompts} = await import('./prompt_manager');
+
+      // Mock deleteMessagePrompts to return 3 deleted prompts
+      vi.mocked(deleteMessagePrompts).mockResolvedValueOnce(3);
+
+      await manager.startStreamingSession(0, mockContext, mockSettings);
+
+      // Should have called deleteMessagePrompts with the correct messageId
+      expect(deleteMessagePrompts).toHaveBeenCalledWith(0, expect.anything());
+    });
+
+    it('should not log cleanup message when no stale prompts exist', async () => {
+      const {deleteMessagePrompts} = await import('./prompt_manager');
+
+      // Mock deleteMessagePrompts to return 0 (no prompts deleted)
+      vi.mocked(deleteMessagePrompts).mockResolvedValueOnce(0);
+
+      await manager.startStreamingSession(1, mockContext, mockSettings);
+
+      // Should still call deleteMessagePrompts
+      expect(deleteMessagePrompts).toHaveBeenCalledWith(1, expect.anything());
     });
   });
 
