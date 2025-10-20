@@ -14,16 +14,6 @@ import promptWritingGuidelinesSfw from './presets/prompt_writing_guidelines.md';
 export const EXTENSION_NAME = 'auto_illustrator';
 
 /**
- * Predefined placeholder image for failed image generation
- * Simple SVG warning icon with red/orange error theme
- * Used for:
- * - Creating placeholder images when generation fails (queue_processor.ts)
- * - Detecting placeholder images during reconciliation (reconciliation.ts)
- */
-export const PLACEHOLDER_IMAGE_URL =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIGZpbGw9IiNmZmVkZWQiLz4KICA8Y2lyY2xlIGN4PSI2NCIgY3k9IjY0IiByPSI1MCIgZmlsbD0iI2RjMzU0NSIgc3Ryb2tlPSIjYzgyMzMzIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8dGV4dCB4PSI2NCIgeT0iNzQiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2MCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7imqDvuI88L3RleHQ+Cjwvc3ZnPg==';
-
-/**
  * Streaming poll interval configuration (milliseconds)
  * Controls how frequently the extension checks for new prompts during streaming
  */

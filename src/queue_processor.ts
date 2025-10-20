@@ -5,7 +5,7 @@
 
 import {ImageGenerationQueue} from './streaming_image_queue';
 import {generateImage} from './image_generator';
-import {PLACEHOLDER_IMAGE_URL} from './constants';
+import {createPlaceholderUrl} from './placeholder';
 import type {QueuedPrompt, DeferredImage} from './types';
 import {createLogger} from './logger';
 import {progressManager} from './progress_manager';
@@ -242,10 +242,14 @@ export class QueueProcessor {
         ? prompt.prompt.substring(0, 57) + '...'
         : prompt.prompt;
 
+    // Create unique placeholder URL to avoid idempotency deduplication
+    // Each failed prompt gets its own placeholder with a unique URL
+    const placeholderUrl = createPlaceholderUrl(promptId);
+
     // Add placeholder to deferred images for insertion
     this.deferredImages.push({
       prompt,
-      imageUrl: PLACEHOLDER_IMAGE_URL, // Placeholder image URL (data URI)
+      imageUrl: placeholderUrl, // Unique placeholder URL (data URI with fragment)
       promptId,
       promptPreview,
       completedAt: Date.now(),

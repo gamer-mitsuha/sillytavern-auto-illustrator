@@ -13,7 +13,7 @@
 import {createLogger} from './logger';
 import type {AutoIllustratorChatMetadata} from './types';
 import type {PromptRegistry} from './prompt_manager';
-import {PLACEHOLDER_IMAGE_URL} from './constants';
+import {isPlaceholderUrl} from './placeholder';
 import {normalizeImageUrl} from './image_utils';
 
 const logger = createLogger('reconciliation');
@@ -346,8 +346,8 @@ export function reconcileMessage(
           continue;
         }
 
-        // Check if this is a placeholder image by comparing URL directly
-        const isPlaceholder = imageUrl === PLACEHOLDER_IMAGE_URL;
+        // Check if this is a placeholder image (handles both old and new format with fragment)
+        const isPlaceholder = isPlaceholderUrl(imageUrl);
 
         // Create image tag using shared function
         // Works for both normal images and failed placeholders (both use img tags with real URLs)

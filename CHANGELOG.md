@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Placeholder Images** - Fixed bug where only one placeholder image would be inserted when multiple image generations failed
+  - Root cause: Idempotency check was incorrectly deduplicating placeholders by shared URL
+  - Solution: Generate unique placeholder URLs by appending prompt ID as fragment identifier
+  - Each failed prompt now gets its own placeholder that users can click to retry
+  - Backward compatible: detection logic handles both old (shared URL) and new (unique URL) formats
+
 ### Changed
 - **Architecture** - Centralized CHAT_CHANGED event handling to prevent race conditions and ensure proper execution order
   - Created dedicated `chat_changed_handler` module that owns single CHAT_CHANGED event listener

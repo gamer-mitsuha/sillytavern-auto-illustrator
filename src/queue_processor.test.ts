@@ -233,4 +233,100 @@ describe('QueueProcessor', () => {
       expect(sdCommand?.callback).not.toHaveBeenCalled();
     });
   });
+
+  describe('failed placeholder generation', () => {
+    it('should create unique placeholder URLs for multiple failed generations', async () => {
+      // Mock SD command to always fail
+      const mockSdCommand = vi.fn().mockResolvedValue(null);
+      mockContext.SlashCommandParser = {
+        commands: {
+          sd: {
+            callback: mockSdCommand,
+          },
+        },
+      };
+
+      // Add multiple prompts
+      const prompt1 = queue.addPrompt(
+        'test1',
+        '<!--img-prompt="test1"-->',
+        0,
+        10,
+        undefined,
+        'prompt_id_1'
+      );
+      const prompt2 = queue.addPrompt(
+        'test2',
+        '<!--img-prompt="test2"-->',
+        20,
+        30,
+        undefined,
+        'prompt_id_2'
+      );
+      const prompt3 = queue.addPrompt(
+        'test3',
+        '<!--img-prompt="test3"-->',
+        40,
+        50,
+        undefined,
+        'prompt_id_3'
+      );
+
+      processor.start(0);
+
+      // Process all prompts
+      await processor.processRemaining();
+
+      // Get deferred images
+      const deferred = processor.getDeferredImages();
+
+      // Should have 3 failed placeholders
+      expect(deferred).toHaveLength(3);
+
+      // All should be marked as failed
+      expect(deferred.every(d => d.isFailed)).toBe(true);
+
+      // Extract placeholder URLs
+      const urls = deferred.map(d => d.imageUrl);
+
+      // All URLs should be unique
+      const uniqueUrls = new Set(urls);
+      expect(uniqueUrls.size).toBe(3);
+
+      // All URLs should be recognized as placeholder URLs
+      const {isPlaceholderUrl} = await import('./placeholder');
+      expect(urls.every(url => isPlaceholderUrl(url))).toBe(true);
+
+      // Verify each URL contains its corresponding prompt ID
+      expect(deferred[0].imageUrl).toContain('prompt_id_1');
+      expect(deferred[1].imageUrl).toContain('prompt_id_2');
+      expect(deferred[2].imageUrl).toContain('prompt_id_3');
+    });
+
+    it('should create placeholder with empty promptId if not provided', async () => {
+      // Mock SD command to fail
+      const mockSdCommand = vi.fn().mockResolvedValue(null);
+      mockContext.SlashCommandParser = {
+        commands: {
+          sd: {
+            callback: mockSdCommand,
+          },
+        },
+      };
+
+      // Add prompt without targetPromptId
+      queue.addPrompt('test', '<!--img-prompt="test"-->', 0, 10);
+
+      processor.start(0);
+      await processor.processRemaining();
+
+      const deferred = processor.getDeferredImages();
+      expect(deferred).toHaveLength(1);
+      expect(deferred[0].isFailed).toBe(true);
+
+      // Should still have a placeholder URL (with empty promptId)
+      const {isPlaceholderUrl} = await import('./placeholder');
+      expect(isPlaceholderUrl(deferred[0].imageUrl)).toBe(true);
+    });
+  });
 });
