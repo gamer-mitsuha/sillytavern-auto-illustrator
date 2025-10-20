@@ -105,8 +105,12 @@ export class ProgressManager extends EventTarget {
 
   /**
    * Registers new task(s) for a message
-   * On first call: initializes tracking and emits progress:started
+   * On first call: initializes tracking and emits progress:started (only if incrementBy > 0)
    * On subsequent calls: increments total and emits progress:updated
+   *
+   * Fix for issue #76: When incrementBy=0, we initialize state but defer progress:started
+   * emission until actual tasks are registered. This prevents the progress widget from
+   * appearing prematurely for existing messages.
    *
    * @param messageId - Message ID to track
    * @param incrementBy - Number of tasks to add (default: 1)
@@ -117,11 +121,22 @@ export class ProgressManager extends EventTarget {
 
     if (existing) {
       // Increment total for subsequent registrations
+      const oldTotal = existing.total;
       existing.total += incrementBy;
-      this.emitUpdated(messageId, existing);
-      logger.debug(
-        `Registered ${incrementBy} task(s) for message ${messageId}: ${existing.completed}/${existing.total} (${existing.succeeded} ok, ${existing.failed} failed)`
-      );
+
+      // If this is the first time we're adding actual tasks (transitioning from 0),
+      // emit progress:started instead of progress:updated
+      if (oldTotal === 0 && incrementBy > 0) {
+        this.emitStarted(messageId, existing.total);
+        logger.debug(
+          `First tasks registered for message ${messageId}: 0/${existing.total} (emitted progress:started)`
+        );
+      } else {
+        this.emitUpdated(messageId, existing);
+        logger.debug(
+          `Registered ${incrementBy} task(s) for message ${messageId}: ${existing.completed}/${existing.total} (${existing.succeeded} ok, ${existing.failed} failed)`
+        );
+      }
       return existing.total;
     } else {
       // Initialize tracking for first registration
@@ -133,10 +148,19 @@ export class ProgressManager extends EventTarget {
         startTime: Date.now(),
       };
       this.states.set(messageId, newState);
-      this.emitStarted(messageId, incrementBy);
-      logger.debug(
-        `Initialized tracking for message ${messageId}: 0/${incrementBy} tasks`
-      );
+
+      // Only emit progress:started if we have actual tasks to track
+      // This prevents premature widget display when called with incrementBy=0
+      if (incrementBy > 0) {
+        this.emitStarted(messageId, incrementBy);
+        logger.debug(
+          `Initialized tracking for message ${messageId}: 0/${incrementBy} tasks`
+        );
+      } else {
+        logger.debug(
+          `Initialized tracking for message ${messageId} with 0 tasks (deferred progress:started)`
+        );
+      }
       return incrementBy;
     }
   }
@@ -224,7 +248,10 @@ export class ProgressManager extends EventTarget {
   /**
    * Updates the total count without changing completed count
    * Used when new prompts are discovered during streaming
-   * Emits progress:updated event
+   * Emits progress:updated event, or progress:started if transitioning from 0 tasks
+   *
+   * Fix for issue #76: When transitioning from total=0 to total>0, emit progress:started
+   * instead of progress:updated to properly initialize the progress widget.
    *
    * @param messageId - Message ID
    * @param newTotal - New total task count
@@ -238,11 +265,21 @@ export class ProgressManager extends EventTarget {
       return;
     }
 
+    const oldTotal = state.total;
     state.total = newTotal;
-    this.emitUpdated(messageId, state);
-    logger.debug(
-      `Updated total for message ${messageId}: ${state.completed}/${state.total} (${state.succeeded} ok, ${state.failed} failed)`
-    );
+
+    // If transitioning from 0 to >0, emit progress:started instead of progress:updated
+    if (oldTotal === 0 && newTotal > 0) {
+      this.emitStarted(messageId, newTotal);
+      logger.debug(
+        `First tasks detected for message ${messageId}: 0/${newTotal} (emitted progress:started)`
+      );
+    } else {
+      this.emitUpdated(messageId, state);
+      logger.debug(
+        `Updated total for message ${messageId}: ${state.completed}/${state.total} (${state.succeeded} ok, ${state.failed} failed)`
+      );
+    }
   }
 
   /**

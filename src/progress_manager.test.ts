@@ -123,6 +123,42 @@ describe('ProgressManager', () => {
       });
       expect(startedEvents).toHaveLength(2);
     });
+
+    // Fix for issue #76: Defer progress:started when incrementBy=0
+    it('should initialize tracking but NOT emit progress:started when incrementBy=0', () => {
+      const total = manager.registerTask(1, 0);
+
+      expect(total).toBe(0);
+      expect(startedEvents).toHaveLength(0); // No started event
+      expect(updatedEvents).toHaveLength(0); // No updated event either
+      expect(manager.isTracking(1)).toBe(true); // Still tracking
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 0,
+        succeeded: 0,
+        failed: 0,
+      });
+    });
+
+    // Fix for issue #76: Emit progress:started when transitioning from 0 to >0
+    it('should emit progress:started when first adding tasks after registerTask(0)', () => {
+      manager.registerTask(1, 0); // Initialize with 0
+      expect(startedEvents).toHaveLength(0);
+      startedEvents = [];
+      updatedEvents = [];
+
+      manager.registerTask(1, 3); // Add actual tasks
+
+      expect(startedEvents).toHaveLength(1); // NOW emit started
+      expect(startedEvents[0]).toEqual({messageId: 1, total: 3});
+      expect(updatedEvents).toHaveLength(0); // Should NOT emit updated
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 3,
+        succeeded: 0,
+        failed: 0,
+      });
+    });
   });
 
   describe('completeTask', () => {
@@ -273,6 +309,44 @@ describe('ProgressManager', () => {
       // Should not throw, just log a warning
       expect(() => manager.updateTotal(999, 10)).not.toThrow();
       expect(manager.isTracking(999)).toBe(false);
+    });
+
+    // Fix for issue #76: Emit progress:started when transitioning from 0 to >0
+    it('should emit progress:started when updating total from 0 to >0', () => {
+      manager.registerTask(1, 0); // Initialize with 0
+      expect(startedEvents).toHaveLength(0);
+      startedEvents = [];
+      updatedEvents = [];
+
+      manager.updateTotal(1, 3); // Update to 3
+
+      expect(startedEvents).toHaveLength(1); // Emit started, not updated
+      expect(startedEvents[0]).toEqual({messageId: 1, total: 3});
+      expect(updatedEvents).toHaveLength(0); // Should NOT emit updated
+      expect(manager.getState(1)).toEqual({
+        current: 0,
+        total: 3,
+        succeeded: 0,
+        failed: 0,
+      });
+    });
+
+    it('should emit progress:updated (not started) when updating from >0 to higher value', () => {
+      manager.registerTask(1, 2);
+      startedEvents = [];
+      updatedEvents = [];
+
+      manager.updateTotal(1, 5); // Update from 2 to 5
+
+      expect(startedEvents).toHaveLength(0); // Should NOT emit started
+      expect(updatedEvents).toHaveLength(1); // Should emit updated
+      expect(updatedEvents[0]).toEqual({
+        messageId: 1,
+        total: 5,
+        completed: 0,
+        succeeded: 0,
+        failed: 0,
+      });
     });
   });
 
@@ -538,6 +612,52 @@ describe('ProgressManager', () => {
       expect(manager.isTracking(1)).toBe(true);
 
       // Session ends, caller clears
+      manager.clear(1);
+      expect(manager.isTracking(1)).toBe(false);
+    });
+
+    // Fix for issue #76: Test deferred progress:started in streaming scenario
+    it('should handle streaming scenario with deferred progress:started (registerTask(0) -> updateTotal)', () => {
+      // Streaming starts - initialize with 0 tasks
+      manager.registerTask(1, 0);
+      expect(startedEvents).toHaveLength(0); // No started event yet
+      expect(manager.isTracking(1)).toBe(true);
+
+      startedEvents = [];
+      updatedEvents = [];
+
+      // First prompts detected during streaming
+      manager.updateTotal(1, 2);
+      expect(startedEvents).toHaveLength(1); // NOW emit started
+      expect(startedEvents[0]).toEqual({messageId: 1, total: 2});
+      expect(updatedEvents).toHaveLength(0);
+
+      startedEvents = [];
+      updatedEvents = [];
+
+      // Image completes
+      manager.completeTask(1);
+      expect(startedEvents).toHaveLength(0);
+      expect(updatedEvents).toHaveLength(1);
+
+      // More prompts detected
+      manager.updateTotal(1, 4);
+      expect(startedEvents).toHaveLength(0); // Should NOT emit started again
+      expect(updatedEvents).toHaveLength(2); // Should emit updated
+
+      // Remaining complete
+      manager.completeTask(1);
+      manager.completeTask(1);
+      manager.completeTask(1);
+
+      expect(manager.getState(1)).toEqual({
+        current: 4,
+        total: 4,
+        succeeded: 4,
+        failed: 0,
+      });
+
+      // Session ends
       manager.clear(1);
       expect(manager.isTracking(1)).toBe(false);
     });

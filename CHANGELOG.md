@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Progress Widget** - Fixed bug where progress widget would appear prematurely for existing messages (issue #76)
+  - Root cause: `progress:started` event was emitted immediately when `registerTask(messageId, 0)` was called during streaming initialization, even before any actual image prompts were detected
+  - Solution: Defer `progress:started` emission until first actual tasks are registered (when `total > 0`)
+  - Modified `ProgressManager.registerTask()` to skip event emission when `incrementBy=0`
+  - Modified `ProgressManager.updateTotal()` to emit `progress:started` when transitioning from `total=0` to `total>0`
+  - Progress widget now only appears when image generation actually begins, not on chat/character entry
+
 ### Added
 - **Image Display Width Control** - Added global setting to control display width of generated images in chat (10-100%)
   - Configurable via slider in extension settings (default: 100%)
