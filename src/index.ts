@@ -68,6 +68,7 @@ let settings: AutoIllustratorSettings;
 let isEditingPreset = false; // Track if user is currently editing a preset
 let streamingPreviewWidget: StreamingPreviewWidget | null = null; // Streaming preview widget instance
 let imageWidthUpdateTimer: ReturnType<typeof setTimeout> | null = null; // Debounce timer for image width updates
+let previousImageDisplayWidth: number | null = null; // Track previous width to detect actual changes
 
 // Generation state
 export let currentGenerationType: string | null = null; // Track generation type for filtering
@@ -727,6 +728,12 @@ function handleSettingsChange(): void {
       IMAGE_DISPLAY_WIDTH.MAX,
       IMAGE_DISPLAY_WIDTH.STEP
     );
+
+    // Check if value actually changed from previous setting
+    const valueChanged =
+      previousImageDisplayWidth === null ||
+      clampedValue !== previousImageDisplayWidth;
+
     settings.imageDisplayWidth = clampedValue;
     // Update UI to show validated value
     imageDisplayWidthInput.value = clampedValue.toString();
@@ -734,34 +741,46 @@ function handleSettingsChange(): void {
       imageDisplayWidthValue.textContent = `${clampedValue}%`;
     }
 
-    // Debounce the expensive operations (HTML update + re-render)
-    // Clear any pending update
-    if (imageWidthUpdateTimer) {
-      clearTimeout(imageWidthUpdateTimer);
-    }
+    // Only apply expensive operations if the value actually changed
+    if (valueChanged) {
+      logger.debug(
+        `Image width changed from ${previousImageDisplayWidth ?? 'initial'} to ${clampedValue}`
+      );
 
-    // Schedule the update to run after user stops sliding (300ms delay)
-    imageWidthUpdateTimer = setTimeout(async () => {
-      // Apply width to all existing images (updates HTML)
-      applyImageWidthToAllImages();
-
-      // Re-render chat messages to apply width changes to images
-      if (typeof context.printMessages === 'function') {
-        context.printMessages();
+      // Debounce the expensive operations (HTML update + re-render)
+      // Clear any pending update
+      if (imageWidthUpdateTimer) {
+        clearTimeout(imageWidthUpdateTimer);
       }
 
-      // Save chat to persist the updated HTML
-      if (typeof context.saveChat === 'function') {
-        try {
-          await context.saveChat();
-          logger.debug('Chat saved after applying image width changes');
-        } catch (error) {
-          logger.error('Failed to save chat after image width update:', error);
+      // Schedule the update to run after user stops sliding (1s delay)
+      imageWidthUpdateTimer = setTimeout(async () => {
+        // Apply width to all existing images (updates HTML)
+        applyImageWidthToAllImages();
+
+        // Re-render chat messages to apply width changes to images
+        if (typeof context.printMessages === 'function') {
+          context.printMessages();
         }
-      }
 
-      imageWidthUpdateTimer = null;
-    }, 300);
+        // Save chat to persist the updated HTML
+        if (typeof context.saveChat === 'function') {
+          try {
+            await context.saveChat();
+            logger.debug('Chat saved after applying image width changes');
+          } catch (error) {
+            logger.error(
+              'Failed to save chat after image width update:',
+              error
+            );
+          }
+        }
+
+        // Update tracked value after successful application
+        previousImageDisplayWidth = settings.imageDisplayWidth;
+        imageWidthUpdateTimer = null;
+      }, 1000);
+    }
 
     // Show toast if value was clamped
     if (clampedValue !== originalValue) {
@@ -1362,6 +1381,9 @@ function initialize(): void {
   // Load settings
   settings = loadSettings(context);
   logger.info('Loaded settings:', settings);
+
+  // Initialize previous image display width to track changes
+  previousImageDisplayWidth = settings.imageDisplayWidth;
 
   // Apply log level from settings
   setLogLevel(settings.logLevel);
