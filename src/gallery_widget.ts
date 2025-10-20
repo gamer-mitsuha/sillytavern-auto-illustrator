@@ -40,7 +40,7 @@ export class GalleryWidgetView {
   private progressManager: ProgressManager;
   private messageGroups: Map<number, MessageGalleryGroup> = new Map();
   private isWidgetVisible = true; // Default visible for new chats
-  private isWidgetMinimized = false;
+  private isWidgetMinimized = true; // Start minimized by default
   private messageOrder: 'newest-first' | 'oldest-first' = 'newest-first';
   private refreshTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly REFRESH_DEBOUNCE_MS = 500; // Debounce gallery refreshes by 500ms
@@ -67,7 +67,7 @@ export class GalleryWidgetView {
         );
         metadata.galleryWidget = {
           visible: true, // Default visible for new chats
-          minimized: false,
+          minimized: true, // Start minimized for new chats
           expandedMessages: [],
           messageOrder: 'newest-first',
         };

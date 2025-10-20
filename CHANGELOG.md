@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Gallery Widget** - Gallery widget now starts minimized by default for new chats to reduce distraction
+  - Gallery will no longer auto-expand during image generation
+  - User must manually click the FAB (floating action button) to expand and view images
+  - Once expanded in a chat, the expanded state persists for that specific chat
+  - Switching to a new/different chat will show the gallery minimized again
+  - Gallery still auto-updates when expanded (new images appear automatically)
+
 ### Fixed
 - **Progress Widget** - Fixed bug where progress widget would appear prematurely for existing messages (issue #76)
   - Root cause: `progress:started` event was emitted immediately when `registerTask(messageId, 0)` was called during streaming initialization, even before any actual image prompts were detected
