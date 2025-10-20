@@ -32,6 +32,7 @@ import {
   MAX_PROMPTS_PER_MESSAGE,
   CONTEXT_MESSAGE_COUNT,
   META_PROMPT_DEPTH,
+  IMAGE_DISPLAY_WIDTH,
   DEFAULT_LLM_FREQUENCY_GUIDELINES,
   DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
   PROMPT_GENERATION_MODE,
@@ -66,6 +67,7 @@ let context: SillyTavernContext;
 let settings: AutoIllustratorSettings;
 let isEditingPreset = false; // Track if user is currently editing a preset
 let streamingPreviewWidget: StreamingPreviewWidget | null = null; // Streaming preview widget instance
+let imageWidthUpdateTimer: ReturnType<typeof setTimeout> | null = null; // Debounce timer for image width updates
 
 // Generation state
 export let currentGenerationType: string | null = null; // Track generation type for filtering
@@ -197,6 +199,20 @@ function updateUI(): void {
   if (showStreamingPreviewWidgetCheckbox)
     showStreamingPreviewWidgetCheckbox.checked =
       settings.showStreamingPreviewWidget;
+
+  // Update image display width
+  const imageDisplayWidthInput = document.getElementById(
+    UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH
+  ) as HTMLInputElement;
+  const imageDisplayWidthValue = document.getElementById(
+    UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH_VALUE
+  ) as HTMLSpanElement;
+  if (imageDisplayWidthInput) {
+    imageDisplayWidthInput.value = settings.imageDisplayWidth.toString();
+  }
+  if (imageDisplayWidthValue) {
+    imageDisplayWidthValue.textContent = `${settings.imageDisplayWidth}%`;
+  }
 
   // Update prompt generation mode radio buttons
   if (promptGenModeRegexRadio && promptGenModeLLMRadio) {
@@ -364,6 +380,61 @@ function clampValue(
 }
 
 /**
+ * Applies the current image display width setting to all AI-generated images in chat
+ * This allows retroactive width changes to already-generated images by updating the message HTML
+ */
+export function applyImageWidthToAllImages(): void {
+  let updatedCount = 0;
+
+  // Update the HTML in each message that contains auto-illustrator images
+  context.chat?.forEach(message => {
+    if (!message.mes || !message.mes.includes('auto-illustrator-img')) {
+      return;
+    }
+
+    // Update all img tags with auto-illustrator-img class in this message
+    const updatedMes = message.mes.replace(
+      /<img\s+([^>]*class="[^"]*auto-illustrator-img[^"]*"[^>]*)>/g,
+      (_match: string, attributes: string) => {
+        updatedCount++;
+        // Replace the width value in the style attribute
+        const updatedAttributes = attributes.replace(
+          /style="([^"]*)"/,
+          (_styleMatch: string, styleContent: string) => {
+            // Update or add width in the style
+            let newStyle = styleContent;
+            if (newStyle.includes('width:')) {
+              // Replace existing width
+              newStyle = newStyle.replace(
+                /width:\s*[^;]+;?/,
+                `width: ${settings.imageDisplayWidth}%;`
+              );
+            } else {
+              // Add width at the beginning
+              newStyle = `width: ${settings.imageDisplayWidth}%; ${newStyle}`;
+            }
+            return `style="${newStyle}"`;
+          }
+        );
+        return `<img ${updatedAttributes}>`;
+      }
+    );
+
+    if (updatedMes !== message.mes) {
+      message.mes = updatedMes;
+    }
+  });
+
+  logger.info(
+    `Applied width ${settings.imageDisplayWidth}% to ${updatedCount} images in message HTML`
+  );
+
+  if (updatedCount === 0) {
+    logger.warn('No images found to apply width to');
+  }
+}
+
+/**
  * Handles changes to settings from UI
  */
 function handleSettingsChange(): void {
@@ -427,6 +498,12 @@ function handleSettingsChange(): void {
   const llmPromptWritingGuidelinesTextarea = document.getElementById(
     UI_ELEMENT_IDS.LLM_PROMPT_WRITING_GUIDELINES
   ) as HTMLTextAreaElement;
+  const imageDisplayWidthInput = document.getElementById(
+    UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH
+  ) as HTMLInputElement;
+  const imageDisplayWidthValue = document.getElementById(
+    UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH_VALUE
+  ) as HTMLSpanElement;
 
   // Track if enabled state or widget visibility changed (requires page reload)
   const wasEnabled = settings.enabled;
@@ -640,6 +717,66 @@ function handleSettingsChange(): void {
   settings.showStreamingPreviewWidget =
     showStreamingPreviewWidgetCheckbox?.checked ??
     settings.showStreamingPreviewWidget;
+
+  // Image display width with validation
+  if (imageDisplayWidthInput) {
+    const originalValue = parseInt(imageDisplayWidthInput.value);
+    const clampedValue = clampValue(
+      originalValue,
+      IMAGE_DISPLAY_WIDTH.MIN,
+      IMAGE_DISPLAY_WIDTH.MAX,
+      IMAGE_DISPLAY_WIDTH.STEP
+    );
+    settings.imageDisplayWidth = clampedValue;
+    // Update UI to show validated value
+    imageDisplayWidthInput.value = clampedValue.toString();
+    if (imageDisplayWidthValue) {
+      imageDisplayWidthValue.textContent = `${clampedValue}%`;
+    }
+
+    // Debounce the expensive operations (HTML update + re-render)
+    // Clear any pending update
+    if (imageWidthUpdateTimer) {
+      clearTimeout(imageWidthUpdateTimer);
+    }
+
+    // Schedule the update to run after user stops sliding (300ms delay)
+    imageWidthUpdateTimer = setTimeout(async () => {
+      // Apply width to all existing images (updates HTML)
+      applyImageWidthToAllImages();
+
+      // Re-render chat messages to apply width changes to images
+      if (typeof context.printMessages === 'function') {
+        context.printMessages();
+      }
+
+      // Save chat to persist the updated HTML
+      if (typeof context.saveChat === 'function') {
+        try {
+          await context.saveChat();
+          logger.debug('Chat saved after applying image width changes');
+        } catch (error) {
+          logger.error('Failed to save chat after image width update:', error);
+        }
+      }
+
+      imageWidthUpdateTimer = null;
+    }, 300);
+
+    // Show toast if value was clamped
+    if (clampedValue !== originalValue) {
+      toastr.warning(
+        t('toast.valueAdjusted', {
+          original: originalValue,
+          clamped: clampedValue,
+          min: IMAGE_DISPLAY_WIDTH.MIN,
+          max: IMAGE_DISPLAY_WIDTH.MAX,
+          step: IMAGE_DISPLAY_WIDTH.STEP,
+        }),
+        t('extensionName')
+      );
+    }
+  }
 
   // Apply log level
   setLogLevel(settings.logLevel);
@@ -1457,6 +1594,15 @@ function initialize(): void {
       'change',
       handleSettingsChange
     );
+
+    // Image display width slider
+    const imageDisplayWidthInput = document.getElementById(
+      UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH
+    ) as HTMLInputElement;
+    // Use 'input' event for live updates while dragging slider
+    imageDisplayWidthInput?.addEventListener('input', handleSettingsChange);
+    // Also listen to 'change' for compatibility
+    imageDisplayWidthInput?.addEventListener('change', handleSettingsChange);
 
     resetButton?.addEventListener('click', handleResetSettings);
 

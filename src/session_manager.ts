@@ -122,6 +122,7 @@ export class SessionManager {
       monitor,
       abortController: new AbortController(),
       startedAt: Date.now(),
+      settings,
     };
 
     this.sessions.set(messageId, session);
@@ -348,7 +349,13 @@ export class SessionManager {
       const insertedCount = await scheduleDomOperation(
         messageId,
         async () => {
-          return insertDeferredImages(deferred, messageId, context, metadata);
+          return insertDeferredImages(
+            deferred,
+            messageId,
+            context,
+            metadata,
+            session.settings
+          );
         },
         'streaming-insertion'
       );
@@ -419,6 +426,7 @@ export class SessionManager {
         processor,
         abortController: new AbortController(),
         startedAt: Date.now(),
+        settings,
       };
 
       this.sessions.set(messageId, session);
@@ -564,7 +572,13 @@ export class SessionManager {
       const insertedCount = await scheduleDomOperation(
         messageId,
         async () => {
-          return insertDeferredImages(deferred, messageId, context, metadata);
+          return insertDeferredImages(
+            deferred,
+            messageId,
+            context,
+            metadata,
+            session.settings
+          );
         },
         'regeneration-insertion'
       );

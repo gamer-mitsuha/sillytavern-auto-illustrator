@@ -98,6 +98,7 @@ describe('Image Generator V2', () => {
   describe('insertDeferredImages', () => {
     let mockContext: any;
     let mockMetadata: AutoIllustratorChatMetadata;
+    let mockSettings: AutoIllustratorSettings;
 
     beforeEach(() => {
       mockContext = {
@@ -110,6 +111,7 @@ describe('Image Generator V2', () => {
         extensionSettings: {
           auto_illustrator: {
             promptDetectionPatterns: ['<!--img-prompt="([^"]+)"-->'],
+            imageDisplayWidth: 100,
           },
         },
         eventSource: {
@@ -129,6 +131,9 @@ describe('Image Generator V2', () => {
           imageToPromptId: new Map(),
         },
       };
+
+      mockSettings = mockContext.extensionSettings
+        .auto_illustrator as AutoIllustratorSettings;
     });
 
     it('should return 0 for empty deferred images array', async () => {
@@ -136,7 +141,8 @@ describe('Image Generator V2', () => {
         [],
         1,
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
       expect(count).toBe(0);
     });
@@ -165,7 +171,8 @@ describe('Image Generator V2', () => {
         deferred,
         999, // Non-existent message
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
       expect(count).toBe(0);
     });
@@ -197,7 +204,8 @@ describe('Image Generator V2', () => {
         deferred,
         1,
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
 
       expect(count).toBe(1);
@@ -341,7 +349,8 @@ describe('Image Generator V2', () => {
         deferred,
         1,
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
 
       expect(count).toBe(2);
@@ -370,7 +379,13 @@ describe('Image Generator V2', () => {
         },
       ];
 
-      await insertDeferredImages(deferred, 1, mockContext, mockMetadata);
+      await insertDeferredImages(
+        deferred,
+        1,
+        mockContext,
+        mockMetadata,
+        mockSettings
+      );
 
       // Should call renderMessageUpdate with the message ID
       expect(messageRenderer.renderMessageUpdate).toHaveBeenCalledWith(1);

@@ -305,7 +305,8 @@ export async function insertDeferredImages(
   deferredImages: DeferredImage[],
   messageId: number,
   context: SillyTavernContext,
-  metadata: import('./types').AutoIllustratorChatMetadata
+  metadata: import('./types').AutoIllustratorChatMetadata,
+  settings: AutoIllustratorSettings
 ): Promise<number> {
   if (deferredImages.length === 0) {
     logger.debug(`No deferred images to insert for message ${messageId}`);
@@ -337,9 +338,6 @@ export async function insertDeferredImages(
   // Read message text ONCE at start (after micro-delay)
   let updatedText = message.mes || '';
   const originalLength = updatedText.length;
-
-  // Get settings for click handler attachment
-  const settings = context.extensionSettings?.auto_illustrator;
 
   let successCount = 0;
 
@@ -481,7 +479,8 @@ export async function insertDeferredImages(
             queuedPrompt.prompt,
             deferred.promptId,
             reconciliationConfig.enableMarkers,
-            deferred.isFailed || false // Pass isFailed flag for placeholder styling
+            deferred.isFailed || false, // Pass isFailed flag for placeholder styling
+            settings.imageDisplayWidth // Pass display width from settings
           );
 
           // Insert after prompt tag

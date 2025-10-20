@@ -7,6 +7,11 @@
     box-shadow 0.2s;
 }
 
+/* Smooth width transition for AI-generated images */
+.auto-illustrator-img {
+  transition: width 0.2s ease-in-out;
+}
+
 .mes_text img[title^='AI generated image']:hover {
   opacity: 0.85;
   transform: scale(1.02);

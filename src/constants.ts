@@ -142,6 +142,17 @@ export const FINAL_RECONCILIATION_DELAY = {
 } as const;
 
 /**
+ * Image display width configuration (percentage)
+ * Controls the display width of generated images in chat messages
+ */
+export const IMAGE_DISPLAY_WIDTH = {
+  DEFAULT: 100,
+  MIN: 10,
+  MAX: 100,
+  STEP: 5,
+} as const;
+
+/**
  * Default frequency guidelines for LLM prompt generation
  * Tells the LLM when to generate image prompts
  */
@@ -196,6 +207,7 @@ export const DEFAULT_SETTINGS = {
   llmFrequencyGuidelines: DEFAULT_LLM_FREQUENCY_GUIDELINES,
   llmPromptWritingGuidelines: DEFAULT_LLM_PROMPT_WRITING_GUIDELINES,
   finalReconciliationDelayMs: FINAL_RECONCILIATION_DELAY.DEFAULT,
+  imageDisplayWidth: IMAGE_DISPLAY_WIDTH.DEFAULT,
 };
 
 /**
@@ -242,5 +254,7 @@ export const UI_ELEMENT_IDS = {
     'auto_illustrator_llm_prompt_writing_guidelines',
   LLM_PROMPT_WRITING_GUIDELINES_RESET:
     'auto_illustrator_llm_prompt_writing_guidelines_reset',
+  IMAGE_DISPLAY_WIDTH: 'auto_illustrator_image_display_width',
+  IMAGE_DISPLAY_WIDTH_VALUE: 'auto_illustrator_image_display_width_value',
   RESET_BUTTON: 'auto_illustrator_reset',
 } as const;

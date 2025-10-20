@@ -92,6 +92,7 @@ declare global {
       message: any,
       options?: {rerenderMessage?: boolean}
     ): void;
+    printMessages(): void;
     translate(text: string, key?: string | null): string;
     generateQuietPrompt(options: {
       quietPrompt: string;
@@ -146,6 +147,8 @@ declare global {
     llmPromptWritingGuidelines: string;
     /** Delay (ms) before running final reconciliation after GENERATION_ENDED (default: 5000, 0 to disable) */
     finalReconciliationDelayMs: number;
+    /** Display width of generated images in chat messages (percentage: 10-100) */
+    imageDisplayWidth: number;
   }
 
   interface ImagePromptMatch {

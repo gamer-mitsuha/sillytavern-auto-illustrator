@@ -436,6 +436,7 @@ function escapeHtmlAttribute(str: string): string {
  * @param promptId - ID of the prompt node
  * @param includeMarker - Whether to include the idempotency marker (default: true)
  * @param isFailed - Whether this is a failed placeholder image (default: false)
+ * @param displayWidth - Display width percentage (default: 100)
  * @returns HTML string with marker and img tag
  */
 export function createImageTag(
@@ -443,7 +444,8 @@ export function createImageTag(
   promptText: string,
   promptId: string,
   includeMarker = true,
-  isFailed = false
+  isFailed = false,
+  displayWidth = 100
 ): string {
   // Create prompt preview (max 50 chars)
   const promptPreview =
@@ -462,8 +464,8 @@ export function createImageTag(
   // Create marker if enabled
   const marker = includeMarker ? createMarker(promptId, imageUrl) : '';
 
-  // Build attributes
-  const baseAttrs = `src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"`;
+  // Build attributes with display width
+  const baseAttrs = `src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="width: ${displayWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"`;
 
   // Add data-failed-placeholder attribute for failed placeholders
   const failedAttr = isFailed ? ' data-failed-placeholder="true"' : '';

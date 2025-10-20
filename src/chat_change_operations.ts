@@ -8,7 +8,7 @@
 import {createLogger, setLogLevel} from './logger';
 import {loadSettings} from './settings';
 import {clearProgressWidgetState} from './progress_widget';
-import {getStreamingPreviewWidget} from './index';
+import {getStreamingPreviewWidget, applyImageWidthToAllImages} from './index';
 import {addImageClickHandlers} from './manual_generation';
 
 // Types are in globals.d.ts (no need to import)
@@ -107,7 +107,17 @@ export function executeChatChangeOperations(): void {
       updateUIFn();
     }
 
-    // Step 5: Re-add click handlers to all images when chat changes
+    // Step 5: Apply image width to all images in the newly loaded chat
+    logger.trace('Applying image display width to all images');
+    applyImageWidthToAllImages();
+
+    // Step 6: Re-render chat to apply width changes
+    if (currentContext && typeof currentContext.printMessages === 'function') {
+      logger.trace('Re-rendering chat messages');
+      currentContext.printMessages();
+    }
+
+    // Step 7: Re-add click handlers to all images when chat changes
     // Use setTimeout to ensure DOM is ready
     setTimeout(() => {
       logger.trace('Re-adding image click handlers');

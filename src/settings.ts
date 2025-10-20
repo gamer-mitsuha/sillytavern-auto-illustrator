@@ -13,6 +13,7 @@ import {
   MAX_PROMPTS_PER_MESSAGE,
   CONTEXT_MESSAGE_COUNT,
   META_PROMPT_DEPTH,
+  IMAGE_DISPLAY_WIDTH,
   UI_ELEMENT_IDS,
 } from './constants';
 import {t} from './i18n';
@@ -167,6 +168,19 @@ export function createSettingsUI(): string {
               <span>${t('settings.metaPromptDepth')}</span>
               <small>${t('settings.metaPromptDepthDesc')}</small>
               <input id="${UI_ELEMENT_IDS.META_PROMPT_DEPTH}" class="text_pole" type="number" min="${META_PROMPT_DEPTH.MIN}" max="${META_PROMPT_DEPTH.MAX}" step="${META_PROMPT_DEPTH.STEP}" />
+            </label>
+
+            <label for="${UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH}">
+              <span>${t('settings.imageDisplayWidth')}</span>
+              <small>${t('settings.imageDisplayWidthDesc')}</small>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input id="${UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH}" type="range"
+                       min="${IMAGE_DISPLAY_WIDTH.MIN}"
+                       max="${IMAGE_DISPLAY_WIDTH.MAX}"
+                       step="${IMAGE_DISPLAY_WIDTH.STEP}"
+                       style="flex: 1;" />
+                <span id="${UI_ELEMENT_IDS.IMAGE_DISPLAY_WIDTH_VALUE}" style="min-width: 50px; text-align: right;">100%</span>
+              </div>
             </label>
           </div>
 

@@ -48,6 +48,8 @@
   "settings.showGalleryWidgetDesc": "Display the gallery widget that shows all images in the current chat",
   "settings.showStreamingPreviewWidget": "Show Streaming Preview Widget",
   "settings.showStreamingPreviewWidgetDesc": "Display the streaming preview widget that shows real-time text and image placeholders during generation",
+  "settings.imageDisplayWidth": "Image Display Width (%)",
+  "settings.imageDisplayWidthDesc": "Control the display width of generated images in chat (10-100%). Changes apply to all images immediately.",
   "settings.validationSuccess": "✅ Detection patterns can find image generation prompts in meta prompt",
   "settings.validationWarning": "⚠️ Warning: Detection patterns cannot find any image generation prompts in the current meta prompt. This may indicate a mismatch.",
   "settings.validationHint": "The regex patterns should match the format used in your meta prompt template.",

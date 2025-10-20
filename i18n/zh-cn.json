@@ -48,6 +48,8 @@
   "settings.showGalleryWidgetDesc": "显示画廊组件以展示当前对话中的所有图像",
   "settings.showStreamingPreviewWidget": "显示流式预览组件",
   "settings.showStreamingPreviewWidgetDesc": "显示流式预览组件以展示生成过程中的实时文本和图像占位符",
+  "settings.imageDisplayWidth": "图片显示宽度 (%)",
+  "settings.imageDisplayWidthDesc": "控制聊天中生成图片的显示宽度（10-100%）。更改立即应用于所有图片。",
   "settings.validationSuccess": "✅ 检测正则可以在元提示词中找到图像生成提示词",
   "settings.validationWarning": "⚠️ 警告：检测正则无法在当前元提示词中找到任何图像生成提示词。这可能表示存在不匹配。",
   "settings.validationHint": "正则表达式模式应与元提示词模板中使用的格式匹配。",

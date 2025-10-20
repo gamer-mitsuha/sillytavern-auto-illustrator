@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Image Display Width Control** - Added global setting to control display width of generated images in chat (10-100%)
+  - Configurable via slider in extension settings (default: 100%)
+  - Changes apply retroactively to all existing images in chat
+  - Maintains responsive behavior with `max-width: 100%` to prevent overflow on small screens
+  - Smooth CSS transitions for width changes
+  - Only affects inline images in chat (modal viewer remains full-size)
+
 ### Fixed
 - **Placeholder Images** - Fixed bug where only one placeholder image would be inserted when multiple image generations failed
   - Root cause: Idempotency check was incorrectly deduplicating placeholders by shared URL

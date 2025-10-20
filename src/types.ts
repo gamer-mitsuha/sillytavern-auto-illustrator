@@ -170,6 +170,9 @@ export interface GenerationSession {
 
   /** Timestamp when session started */
   readonly startedAt: number;
+
+  /** Extension settings (needed for image display width) */
+  readonly settings: AutoIllustratorSettings;
 }
 
 // Old StreamingSession interface removed - use GenerationSession instead
