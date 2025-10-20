@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Placeholder Images** - Fixed bug where only one placeholder image would be inserted when multiple image generations failed
   - Root cause: Idempotency check was incorrectly deduplicating placeholders by shared URL
-  - Solution: Generate unique placeholder URLs by appending prompt ID as fragment identifier
-  - Each failed prompt now gets its own placeholder that users can click to retry
+  - Solution: Generate unique placeholder URLs by appending prompt ID and timestamp as fragment identifier
+  - Each failed generation now gets its own placeholder that users can click to retry
+  - Supports multiple regeneration attempts for same prompt (each failure gets separate placeholder)
   - Backward compatible: detection logic handles both old (shared URL) and new (unique URL) formats
 
 ### Changed

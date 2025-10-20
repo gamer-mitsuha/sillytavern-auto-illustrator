@@ -84,12 +84,60 @@ describe('Placeholder URL helpers', () => {
       }
     });
 
-    it('should generate same URL for same promptId', () => {
+    it('should generate different URLs for same promptId due to timestamp', async () => {
       const promptId = 'prompt_consistent';
       const url1 = createPlaceholderUrl(promptId);
+      // Small delay to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 2));
       const url2 = createPlaceholderUrl(promptId);
 
-      expect(url1).toBe(url2);
+      // Should be different due to timestamp
+      expect(url1).not.toBe(url2);
+      // Both should contain the same promptId
+      expect(url1).toContain(promptId);
+      expect(url2).toContain(promptId);
+      // Both should be recognized as placeholders
+      expect(isPlaceholderUrl(url1)).toBe(true);
+      expect(isPlaceholderUrl(url2)).toBe(true);
+    });
+
+    it('should include timestamp in URL fragment', () => {
+      const promptId = 'prompt_123';
+      const beforeTime = Date.now();
+      const url = createPlaceholderUrl(promptId);
+      const afterTime = Date.now();
+
+      expect(url).toContain('ts=');
+
+      // Extract timestamp from URL
+      const match = url.match(/ts=(\d+)/);
+      expect(match).not.toBeNull();
+      if (match) {
+        const timestamp = parseInt(match[1], 10);
+        expect(timestamp).toBeGreaterThanOrEqual(beforeTime);
+        expect(timestamp).toBeLessThanOrEqual(afterTime);
+      }
+    });
+
+    it('should generate unique URLs for multiple regenerations of same prompt', async () => {
+      const promptId = 'prompt_regenerate_test';
+      const urls = new Set<string>();
+
+      // Simulate multiple regeneration attempts
+      for (let i = 0; i < 5; i++) {
+        urls.add(createPlaceholderUrl(promptId));
+        // Small delay to ensure different timestamps
+        await new Promise(resolve => setTimeout(resolve, 2));
+      }
+
+      // All 5 attempts should have unique URLs
+      expect(urls.size).toBe(5);
+
+      // All should be recognized as placeholders
+      for (const url of urls) {
+        expect(isPlaceholderUrl(url)).toBe(true);
+        expect(url).toContain(promptId);
+      }
     });
   });
 });
