@@ -247,7 +247,8 @@ describe('Image Generator V2', () => {
         deferred,
         1,
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
 
       expect(count).toBe(1);
@@ -287,7 +288,8 @@ describe('Image Generator V2', () => {
         deferred,
         1,
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
 
       expect(count).toBe(1);
@@ -417,7 +419,8 @@ describe('Image Generator V2', () => {
         deferred,
         1,
         mockContext,
-        mockMetadata
+        mockMetadata,
+        mockSettings
       );
 
       expect(count).toBe(0);

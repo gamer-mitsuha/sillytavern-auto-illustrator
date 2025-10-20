@@ -353,13 +353,19 @@ export async function insertDeferredImages(
       if (queuedPrompt.targetImageUrl) {
         const mode = queuedPrompt.insertionMode || 'replace-image';
         const targetUrl = queuedPrompt.targetImageUrl;
-        const promptPreview = deferred.promptPreview || queuedPrompt.prompt;
 
-        // Create title with "AI generated image" prefix for CSS selector compatibility
-        const imageTitle = `AI generated image: ${promptPreview}`;
-
-        // Create new image tag with escaped attributes
-        const newImgTag = `<img src="${escapeHtmlAttribute(deferred.imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}">`;
+        // Create new image tag using shared function (no marker since we're replacing)
+        // Note: createImageTag returns with newlines, but we trim them for replacement
+        const newImgTagWithNewlines = createImageTag(
+          deferred.imageUrl,
+          queuedPrompt.prompt,
+          deferred.promptId,
+          false, // Don't include marker - it already exists from original insertion
+          deferred.isFailed || false,
+          settings.imageDisplayWidth // Use current width setting
+        );
+        // Extract just the img tag without surrounding newlines for clean replacement
+        const newImgTag = newImgTagWithNewlines.trim();
 
         logger.debug(
           `Regeneration mode: ${mode} for ${targetUrl.substring(0, 50)}...`
@@ -588,20 +594,6 @@ export async function insertDeferredImages(
   }
 
   return successCount;
-}
-
-/**
- * Escapes HTML attribute values to prevent injection
- * @param str - String to escape
- * @returns Escaped string safe for HTML attributes
- */
-function escapeHtmlAttribute(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 /**
