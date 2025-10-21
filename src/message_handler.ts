@@ -16,6 +16,7 @@ import {isIndependentApiMode} from './mode_utils';
 import {reconcileMessage} from './reconciliation';
 import {getMetadata, saveMetadata} from './metadata';
 import {renderMessageUpdate} from './utils/message_renderer';
+import {attachRegenerationHandlers} from './manual_generation';
 
 const logger = createLogger('MessageHandler');
 
@@ -362,6 +363,14 @@ async function reconcileMessageIfNeeded(
       );
 
       message.mes = updatedText;
+
+      // Set up one-time listener to attach handlers after DOM update
+      // This ensures click handlers work for reconciled images (including failed placeholders)
+      const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+      context.eventSource.once(MESSAGE_UPDATED, () => {
+        attachRegenerationHandlers(messageId, context, settings);
+        logger.debug(`[${source}] Attached handlers after reconciliation`);
+      });
 
       // Render message with proper event sequence and save
       await renderMessageUpdate(messageId);

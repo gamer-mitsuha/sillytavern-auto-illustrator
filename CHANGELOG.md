@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Image Click Handlers (Race Condition + Selector Bug + HTML Encoding)** - Fixed critical bug where click handlers failed to attach to images, especially failed generation placeholders
+  - Root cause #1: Race condition between `renderMessageUpdate()` and `attachRegenerationHandlers()` - handlers were attached before DOM was ready
+  - Root cause #2: CSS selector failure with data URIs containing `#` fragment identifiers - `querySelector('img[src="data:...#promptId=..."]')` fails due to invalid CSS syntax
+  - Root cause #3: HTML entity encoding mismatch - message text has `&amp;` but browser's `img.src` has decoded `&`, causing comparison to fail
+  - Symptom #1: `querySelector('.mes[mesid="..."]')` returned `null` because DOM update hadn't completed yet, causing all handler attachment to fail
+  - Symptom #2: Failed placeholder images (data URIs with fragments) could not be found in DOM even when present
+  - Symptom #3: Even after finding images, comparison failed due to `&amp;` vs `&` mismatch
+  - Affected scenarios: Direct image insertion, reconciled images, failed placeholders, image deletion, and prompt updates
+  - Solution #1: Use event-driven approach - listen for MESSAGE_UPDATED event before attaching handlers, guaranteeing DOM is ready
+  - Solution #2: Replace CSS selector with iteration - query all images and compare `src` attributes directly instead of using CSS selector
+  - Solution #3: HTML-decode src before comparison - decode `&amp;` → `&`, `&lt;` → `<`, etc. to match browser's decoded version
+  - Implementation #1: `context.eventSource.once(MESSAGE_UPDATED, () => attachRegenerationHandlers(...))` before calling `renderMessageUpdate()`
+  - Implementation #2: `messageEl.querySelectorAll('img')` → iterate → compare `candidate.src === imgSrc`
+  - Implementation #3: Centralized HTML encode/decode utilities in `src/utils/dom_utils.ts` - `htmlEncode()` and `htmlDecode()` functions
+  - Refactored: Replaced scattered inline HTML encoding/decoding with centralized utilities
+  - Fixed in: `image_generator.ts`, `message_handler.ts`, `session_manager.ts`, `manual_generation.ts`, `reconciliation.ts`, `utils/dom_utils.ts`
+  - Impact: ALL images now reliably receive click handlers, including reconciled and failed placeholder images
+  - Code quality: Eliminated code duplication, consistent HTML handling across codebase
+
 ### Changed
 - **Gallery Widget** - Gallery widget now starts minimized by default for new chats to reduce distraction
   - Gallery will no longer auto-expand during image generation

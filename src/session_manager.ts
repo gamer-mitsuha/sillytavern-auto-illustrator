@@ -24,6 +24,7 @@ import {getMetadata} from './metadata';
 import {getPromptNode, deleteMessagePrompts} from './prompt_manager';
 import {getStreamingPreviewWidget} from './index';
 import {renderMessageUpdate} from './utils/message_renderer';
+import {attachRegenerationHandlers} from './manual_generation';
 
 const logger = createLogger('SessionManager');
 
@@ -243,6 +244,15 @@ export class SessionManager {
         );
         message.mes = updatedText;
 
+        // Attach handlers after DOM update for reconciled images
+        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+        context.eventSource.once(MESSAGE_UPDATED, () => {
+          attachRegenerationHandlers(messageId, context, settings);
+          logger.debug(
+            'Attached handlers after reconciliation (non-streaming)'
+          );
+        });
+
         // Render message with proper event sequence and save
         await renderMessageUpdate(messageId);
       } else {
@@ -251,6 +261,15 @@ export class SessionManager {
         logger.debug(
           `No restoration needed for message ${messageId}, emitting final rendering events`
         );
+
+        // Attach handlers after DOM update (handles deferred images that were already inserted)
+        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+        context.eventSource.once(MESSAGE_UPDATED, () => {
+          attachRegenerationHandlers(messageId, context, settings);
+          logger.debug(
+            'Attached handlers after final rendering (non-streaming)'
+          );
+        });
 
         // Render message with proper event sequence (skip save since no changes)
         await renderMessageUpdate(messageId, {skipSave: true});

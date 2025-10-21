@@ -56,6 +56,10 @@ vi.mock('./utils/message_renderer', () => ({
   renderMessageUpdate: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('./manual_generation', () => ({
+  attachRegenerationHandlers: vi.fn(),
+}));
+
 describe('Image Generator V2', () => {
   describe('initializeConcurrencyLimiter', () => {
     it('should initialize limiter with correct settings', () => {
@@ -116,6 +120,7 @@ describe('Image Generator V2', () => {
         },
         eventSource: {
           emit: vi.fn().mockResolvedValue(undefined),
+          once: vi.fn(),
         },
         updateMessageBlock: vi.fn(),
         saveChat: vi.fn().mockResolvedValue(undefined),

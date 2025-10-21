@@ -543,14 +543,19 @@ export async function insertDeferredImages(
     `Batch insertion complete: ${successCount}/${deferredImages.length} images inserted (${originalLength} → ${updatedText.length} chars)`
   );
 
-  // Render message with proper event sequence and save
-  await renderMessageUpdate(messageId);
-
-  // Attach click handlers to newly inserted images
+  // Set up one-time listener BEFORE rendering to ensure DOM is ready
+  // This prevents race condition where querySelector returns null if DOM not updated yet
   if (settings) {
-    attachRegenerationHandlers(messageId, context, settings);
-    logger.debug('Attached click handlers to newly inserted images');
+    const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+    context.eventSource.once(MESSAGE_UPDATED, () => {
+      attachRegenerationHandlers(messageId, context, settings);
+      logger.debug('Attached click handlers after DOM update');
+    });
   }
+
+  // Render message with proper event sequence and save
+  // This will emit MESSAGE_UPDATED when DOM is updated, triggering handler attachment
+  await renderMessageUpdate(messageId);
 
   // Post-insertion verification: check that images survived
   if (reconciliationConfig.enableMarkers && successCount > 0) {

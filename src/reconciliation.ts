@@ -15,6 +15,7 @@ import type {AutoIllustratorChatMetadata} from './types';
 import type {PromptRegistry} from './prompt_manager';
 import {isPlaceholderUrl} from './placeholder';
 import {normalizeImageUrl} from './image_utils';
+import {htmlEncode, htmlDecode} from './utils/dom_utils';
 
 const logger = createLogger('reconciliation');
 
@@ -95,13 +96,8 @@ export function createMarker(promptId: string, imageUrl: string): string {
   // Normalize URL to ensure consistent format (preserves data URIs)
   const normalizedUrl = normalizeImageUrl(imageUrl);
 
-  // Escape special characters in URL
-  const escapedUrl = normalizedUrl
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  // Escape special characters in URL using centralized utility
+  const escapedUrl = htmlEncode(normalizedUrl);
 
   return `${MARKER_PREFIX}promptId=${promptId},imageUrl=${escapedUrl}${MARKER_SUFFIX}`;
 }
@@ -119,13 +115,8 @@ export function parseMarker(
     return null;
   }
 
-  // Unescape URL
-  const imageUrl = match[2]
-    .replace(/&gt;/g, '>')
-    .replace(/&lt;/g, '<')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&');
+  // Unescape URL using centralized utility
+  const imageUrl = htmlDecode(match[2]);
 
   return {
     promptId: match[1],
@@ -310,12 +301,7 @@ export function reconcileMessage(
         // Find the prompt tag in the message
         // Try to find by searching for the prompt text in a comment/tag
         const promptText = promptNode.text;
-        const escapedPrompt = promptText
-          .replace(/&/g, '&amp;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
+        const escapedPrompt = htmlEncode(promptText);
 
         // Try multiple pattern variants
         const patterns = [
@@ -416,18 +402,6 @@ export function removeAllMarkers(text: string): string {
 }
 
 /**
- * Escapes special characters in HTML attributes
- */
-function escapeHtmlAttribute(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-/**
  * Creates an image tag with consistent formatting
  * Used by both image insertion and reconciliation to ensure consistent format
  *
@@ -465,14 +439,14 @@ export function createImageTag(
   const marker = includeMarker ? createMarker(promptId, imageUrl) : '';
 
   // Build attributes with display width and centering
-  const baseAttrs = `src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="width: ${displayWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px auto; display: block;"`;
+  const baseAttrs = `src="${htmlEncode(imageUrl)}" alt="${htmlEncode(promptPreview)}" title="${htmlEncode(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${htmlEncode(promptId)}" style="width: ${displayWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px auto; display: block;"`;
 
   // Add data-failed-placeholder attribute for failed placeholders
   const failedAttr = isFailed ? ' data-failed-placeholder="true"' : '';
 
   // Add full prompt text for failed placeholders (needed for regeneration)
   const promptTextAttr = isFailed
-    ? ` data-prompt-text="${escapeHtmlAttribute(promptText)}"`
+    ? ` data-prompt-text="${htmlEncode(promptText)}"`
     : '';
 
   // Create image tag with all attributes

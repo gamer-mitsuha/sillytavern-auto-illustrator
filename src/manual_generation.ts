@@ -28,6 +28,7 @@ import {
   applyPromptUpdate,
   type PromptNode,
 } from './prompt_updater';
+import {findImageBySrc} from './utils/dom_utils';
 import {renderMessageUpdate} from './utils/message_renderer';
 import {openImageModal} from './modal_viewer';
 import {scheduleDomOperation} from './dom_queue';
@@ -511,14 +512,17 @@ async function deleteImage(imageUrl: string): Promise<void> {
       );
       message.mes = message.mes.replace(imgPattern, '');
 
+      // Set up one-time listener to attach handlers after DOM update
+      if (settings) {
+        const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+        context.eventSource.once(MESSAGE_UPDATED, () => {
+          attachRegenerationHandlers(i, context, settings);
+          logger.debug('Re-attached click handlers after image deletion');
+        });
+      }
+
       // Render message with proper event sequence and save
       await renderMessageUpdate(i);
-
-      // Re-attach click handlers after DOM update
-      if (settings) {
-        attachRegenerationHandlers(i, context, settings);
-        logger.debug('Re-attached click handlers after image deletion');
-      }
 
       toastr.success(t('toast.imageDeleted'), 'Auto Illustrator');
       logger.info(`Deleted image: ${normalizedUrl}`);
@@ -685,6 +689,13 @@ export async function handleImageRegenerationClick(
       logger.info(
         'User confirmed regeneration, applying prompt update to message'
       );
+      // Set up one-time listener to attach handlers after DOM update
+      const MESSAGE_UPDATED = context.eventTypes.MESSAGE_UPDATED;
+      context.eventSource.once(MESSAGE_UPDATED, () => {
+        attachRegenerationHandlers(messageId, context, settings);
+        logger.debug('Re-attached click handlers after prompt update');
+      });
+
       const updateSuccess = await scheduleDomOperation(
         messageId,
         async () => {
@@ -695,11 +706,6 @@ export async function handleImageRegenerationClick(
             context,
             settings
           );
-
-          if (success) {
-            // Re-attach click handlers after message update
-            attachRegenerationHandlers(messageId, context, settings);
-          }
 
           return success;
         },
@@ -895,10 +901,10 @@ export function attachRegenerationHandlers(
 
       if (srcMatch) {
         const imgSrc = srcMatch[1];
-        // Find the actual img element in DOM by src
-        const imgEl = messageEl.querySelector(
-          `img[src="${imgSrc}"]`
-        ) as HTMLImageElement | null;
+
+        // Find the actual img element in DOM by src using utility function
+        // This handles HTML entity decoding and CSS selector issues with data URIs
+        const imgEl = findImageBySrc(messageEl, imgSrc);
 
         if (imgEl && !regeneratableImages.includes(imgEl)) {
           regeneratableImages.push(imgEl);
