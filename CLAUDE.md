@@ -43,6 +43,17 @@ Before writing any code, you must follow this sequence:
 - **No Dead Code:** Do not leave commented-out blocks of old code in the codebase.
 - **Security First:** Do not include hardcoded secrets (API keys, passwords). Always validate and sanitize user input where appropriate.
 - **Consistent Style** Follow Google Coding Style Guide, e.g., Google TypeScript Style Guide.
+- **Avoid Code Duplication (CRITICAL):** Before implementing ANY new function or utility, you MUST search the codebase for existing similar functionality:
+  1. Use Grep/Glob tools to search for similar function names, patterns, or logic
+  2. Check utility files (e.g., `src/utils/`, `src/image_utils.ts`, `src/regex.ts`) for existing helpers
+  3. If similar logic exists in multiple places, refactor it into a shared utility function
+  4. **NEVER create duplicate functions** - this causes maintenance nightmares and inconsistencies
+  5. Examples of what to search for:
+     - HTML encoding/decoding → check `src/utils/dom_utils.ts`
+     - URL normalization → check `src/image_utils.ts`
+     - Regex helpers → check `src/regex.ts`
+     - Message rendering → check `src/utils/message_renderer.ts`
+  6. If you're unsure, ask the user before creating new utility functions
 - **Adding Settings:** When adding new settings, follow the comprehensive guide in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#adding-new-settings). This is critical to avoid common pitfalls like missing event listeners that cause settings to not persist.
 - **Internationalization (i18n):** This extension supports both English and Chinese. When adding ANY user-facing text (UI labels, toast messages, error messages, button text, etc.), you MUST:
   1. Add the English text to [`i18n/en-us.json`](i18n/en-us.json)
@@ -61,10 +72,13 @@ Before writing any code, you must follow this sequence:
 
 Before committing, you **must** perform the following checks and ensure they all pass without any errors:
 
-1. **Run Formatter:** Format the code according to the project's standards (e.g., prettier, black, gofmt).
-2. **Run Linter:** Check for and fix all linting errors.
-3. **Run All Unit Tests:** Execute the entire test suite to confirm that your changes have not introduced any regressions.
-4. **Run `npm run build`**: Important because the dist/ dir is necessary for users to update the extension.
+1. **Run Formatter:** Use `npm run fix` (which runs `gts fix`) to format code and fix linting issues
+   - **CRITICAL:** Use `npm run fix`, NOT `npx prettier --write .`
+   - `npx prettier --write .` will format ALL files including docs/config/etc and create massive unrelated changes
+   - `npm run fix` only formats the TypeScript source code according to project standards
+2. **Run Linter:** Use `npm run lint` to check for linting errors (should already be fixed by `npm run fix`)
+3. **Run All Unit Tests:** Use `npm run test` to execute the entire test suite and confirm no regressions
+4. **Run Build:** Use `npm run build` to ensure the project builds successfully (dist/ is needed for users)
 
 **Do not proceed to the next step if any of these checks fail.**
 
