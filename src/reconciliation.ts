@@ -464,8 +464,8 @@ export function createImageTag(
   // Create marker if enabled
   const marker = includeMarker ? createMarker(promptId, imageUrl) : '';
 
-  // Build attributes with display width
-  const baseAttrs = `src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="width: ${displayWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"`;
+  // Build attributes with display width and centering
+  const baseAttrs = `src="${escapeHtmlAttribute(imageUrl)}" alt="${escapeHtmlAttribute(promptPreview)}" title="${escapeHtmlAttribute(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${escapeHtmlAttribute(promptId)}" style="width: ${displayWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px auto; display: block;"`;
 
   // Add data-failed-placeholder attribute for failed placeholders
   const failedAttr = isFailed ? ' data-failed-placeholder="true"' : '';

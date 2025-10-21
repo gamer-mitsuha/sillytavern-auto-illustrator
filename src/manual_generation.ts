@@ -953,11 +953,6 @@ export function attachRegenerationHandlers(
  * @param settings - Extension settings
  */
 export function addImageClickHandlers(settings: AutoIllustratorSettings): void {
-  if (!settings.enableClickToRegenerate) {
-    logger.debug('Click-to-regenerate disabled in settings');
-    return;
-  }
-
   const context = SillyTavern.getContext();
   if (!context || !context.chat) {
     logger.warn('Cannot add image click handlers: no context or chat');

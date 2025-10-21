@@ -93,6 +93,7 @@ declare global {
       options?: {rerenderMessage?: boolean}
     ): void;
     printMessages(): void;
+    reloadCurrentChat(): void;
     translate(text: string, key?: string | null): string;
     generateQuietPrompt(options: {
       quietPrompt: string;

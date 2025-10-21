@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Gallery still auto-updates when expanded (new images appear automatically)
 
 ### Fixed
+- **Image Click Handlers** - Fixed bug where clicking images stopped working after adjusting image display width
+  - Root cause: Manual DOM manipulation with `printMessages()` doesn't trigger proper event flow for handler attachment
+  - Solution: Use `context.reloadCurrentChat()` to reload chat after saving width changes, which triggers the full MESSAGE_UPDATED event flow
+  - Implementation: `applyImageWidthToAllImages()` → `saveChat()` → `reloadCurrentChat()`
+  - Critical: Must save chat BEFORE reloading, otherwise reload loads old HTML without width changes
+  - Images are now clickable immediately after width changes (chat reloads automatically)
+  - Applies to both modal viewer and click-to-regenerate functionality
+- **Image Alignment** - Fixed visual alignment issue where smaller images appeared in bottom-left position
+  - Root cause: No centering styles applied to generated images
+  - Solution: Added inline centering styles (`margin: 8px auto; display: block;`) during image generation
+  - Styles applied in `reconciliation.ts` when generating image HTML
+  - Small images (e.g., 50% width) now centered in message container
+  - Large images (100% width) continue to take full width as before
 - **Progress Widget** - Fixed bug where progress widget would appear prematurely for existing messages (issue #76)
   - Root cause: `progress:started` event was emitted immediately when `registerTask(messageId, 0)` was called during streaming initialization, even before any actual image prompts were detected
   - Solution: Defer `progress:started` emission until first actual tasks are registered (when `total > 0`)

@@ -388,17 +388,21 @@ export function applyImageWidthToAllImages(): void {
   let updatedCount = 0;
 
   // Update the HTML in each message that contains auto-illustrator images
-  context.chat?.forEach(message => {
+  context.chat?.forEach((message, messageId) => {
     if (!message.mes || !message.mes.includes('auto-illustrator-img')) {
       return;
     }
+
+    const imagesInThisMessage = (
+      message.mes.match(/class="[^"]*auto-illustrator-img[^"]*"/g) || []
+    ).length;
 
     // Update all img tags with auto-illustrator-img class in this message
     const updatedMes = message.mes.replace(
       /<img\s+([^>]*class="[^"]*auto-illustrator-img[^"]*"[^>]*)>/g,
       (_match: string, attributes: string) => {
         updatedCount++;
-        // Replace the width value in the style attribute
+        // Replace only the width value, keeping everything else untouched
         const updatedAttributes = attributes.replace(
           /style="([^"]*)"/,
           (_styleMatch: string, styleContent: string) => {
@@ -423,15 +427,18 @@ export function applyImageWidthToAllImages(): void {
 
     if (updatedMes !== message.mes) {
       message.mes = updatedMes;
+      logger.debug(
+        `[DEBUG] Updated HTML for message ${messageId} with ${imagesInThisMessage} images`
+      );
     }
   });
 
   logger.info(
-    `Applied width ${settings.imageDisplayWidth}% to ${updatedCount} images in message HTML`
+    `[DEBUG] Applied width ${settings.imageDisplayWidth}% to ${updatedCount} images in message HTML`
   );
 
   if (updatedCount === 0) {
-    logger.warn('No images found to apply width to');
+    logger.warn('[DEBUG] No images found to apply width to');
   }
 }
 
@@ -756,25 +763,34 @@ function handleSettingsChange(): void {
       // Schedule the update to run after user stops sliding (1s delay)
       imageWidthUpdateTimer = setTimeout(async () => {
         // Apply width to all existing images (updates HTML)
+        logger.debug(
+          `[DEBUG] Applying width ${settings.imageDisplayWidth}% to all images`
+        );
         applyImageWidthToAllImages();
 
-        // Re-render chat messages to apply width changes to images
-        if (typeof context.printMessages === 'function') {
-          context.printMessages();
-        }
-
-        // Save chat to persist the updated HTML
+        // Save chat to persist the updated HTML BEFORE reloading
+        // This ensures the reload will load the updated HTML with new width
         if (typeof context.saveChat === 'function') {
           try {
+            logger.debug(
+              '[DEBUG] Saving chat with updated image width before reload'
+            );
             await context.saveChat();
-            logger.debug('Chat saved after applying image width changes');
+            logger.debug('[DEBUG] Chat saved successfully');
           } catch (error) {
             logger.error(
               'Failed to save chat after image width update:',
               error
             );
+            return; // Don't reload if save failed
           }
         }
+
+        // Reload the current chat to apply width changes
+        // This triggers the full chat reload flow including CHAT_CHANGED event
+        // which properly handles DOM rendering and event listener attachment
+        logger.debug('[DEBUG] Reloading current chat to apply width changes');
+        context.reloadCurrentChat();
 
         // Update tracked value after successful application
         previousImageDisplayWidth = settings.imageDisplayWidth;
