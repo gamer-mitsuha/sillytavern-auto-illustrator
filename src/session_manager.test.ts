@@ -108,6 +108,40 @@ describe('SessionManager', () => {
       expect(manager.getSession(0)).toBe(session2);
     });
 
+    it('should prevent race condition when multiple concurrent calls try to create session', async () => {
+      // Simulate rapid concurrent calls (e.g., duplicate event listeners or rapid event firing)
+      const promise1 = manager.startStreamingSession(
+        0,
+        mockContext,
+        mockSettings
+      );
+      const promise2 = manager.startStreamingSession(
+        0,
+        mockContext,
+        mockSettings
+      );
+      const promise3 = manager.startStreamingSession(
+        0,
+        mockContext,
+        mockSettings
+      );
+
+      const [session1, session2, session3] = await Promise.all([
+        promise1,
+        promise2,
+        promise3,
+      ]);
+
+      // All should return the same session (only one created)
+      expect(session1.sessionId).toBe(session2.sessionId);
+      expect(session2.sessionId).toBe(session3.sessionId);
+
+      // Verify only one session exists
+      const allSessions = manager.getAllSessions();
+      expect(allSessions).toHaveLength(1);
+      expect(allSessions[0].sessionId).toBe(session1.sessionId);
+    });
+
     it('should return null for non-existent session', () => {
       const session = manager.getSession(999);
       expect(session).toBeNull();

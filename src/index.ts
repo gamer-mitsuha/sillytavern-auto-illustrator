@@ -1220,10 +1220,24 @@ function cancelAllSessions(): void {
 }
 
 /**
+ * Track whether event handlers have been registered to prevent duplicates
+ */
+let eventHandlersRegistered = false;
+
+/**
  * Registers all event handlers for the extension
  * Only called when extension is enabled
+ * Uses flag to prevent duplicate registration
  */
 function registerEventHandlers(): void {
+  // Prevent duplicate registration
+  if (eventHandlersRegistered) {
+    logger.debug(
+      'Event handlers already registered, skipping duplicate registration'
+    );
+    return;
+  }
+
   logger.info('Registering event handlers...');
 
   // Register streaming handlers using v2 message handlers
@@ -1361,6 +1375,9 @@ function registerEventHandlers(): void {
   });
 
   // Note: CHAT_CHANGED is now handled by chat_changed_handler module
+
+  // Mark as registered to prevent duplicates
+  eventHandlersRegistered = true;
 
   logger.info('Event handlers registered:', {
     STREAM_TOKEN_RECEIVED,

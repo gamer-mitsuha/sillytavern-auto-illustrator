@@ -77,18 +77,7 @@ export class SessionManager {
       this.cancelSession(messageId);
     }
 
-    // Clean up stale prompts from previous generations of this message
-    // This prevents reconciliation warnings for prompts that no longer exist
-    // (e.g., when a message is regenerated multiple times)
-    const metadata = getMetadata();
-    const deletedCount = await deleteMessagePrompts(messageId, metadata);
-    if (deletedCount > 0) {
-      logger.debug(
-        `Cleaned up ${deletedCount} stale prompt(s) for message ${messageId}`
-      );
-    }
-
-    // Create shared queue and processor
+    // Create shared queue and processor BEFORE any async operations
     const queue = new ImageGenerationQueue();
     const processor = new QueueProcessor(queue, settings);
 
@@ -112,7 +101,7 @@ export class SessionManager {
       }
     );
 
-    // Create session
+    // Create session object
     const session: GenerationSession = {
       sessionId: generateSessionId(),
       messageId,
@@ -125,7 +114,21 @@ export class SessionManager {
       settings,
     };
 
+    // Add to map IMMEDIATELY (before any async operations) to prevent race condition
+    // This ensures that concurrent calls to startStreamingSession for the same message
+    // will detect the existing session and return early (line 68-73)
     this.sessions.set(messageId, session);
+
+    // Clean up stale prompts from previous generations of this message
+    // This prevents reconciliation warnings for prompts that no longer exist
+    // (e.g., when a message is regenerated multiple times)
+    const metadata = getMetadata();
+    const deletedCount = await deleteMessagePrompts(messageId, metadata);
+    if (deletedCount > 0) {
+      logger.debug(
+        `Cleaned up ${deletedCount} stale prompt(s) for message ${messageId}`
+      );
+    }
 
     // Start streaming preview widget
     if (previewWidget) {

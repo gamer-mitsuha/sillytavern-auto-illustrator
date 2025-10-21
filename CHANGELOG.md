@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Gallery still auto-updates when expanded (new images appear automatically)
 
 ### Fixed
+- **Duplicate Image Generation** - Fixed critical bug where 4 prompts generated 8 images (duplicate generation)
+  - Root cause #1: Race condition in session creation - multiple concurrent `startStreamingSession()` calls created separate sessions for the same message
+  - Root cause #2: Event handlers registered multiple times without cleanup - duplicate event listeners caused duplicate processing
+  - Solution #1: Add session to map IMMEDIATELY (before async operations) to prevent race condition
+  - Solution #2: Add registration flag to prevent duplicate event listener registration
+  - Added comprehensive test for concurrent session creation to prevent regression
+  - Each prompt now generates exactly one image as expected
 - **Image Click Handlers** - Fixed bug where clicking images stopped working after adjusting image display width
   - Root cause: Manual DOM manipulation with `printMessages()` doesn't trigger proper event flow for handler attachment
   - Solution: Use `context.reloadCurrentChat()` to reload chat after saving width changes, which triggers the full MESSAGE_UPDATED event flow
