@@ -401,6 +401,11 @@ export function applyImageWidthToAllImages(): void {
     const updatedMes = message.mes.replace(
       /<img\s+([^>]*class="[^"]*auto-illustrator-img[^"]*"[^>]*)>/g,
       (_match: string, attributes: string) => {
+        // Skip failed placeholders - they should stay at 10% width
+        if (attributes.includes('data-failed-placeholder="true"')) {
+          return `<img ${attributes}>`;
+        }
+
         updatedCount++;
         // Replace only the width value, keeping everything else untouched
         const updatedAttributes = attributes.replace(

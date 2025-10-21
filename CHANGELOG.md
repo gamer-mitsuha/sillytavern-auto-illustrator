@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+
 - **Image Click Handlers (Race Condition + Selector Bug + HTML Encoding)** - Fixed critical bug where click handlers failed to attach to images, especially failed generation placeholders
   - Root cause #1: Race condition between `renderMessageUpdate()` and `attachRegenerationHandlers()` - handlers were attached before DOM was ready
   - Root cause #2: CSS selector failure with data URIs containing `#` fragment identifiers - `querySelector('img[src="data:...#promptId=..."]')` fails due to invalid CSS syntax
@@ -40,8 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed in: `manual_generation.ts` `deleteImage()` function (lines 497-549)
   - Added debug logging for deletion failures
   - Impact: All images can now be successfully deleted, including failed placeholders with data URIs
+- **Failed Placeholder Size Too Large** - Fixed bug where failed generation placeholder images displayed at full width (100% or user's imageDisplayWidth setting) instead of remaining small error indicators
+  - Root cause: `createImageTag()` in reconciliation.ts applied `displayWidth` to ALL images including failed placeholders
+  - Secondary issue: `applyImageWidthToAllImages()` in index.ts updated ALL images when settings changed, overriding placeholder width
+  - Solution #1: Set `effectiveWidth = isFailed ? 10 : displayWidth` to use 10% width for failed placeholders
+  - Solution #2: Skip failed placeholders in `applyImageWidthToAllImages()` by checking for `data-failed-placeholder="true"` attribute
+  - Fixed in: `reconciliation.ts` createImageTag() (lines 441-442), `index.ts` applyImageWidthToAllImages() (lines 404-407)
+  - Impact: Failed placeholders now display as small (10% width) error indicators and maintain this size even when user changes imageDisplayWidth setting
 
 ### Changed
+
 - **Gallery Widget** - Gallery widget now starts minimized by default for new chats to reduce distraction
   - Gallery will no longer auto-expand during image generation
   - User must manually click the FAB (floating action button) to expand and view images
@@ -50,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Gallery still auto-updates when expanded (new images appear automatically)
 
 ### Fixed
+
 - **Duplicate Image Generation** - Fixed critical bug where 4 prompts generated 8 images (duplicate generation)
   - Root cause #1: Race condition in session creation - multiple concurrent `startStreamingSession()` calls created separate sessions for the same message
   - Root cause #2: Event handlers registered multiple times without cleanup - duplicate event listeners caused duplicate processing
@@ -78,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Progress widget now only appears when image generation actually begins, not on chat/character entry
 
 ### Added
+
 - **Image Display Width Control** - Added global setting to control display width of generated images in chat (10-100%)
   - Configurable via slider in extension settings (default: 100%)
   - Changes apply retroactively to all existing images in chat
@@ -86,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Only affects inline images in chat (modal viewer remains full-size)
 
 ### Fixed
+
 - **Placeholder Images** - Fixed bug where only one placeholder image would be inserted when multiple image generations failed
   - Root cause: Idempotency check was incorrectly deduplicating placeholders by shared URL
   - Solution: Generate unique placeholder URLs by appending prompt ID and timestamp as fragment identifier
@@ -94,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Backward compatible: detection logic handles both old (shared URL) and new (unique URL) formats
 
 ### Changed
+
 - **Architecture** - Centralized CHAT_CHANGED event handling to prevent race conditions and ensure proper execution order
   - Created dedicated `chat_changed_handler` module that owns single CHAT_CHANGED event listener
   - Extracted chat change operations into `chat_change_operations` module to avoid circular dependencies
@@ -107,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - See `docs/AUTO_SAVE_MIGRATION_GUIDE.md` for migration steps
 
 ### Added
+
 - **Module** - New `chat_changed_handler.ts` for centralized CHAT_CHANGED event orchestration
 - **Module** - New `chat_change_operations.ts` for UI/settings operations on chat change (decoupled from main module)
 - **Type** - Added `GalleryWidgetState` interface and `messageOrder` property for gallery widget metadata
@@ -114,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation** - Auto-save migration guide (`docs/AUTO_SAVE_MIGRATION_GUIDE.md`)
 
 ### Fixed
+
 - **Race Conditions** - Gallery widget no longer directly accesses `context.chatMetadata`, uses `getMetadata()` to avoid stale references
 - **Event Handler Order** - Chat change operations now execute in guaranteed sequential order, preventing inconsistent state
 - **Meta-prompt Injection Logic** - Reverted explicit generation type requirement, restoring default to 'normal' for better compatibility with various generation modes
@@ -121,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.0] - 2025-10-17
 
 ### Added
+
 - **Meta Prompt Depth Setting** - New setting to control where the meta prompt is inserted in chat history for shared API mode (depth=0: last position, depth=1: one before last, etc.)
 - **Separate LLM Call for Prompt Generation** (#32)
   - New opt-in "Independent API Call" prompt generation mode (default remains "Shared API Call")
@@ -141,6 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Image Rotation Feature**
+
   - Rotate button in modal viewer (90° clockwise increments)
   - Rotation persists across modal reopening within same session
   - Rotation-aware fullscreen and image fitting
@@ -148,12 +165,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Works seamlessly with zoom, pan, and fullscreen features
 
 - **Tap Navigation for Mobile**
+
   - Tap left/right side of image to navigate between images
   - Visual tap indicators with ripple animation
   - Automatically disabled when image is zoomed (panning takes priority)
   - Complements existing swipe navigation
 
 - **View All Images Button**
+
   - Added to regeneration dialog (alongside Generate/Update Prompt/Delete/Cancel)
   - Opens global image viewer starting from the clicked image
   - Collects all AI-generated images from all messages in chronological order
@@ -161,6 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Shared utility functions reduce code duplication across modules
 
 - **Fullscreen Enhancements**
+
   - Tap center of image to toggle fullscreen on mobile devices
   - Immersive fullscreen mode with screen rotation lock support
   - Icon-only action buttons on mobile for maximum screen space
@@ -175,6 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Modal Viewer Fixes**
+
   - Keyboard shortcuts no longer trigger unintended SillyTavern actions
   - Text input fields now properly accept keyboard input during modal viewer
   - Correct image fitting and positioning for rotated images in fullscreen
@@ -182,11 +203,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hidden "swipe to navigate" hint text (tap navigation is now primary on mobile)
 
 - **Metadata & Context Management**
+
   - PromptRegistry now persists correctly after inserting images
   - Image URL normalization ensures consistent prompt lookups
   - Always fetch fresh context from SillyTavern (eliminates stale data issues)
 
 - **Progress Widget Fixes**
+
   - Widget state properly cleared when switching between chats
   - No more DOM disruption during real-time updates
 
@@ -199,7 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Architecture Improvements** (Internal)
   - Unified streaming and regeneration into single generation pipeline
-  - Removed _v2 suffixes from all modules (migration complete)
+  - Removed \_v2 suffixes from all modules (migration complete)
   - Consolidated prompt tracking via prompt_manager.ts
   - Removed Barrier pattern in favor of explicit await conditions
   - Comprehensive test coverage for all core modules
@@ -210,6 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Permanent Gallery Widget** (#50)
+
   - Always-available widget for reviewing all generated images in current chat
   - Groups images by assistant message with collapsible headers and message previews
   - Minimizes to floating action button (FAB) with image count badge
@@ -218,11 +242,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatically updates when new images complete
 
 - **Widget Visibility Controls**
+
   - New settings to show/hide Progress Widget and Gallery Widget independently
   - Both widgets default to enabled for backward compatibility
   - Requires page reload to take effect when changed
 
 - **Progress Widget Enhancements**
+
   - **Close functionality**: Added close button (×) in widget header and for individual completed messages
   - **Two-level collapse**: Widget-level and message-level collapsing for better scalability
   - **Persistent after completion**: Widget remains visible after generation completes with manual close control
@@ -232,6 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Widget stays expanded after all images finish, showing completion indicator (checkmark) and "Images Generated" title
 
 - **Mobile Image Viewing Experience**
+
   - **Comprehensive zoom/pan system**: Pinch-to-zoom gesture, one-finger panning when zoomed, double-tap zoom toggle
   - **Zoom indicator**: Shows current zoom level (e.g., "150%") with auto-fade
   - **Touch-optimized controls**: Zoom centers on touch point, momentum scrolling with velocity tracking
@@ -239,6 +266,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Gesture coordination**: Swipe navigation only works at 1x zoom, panning takes over when zoomed
 
 - **Desktop Image Viewing Experience**
+
   - Mouse wheel zoom (progressive 1x-3x), click-and-drag panning, double-click zoom toggle
   - Keyboard shortcuts: `+`/`=` to zoom in, `-` to zoom out, `0` to reset
   - Reset button appears when zoomed >1x to quickly return to fit
@@ -255,18 +283,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Context Caching Issues** (#34)
+
   - Eliminated stale context/metadata access after chat switches
   - All code now calls `SillyTavern.getContext()` when accessing chat or chatMetadata
   - Ensures extension always operates on correct chat's data after switching chats
   - Fixed in QueueProcessor, StreamingMonitor, MessageHandler, and ManualGeneration modules
 
 - **Extension Enable/Disable**
+
   - Extension toggle now properly controls all functionality
   - When disabled: no event handlers registered, no widgets initialized, no automatic processing
   - User notified to reload page when toggling setting
   - Provides true on/off control
 
 - **Gallery Widget Improvements**
+
   - Now visible by default for new chats (previously hidden)
   - Only appears during active chat sessions (hidden on settings/character management pages)
   - Fixed image extraction by reusing existing `extractImagePrompts()` function
@@ -274,6 +305,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - State persists with chat backups/exports
 
 - **Progress Widget Improvements**
+
   - Smart DOM updates: uses differential updates instead of full rebuilds
   - Scroll position preservation: thumbnail gallery positions saved and restored
   - Image viewer state maintained: zoom and pan no longer reset during progress updates
@@ -282,12 +314,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Widget reappears when new streaming starts after being closed
 
 - **Modal Viewer Refactoring**
+
   - Progress and gallery widgets now share unified modal implementation
   - Eliminated 597 lines of duplicate code
   - Reduced bundle size by 8 KiB (from 255 KiB to 247 KiB)
   - Both widgets automatically benefit from all mobile UX improvements
 
 - **Desktop UI Fixes**
+
   - Progress widget no longer overlaps with chat input area
   - Image modal no longer overlaps with prompt area and action buttons
   - Proper flexbox layout replaces hardcoded height calculations
@@ -313,6 +347,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Multiple concurrent streaming sessions support (#43)
+
   - Each message now maintains its own independent streaming session
   - Sessions can run concurrently without interfering with each other
   - No more image loss when sending messages quickly
@@ -322,6 +357,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better UX: users see all active generations
 
 - Phase 3: Complete streaming coordination refactor with SessionManager (#41)
+
   - Replaced 6 scattered module-level state variables with single SessionManager
   - Replaced manual flag-based coordination with explicit Barrier pattern
   - Simplified streaming event handlers (handleFirstStreamToken, handleMessageReceivedForStreaming, handleGenerationEnded)
@@ -416,6 +452,7 @@ Initial release of SillyTavern Auto Illustrator extension.
 ### Added
 
 - **Core Features**
+
   - Common style tags: Add comma-separated tags to all image prompts with configurable prefix/suffix position and automatic deduplication
   - Automatic inline image generation based on LLM-generated prompts
   - Integration with Stable Diffusion slash command (`/sd`)
@@ -424,6 +461,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Configurable prompt detection patterns in settings UI (one regex pattern per line)
 
 - **Streaming Image Generation**
+
   - Progressive image generation as streaming text arrives
   - Queue-based architecture detects prompts during LLM streaming
   - Images appear as soon as generated (no waiting for full response)
@@ -435,6 +473,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Per-message operation queue to serialize manual generation and regeneration operations
 
 - **Manual Image Generation**
+
   - Manual generation button in message actions menu for messages with image prompts
   - Modal dialog with "Append" and "Replace" modes
   - Replace mode: Remove existing images and regenerate
@@ -444,6 +483,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Image regeneration feature for existing images
 
 - **Meta Prompt Management**
+
   - Preset management system for meta-prompt templates
   - Two predefined presets: Default and NAI 4.5 Full (optimized for NovelAI Diffusion 4.5)
   - Create, update, and delete custom presets
@@ -453,24 +493,28 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Generation type filtering (normal, quiet, impersonate)
 
 - **Chat History Pruning**
+
   - Removes generated `<img>` tags from chat history before sending to LLM
   - Preserves `<img_prompt>` tags so LLM recognizes format
   - Only removes images in assistant messages (preserves user-uploaded images)
   - Does not modify saved chat files, only in-memory chat
 
 - **Validation & Feedback**
+
   - Real-time validation indicator for prompt detection patterns vs meta prompt
   - Visual feedback with green checkmark for valid patterns
   - Warning indicator when patterns don't match meta prompt format
   - Toastr notifications for image generation feedback
 
 - **Internationalization**
+
   - Full i18n support with English (en-us) and Simplified Chinese (zh-cn)
   - 76 translation keys covering all UI text
   - Automatic language detection via SillyTavern i18n system
   - Simplified Chinese README translation (README_CN.md)
 
 - **Logging & Debugging**
+
   - Centralized logging system using loglevel library
   - Contextual loggers for each module (Monitor, Queue, Processor, Generator, etc.)
   - Configurable log level in UI (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
@@ -478,6 +522,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Comprehensive logging documentation (docs/LOGGING.md)
 
 - **Settings & Configuration**
+
   - Enable/disable toggle
   - Meta-prompt template customization via presets
   - Streaming enable/disable toggle
@@ -490,6 +535,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - Reset to defaults button
 
 - **Development & Testing**
+
   - Comprehensive unit test suite with Vitest (214 tests)
   - Tests for streaming queue, monitor, processor
   - Tests for image extraction, generation, settings
@@ -510,12 +556,14 @@ Initial release of SillyTavern Auto Illustrator extension.
 ### Technical Details
 
 - **Architecture**
+
   - Event-driven architecture using SillyTavern events (MESSAGE_RECEIVED, MESSAGE_UPDATED, MESSAGE_EDITED, CHAT_COMPLETION_PROMPT_READY, STREAM_TOKEN_RECEIVED, GENERATION_ENDED, CHAT_CHANGED)
   - Queue-based streaming architecture with state management
   - Modular design with single responsibility principle
   - Centralized configuration (constants.ts, types.ts, regex.ts)
 
 - **Code Quality**
+
   - Built with TypeScript and Webpack
   - Zero lint warnings (Google TypeScript Style Guide)
   - Minimal use of `any` types (full type safety in production code)
@@ -523,6 +571,7 @@ Initial release of SillyTavern Auto Illustrator extension.
   - `createMockContext()` helper for clean, type-safe test mocks
 
 - **Performance & Reliability**
+
   - Sequential image generation to prevent rate limiting (NovelAI 429 errors)
   - Smart deduplication prevents duplicate image generation
   - Polling-based prompt detection (300ms intervals during streaming)

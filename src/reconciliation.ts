@@ -438,8 +438,11 @@ export function createImageTag(
   // Create marker if enabled
   const marker = includeMarker ? createMarker(promptId, imageUrl) : '';
 
+  // Use smaller width for failed placeholders (they're just error indicators)
+  const effectiveWidth = isFailed ? 10 : displayWidth;
+
   // Build attributes with display width and centering
-  const baseAttrs = `src="${htmlEncode(imageUrl)}" alt="${htmlEncode(promptPreview)}" title="${htmlEncode(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${htmlEncode(promptId)}" style="width: ${displayWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px auto; display: block;"`;
+  const baseAttrs = `src="${htmlEncode(imageUrl)}" alt="${htmlEncode(promptPreview)}" title="${htmlEncode(imageTitle)}" class="auto-illustrator-img" data-prompt-id="${htmlEncode(promptId)}" style="width: ${effectiveWidth}%; max-width: 100%; height: auto; border-radius: 8px; margin: 8px auto; display: block;"`;
 
   // Add data-failed-placeholder attribute for failed placeholders
   const failedAttr = isFailed ? ' data-failed-placeholder="true"' : '';
