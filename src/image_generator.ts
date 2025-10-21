@@ -16,6 +16,7 @@ import {
   DEFAULT_RECONCILIATION_CONFIG,
   type ReconciliationConfig,
 } from './reconciliation';
+import {htmlEncode} from './utils/dom_utils';
 
 const logger = createLogger('Generator');
 
@@ -373,7 +374,9 @@ export async function insertDeferredImages(
 
         if (mode === 'replace-image') {
           // Replace existing <img> tag
-          const escapedTargetUrl = escapeRegexSpecialChars(targetUrl);
+          // IMPORTANT: Message text has HTML-encoded URLs (e.g., &amp;), so we need to encode targetUrl
+          const encodedTargetUrl = htmlEncode(targetUrl);
+          const escapedTargetUrl = escapeRegexSpecialChars(encodedTargetUrl);
           const imgPattern = new RegExp(
             `<img[^>]*src="${escapedTargetUrl}"[^>]*>`,
             'g'
@@ -382,20 +385,29 @@ export async function insertDeferredImages(
           const beforeReplace = updatedText.length;
           updatedText = updatedText.replace(imgPattern, newImgTag);
 
-          if (
-            updatedText.length !== beforeReplace ||
-            !imgPattern.test(message.mes)
-          ) {
+          if (updatedText.length !== beforeReplace) {
             logger.debug(`Replaced image: ${targetUrl.substring(0, 50)}...`);
             successCount++;
           } else {
             logger.warn(
               `Failed to find/replace image: ${targetUrl.substring(0, 50)}...`
             );
+            logger.debug(
+              `Looking for encoded URL: ${encodedTargetUrl.substring(0, 100)}...`
+            );
+            logger.debug(`Message text length: ${updatedText.length}`);
+            logger.debug(
+              `Message contains target URL (raw): ${updatedText.includes(targetUrl)}`
+            );
+            logger.debug(
+              `Message contains target URL (encoded): ${updatedText.includes(encodedTargetUrl)}`
+            );
           }
         } else if (mode === 'append-after-image') {
           // Insert after existing <img> tag
-          const escapedTargetUrl = escapeRegexSpecialChars(targetUrl);
+          // IMPORTANT: Message text has HTML-encoded URLs (e.g., &amp;), so we need to encode targetUrl
+          const encodedTargetUrl = htmlEncode(targetUrl);
+          const escapedTargetUrl = escapeRegexSpecialChars(encodedTargetUrl);
           const imgPattern = new RegExp(
             `(<img[^>]*src="${escapedTargetUrl}"[^>]*>)`,
             'g'
@@ -412,6 +424,16 @@ export async function insertDeferredImages(
           } else {
             logger.warn(
               `Failed to find image for append: ${targetUrl.substring(0, 50)}...`
+            );
+            logger.debug(
+              `Looking for encoded URL: ${encodedTargetUrl.substring(0, 100)}...`
+            );
+            logger.debug(`Message text length: ${updatedText.length}`);
+            logger.debug(
+              `Message contains target URL (raw): ${updatedText.includes(targetUrl)}`
+            );
+            logger.debug(
+              `Message contains target URL (encoded): ${updatedText.includes(encodedTargetUrl)}`
             );
           }
         }

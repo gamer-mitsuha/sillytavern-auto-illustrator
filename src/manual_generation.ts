@@ -28,7 +28,7 @@ import {
   applyPromptUpdate,
   type PromptNode,
 } from './prompt_updater';
-import {findImageBySrc} from './utils/dom_utils';
+import {findImageBySrc, htmlEncode} from './utils/dom_utils';
 import {renderMessageUpdate} from './utils/message_renderer';
 import {openImageModal} from './modal_viewer';
 import {scheduleDomOperation} from './dom_queue';
@@ -501,16 +501,29 @@ async function deleteImage(imageUrl: string): Promise<void> {
   // Normalize URL to relative path (message text contains relative paths)
   const normalizedUrl = normalizeImageUrl(imageUrl);
 
+  // HTML-encode the URL to match against message text (which has &amp; etc.)
+  const encodedUrl = htmlEncode(normalizedUrl);
+
   // Find which message contains this image
   for (let i = 0; i < context.chat.length; i++) {
     const message = context.chat[i];
-    if (message.mes && message.mes.includes(normalizedUrl)) {
-      const escapedUrl = normalizedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (message.mes && message.mes.includes(encodedUrl)) {
+      const escapedUrl = encodedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const imgPattern = new RegExp(
         `\\s*<img[^>]*src="${escapedUrl}"[^>]*>`,
         'g'
       );
+      const beforeLength = message.mes.length;
       message.mes = message.mes.replace(imgPattern, '');
+      const afterLength = message.mes.length;
+
+      if (beforeLength === afterLength) {
+        logger.warn(
+          `Failed to delete image - pattern didn't match: ${encodedUrl.substring(0, 100)}...`
+        );
+        toastr.error(t('toast.imageNotFound'), 'Auto Illustrator');
+        return;
+      }
 
       // Set up one-time listener to attach handlers after DOM update
       if (settings) {
@@ -530,6 +543,8 @@ async function deleteImage(imageUrl: string): Promise<void> {
     }
   }
 
+  logger.warn(`Image not found in any message: ${normalizedUrl}`);
+  logger.debug(`Looking for encoded URL: ${encodedUrl.substring(0, 100)}...`);
   toastr.error(t('toast.imageNotFound'), 'Auto Illustrator');
 }
 

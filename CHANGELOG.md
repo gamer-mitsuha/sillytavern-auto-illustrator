@@ -26,6 +26,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed in: `image_generator.ts`, `message_handler.ts`, `session_manager.ts`, `manual_generation.ts`, `reconciliation.ts`, `utils/dom_utils.ts`
   - Impact: ALL images now reliably receive click handlers, including reconciled and failed placeholder images
   - Code quality: Eliminated code duplication, consistent HTML handling across codebase
+- **Image Regeneration Failed to Insert** - Fixed bug where regenerated images couldn't be inserted/replaced in message text
+  - Root cause: Same HTML encoding mismatch - `targetUrl` (decoded `&`) didn't match message text (encoded `&amp;`)
+  - The regex pattern for finding/replacing images never matched because URLs weren't HTML-encoded before pattern creation
+  - Solution: HTML-encode `targetUrl` with `htmlEncode()` before creating regex pattern
+  - Fixed in: `image_generator.ts` lines 375-438 (both `replace-image` and `append-after-image` modes)
+  - Added enhanced debug logging to diagnose URL matching issues
+  - Impact: Regenerated images (including retry of failed placeholders) now successfully replace/append to messages
+- **Image Deletion Failed** - Fixed bug where images (especially failed placeholders) couldn't be deleted
+  - Root cause: Same HTML encoding mismatch - deletion logic used raw URL but message text has HTML-encoded version
+  - The `includes()` check and regex replacement both failed due to encoding mismatch
+  - Solution: HTML-encode normalized URL before searching message text
+  - Fixed in: `manual_generation.ts` `deleteImage()` function (lines 497-549)
+  - Added debug logging for deletion failures
+  - Impact: All images can now be successfully deleted, including failed placeholders with data URIs
 
 ### Changed
 - **Gallery Widget** - Gallery widget now starts minimized by default for new chats to reduce distraction
